@@ -1,10 +1,9 @@
 use crate::counter::{CodeStats, FileStats};
 use colored::*;
 use comfy_table::{Table, Row, Cell, presets::UTF8_FULL, ContentArrangement, Color};
-use console::{Term, style};
+use console::Term;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::collections::HashMap;
-use std::io::{self, Write};
+use std::io;
 use std::time::Duration;
 
 pub struct InteractiveDisplay {

@@ -7,7 +7,35 @@ use std::path::PathBuf;
 #[command(version = "0.1.0")]
 pub struct Config {
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
+    
+    /// Directory to analyze (defaults to current directory) - used when no subcommand is provided
+    #[arg(value_name = "PATH", global = true)]
+    pub path: Option<PathBuf>,
+    
+    /// Maximum directory depth to traverse
+    #[arg(short, long, global = true)]
+    pub max_depth: Option<usize>,
+    
+    /// Show individual file statistics
+    #[arg(short = 'f', long, global = true)]
+    pub files: bool,
+    
+    /// Include hidden files and directories
+    #[arg(long, global = true)]
+    pub include_hidden: bool,
+    
+    /// Ignore .gitignore files
+    #[arg(long, global = true)]
+    pub ignore_gitignore: bool,
+    
+    /// Additional patterns to ignore (can be used multiple times)
+    #[arg(long = "ignore", value_name = "PATTERN", global = true)]
+    pub custom_ignores: Vec<String>,
+    
+    /// Only count specific file extensions (can be used multiple times)
+    #[arg(long = "ext", value_name = "EXTENSION", global = true)]
+    pub extensions: Vec<String>,
 }
 
 #[derive(Subcommand)]

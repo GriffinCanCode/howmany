@@ -18,7 +18,15 @@ fn main() {
 }
 
 fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
-    match config.command {
+    match config.command.unwrap_or(Commands::Interactive {
+        path: config.path,
+        max_depth: config.max_depth,
+        files: config.files,
+        include_hidden: config.include_hidden,
+        ignore_gitignore: config.ignore_gitignore,
+        custom_ignores: config.custom_ignores,
+        extensions: config.extensions,
+    }) {
         Commands::Count {
             path,
             max_depth,
