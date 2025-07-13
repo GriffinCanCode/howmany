@@ -1,0 +1,192 @@
+{
+  "Gin": {
+    "name": "Gin",
+    "description": "Gin is a HTTP web framework written in Go",
+    "category": "web_framework",
+    "website": "https://gin-gonic.com",
+    "confidence": 95,
+    "patterns": {
+      "go_mod": ["github.com/gin-gonic/gin", "gin-gonic/gin"],
+      "imports": ["github.com/gin-gonic/gin", "\"gin\""],
+      "code": ["gin.Default()", "gin.New()", "gin.Engine", "c.JSON(", "c.String("],
+      "files": ["go.mod", "go.sum", "main.go"]
+    },
+    "versions": {
+      "patterns": ["github.com/gin-gonic/gin v([\\d\\.]+)", "gin v([\\d\\.]+)"],
+      "files": ["go.mod", "go.sum"]
+    },
+    "implies": ["Go"],
+    "oss": true
+  },
+  "Echo": {
+    "name": "Echo",
+    "description": "High performance, minimalist Go web framework",
+    "category": "web_framework",
+    "website": "https://echo.labstack.com",
+    "confidence": 95,
+    "patterns": {
+      "go_mod": ["github.com/labstack/echo", "labstack/echo"],
+      "imports": ["github.com/labstack/echo", "\"echo\""],
+      "code": ["echo.New()", "e.GET(", "e.POST(", "echo.Context", "c.JSON("],
+      "files": ["go.mod", "go.sum", "main.go"]
+    },
+    "versions": {
+      "patterns": ["github.com/labstack/echo v([\\d\\.]+)", "echo v([\\d\\.]+)"],
+      "files": ["go.mod", "go.sum"]
+    },
+    "implies": ["Go"],
+    "oss": true
+  },
+  "Fiber": {
+    "name": "Fiber",
+    "description": "Express inspired web framework written in Go",
+    "category": "web_framework",
+    "website": "https://gofiber.io",
+    "confidence": 95,
+    "patterns": {
+      "go_mod": ["github.com/gofiber/fiber", "gofiber/fiber"],
+      "imports": ["github.com/gofiber/fiber", "\"fiber\""],
+      "code": ["fiber.New()", "app.Get(", "app.Post(", "fiber.Ctx", "c.JSON("],
+      "files": ["go.mod", "go.sum", "main.go"]
+    },
+    "versions": {
+      "patterns": ["github.com/gofiber/fiber v([\\d\\.]+)", "fiber v([\\d\\.]+)"],
+      "files": ["go.mod", "go.sum"]
+    },
+    "implies": ["Go"],
+    "oss": true
+  },
+  "Gorilla Mux": {
+    "name": "Gorilla Mux",
+    "description": "A powerful HTTP router and URL matcher for building Go web servers",
+    "category": "web_framework",
+    "website": "https://github.com/gorilla/mux",
+    "confidence": 95,
+    "patterns": {
+      "go_mod": ["github.com/gorilla/mux", "gorilla/mux"],
+      "imports": ["github.com/gorilla/mux", "\"mux\""],
+      "code": ["mux.NewRouter()", "mux.Router", "r.HandleFunc(", "r.PathPrefix("],
+      "files": ["go.mod", "go.sum", "main.go"]
+    },
+    "versions": {
+      "patterns": ["github.com/gorilla/mux v([\\d\\.]+)", "mux v([\\d\\.]+)"],
+      "files": ["go.mod", "go.sum"]
+    },
+    "implies": ["Go"],
+    "oss": true
+  },
+  "GORM": {
+    "name": "GORM",
+    "description": "The fantastic ORM library for Golang",
+    "category": "orm",
+    "website": "https://gorm.io",
+    "confidence": 95,
+    "patterns": {
+      "go_mod": ["gorm.io/gorm", "gorm.io/driver"],
+      "imports": ["gorm.io/gorm", "gorm.io/driver"],
+      "code": ["gorm.Open(", "db.Create(", "db.Find(", "db.Where(", "gorm.Model"],
+      "files": ["go.mod", "go.sum", "main.go"]
+    },
+    "versions": {
+      "patterns": ["gorm.io/gorm v([\\d\\.]+)", "gorm v([\\d\\.]+)"],
+      "files": ["go.mod", "go.sum"]
+    },
+    "implies": ["Go"],
+    "oss": true
+  },
+  "Cobra": {
+    "name": "Cobra",
+    "description": "A Commander for modern Go CLI interactions",
+    "category": "cli",
+    "website": "https://cobra.dev",
+    "confidence": 95,
+    "patterns": {
+      "go_mod": ["github.com/spf13/cobra", "spf13/cobra"],
+      "imports": ["github.com/spf13/cobra", "\"cobra\""],
+      "code": ["cobra.Command", "cmd.Execute()", "cobra.OnInitialize", "cmd.AddCommand("],
+      "files": ["go.mod", "go.sum", "main.go", "cmd/"]
+    },
+    "versions": {
+      "patterns": ["github.com/spf13/cobra v([\\d\\.]+)", "cobra v([\\d\\.]+)"],
+      "files": ["go.mod", "go.sum"]
+    },
+    "implies": ["Go"],
+    "oss": true
+  },
+  "Viper": {
+    "name": "Viper",
+    "description": "Go configuration with fangs",
+    "category": "config",
+    "website": "https://github.com/spf13/viper",
+    "confidence": 95,
+    "patterns": {
+      "go_mod": ["github.com/spf13/viper", "spf13/viper"],
+      "imports": ["github.com/spf13/viper", "\"viper\""],
+      "code": ["viper.SetConfigName(", "viper.Get(", "viper.ReadInConfig(", "viper.SetDefault("],
+      "files": ["go.mod", "go.sum", "main.go"]
+    },
+    "versions": {
+      "patterns": ["github.com/spf13/viper v([\\d\\.]+)", "viper v([\\d\\.]+)"],
+      "files": ["go.mod", "go.sum"]
+    },
+    "implies": ["Go"],
+    "oss": true
+  },
+  "Testify": {
+    "name": "Testify",
+    "description": "A toolkit with common assertions and mocks that plays nicely with the standard library",
+    "category": "testing",
+    "website": "https://github.com/stretchr/testify",
+    "confidence": 95,
+    "patterns": {
+      "go_mod": ["github.com/stretchr/testify", "stretchr/testify"],
+      "imports": ["github.com/stretchr/testify", "testify/assert", "testify/mock"],
+      "code": ["assert.Equal(", "assert.NotNil(", "mock.Mock", "suite.Suite"],
+      "files": ["go.mod", "go.sum", "*_test.go"]
+    },
+    "versions": {
+      "patterns": ["github.com/stretchr/testify v([\\d\\.]+)", "testify v([\\d\\.]+)"],
+      "files": ["go.mod", "go.sum"]
+    },
+    "implies": ["Go"],
+    "oss": true
+  },
+  "Logrus": {
+    "name": "Logrus",
+    "description": "Structured, pluggable logging for Go",
+    "category": "logging",
+    "website": "https://github.com/sirupsen/logrus",
+    "confidence": 95,
+    "patterns": {
+      "go_mod": ["github.com/sirupsen/logrus", "sirupsen/logrus"],
+      "imports": ["github.com/sirupsen/logrus", "\"logrus\""],
+      "code": ["logrus.Info(", "logrus.Error(", "logrus.WithFields(", "logrus.New()"],
+      "files": ["go.mod", "go.sum", "main.go"]
+    },
+    "versions": {
+      "patterns": ["github.com/sirupsen/logrus v([\\d\\.]+)", "logrus v([\\d\\.]+)"],
+      "files": ["go.mod", "go.sum"]
+    },
+    "implies": ["Go"],
+    "oss": true
+  },
+  "Zap": {
+    "name": "Zap",
+    "description": "Blazing fast, structured, leveled logging in Go",
+    "category": "logging",
+    "website": "https://github.com/uber-go/zap",
+    "confidence": 95,
+    "patterns": {
+      "go_mod": ["go.uber.org/zap", "uber-go/zap"],
+      "imports": ["go.uber.org/zap", "\"zap\""],
+      "code": ["zap.NewProduction()", "zap.Logger", "logger.Info(", "logger.Error("],
+      "files": ["go.mod", "go.sum", "main.go"]
+    },
+    "versions": {
+      "patterns": ["go.uber.org/zap v([\\d\\.]+)", "zap v([\\d\\.]+)"],
+      "files": ["go.mod", "go.sum"]
+    },
+    "implies": ["Go"],
+    "oss": true
+  }
+} 

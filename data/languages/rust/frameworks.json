@@ -1,0 +1,192 @@
+{
+  "Actix Web": {
+    "name": "Actix Web",
+    "description": "A powerful, pragmatic, and extremely fast web framework for Rust",
+    "category": "web_framework",
+    "website": "https://actix.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["actix-web = ", "actix-web = {", "actix-web.workspace"],
+      "imports": ["use actix_web", "actix_web::", "from actix_web"],
+      "code": ["HttpServer::", "App::new()", "web::get", "web::post", "HttpResponse::"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["actix-web = \"([^\"]+)\"", "actix-web = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Rocket": {
+    "name": "Rocket",
+    "description": "A web framework for Rust that makes it simple to write fast, secure web applications",
+    "category": "web_framework",
+    "website": "https://rocket.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["rocket = ", "rocket = {", "rocket.workspace"],
+      "imports": ["use rocket", "rocket::", "#[macro_use] extern crate rocket"],
+      "code": ["#[get(", "#[post(", "#[put(", "#[delete(", "rocket::launch", "Rocket::build()"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["rocket = \"([^\"]+)\"", "rocket = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Axum": {
+    "name": "Axum",
+    "description": "Ergonomic and modular web framework built with Tokio, Tower, and Hyper",
+    "category": "web_framework",
+    "website": "https://github.com/tokio-rs/axum",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["axum = ", "axum = {", "axum.workspace"],
+      "imports": ["use axum", "axum::", "from axum"],
+      "code": ["Router::new()", "axum::extract", "axum::response", "axum::routing"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["axum = \"([^\"]+)\"", "axum = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust", "Tokio"],
+    "oss": true
+  },
+  "Warp": {
+    "name": "Warp",
+    "description": "A super-easy, composable, web server framework for warp speeds",
+    "category": "web_framework",
+    "website": "https://github.com/seanmonstar/warp",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["warp = ", "warp = {", "warp.workspace"],
+      "imports": ["use warp", "warp::", "from warp"],
+      "code": ["warp::Filter", "warp::serve", "warp::path", "warp::reply"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["warp = \"([^\"]+)\"", "warp = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Tokio": {
+    "name": "Tokio",
+    "description": "A runtime for writing reliable asynchronous applications with Rust",
+    "category": "async_runtime",
+    "website": "https://tokio.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["tokio = ", "tokio = {", "tokio.workspace"],
+      "imports": ["use tokio", "tokio::", "#[tokio::main]"],
+      "code": ["#[tokio::main]", "tokio::spawn", "tokio::time", "tokio::sync"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["tokio = \"([^\"]+)\"", "tokio = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Serde": {
+    "name": "Serde",
+    "description": "A generic serialization/deserialization framework",
+    "category": "serialization",
+    "website": "https://serde.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["serde = ", "serde = {", "serde.workspace"],
+      "imports": ["use serde", "serde::", "serde_json"],
+      "code": ["#[derive(Serialize", "#[derive(Deserialize", "serde_json::from_str", "serde_json::to_string"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["serde = \"([^\"]+)\"", "serde = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Diesel": {
+    "name": "Diesel",
+    "description": "A safe, extensible ORM and Query Builder for Rust",
+    "category": "orm",
+    "website": "https://diesel.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["diesel = ", "diesel = {", "diesel.workspace"],
+      "imports": ["use diesel", "diesel::", "#[macro_use] extern crate diesel"],
+      "code": ["diesel::prelude", "diesel::table", "diesel::insert_into", "diesel::update"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "diesel.toml", "migrations/"]
+    },
+    "versions": {
+      "patterns": ["diesel = \"([^\"]+)\"", "diesel = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Clap": {
+    "name": "Clap",
+    "description": "A full featured, fast Command Line Argument Parser for Rust",
+    "category": "cli",
+    "website": "https://clap.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["clap = ", "clap = {", "clap.workspace"],
+      "imports": ["use clap", "clap::", "clap::Parser"],
+      "code": ["#[derive(Parser", "clap::App", "clap::Arg", "clap::Command"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["clap = \"([^\"]+)\"", "clap = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Tauri": {
+    "name": "Tauri",
+    "description": "Build smaller, faster, and more secure desktop applications with a web frontend",
+    "category": "desktop_framework",
+    "website": "https://tauri.app",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["tauri = ", "tauri = {", "tauri.workspace"],
+      "imports": ["use tauri", "tauri::", "tauri::generate_handler"],
+      "code": ["tauri::Builder", "tauri::generate_handler", "tauri::command"],
+      "files": ["Cargo.toml", "src-tauri/", "tauri.conf.json"]
+    },
+    "versions": {
+      "patterns": ["tauri = \"([^\"]+)\"", "tauri = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Bevy": {
+    "name": "Bevy",
+    "description": "A refreshingly simple data-driven game engine built in Rust",
+    "category": "game_engine",
+    "website": "https://bevyengine.org",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["bevy = ", "bevy = {", "bevy.workspace"],
+      "imports": ["use bevy", "bevy::", "bevy::prelude"],
+      "code": ["bevy::prelude", "App::new()", "DefaultPlugins", "bevy::ecs"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["bevy = \"([^\"]+)\"", "bevy = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  }
+} 

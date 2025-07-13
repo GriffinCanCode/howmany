@@ -1,0 +1,819 @@
+{
+  "Bootstrap": {
+    "name": "Bootstrap",
+    "description": "Popular HTML, CSS, and JS framework for responsive web development",
+    "category": "ui_framework",
+    "website": "https://getbootstrap.com",
+    "confidence": 95,
+    "patterns": {
+      "files": ["*.html", "*.css", "*.js", "bootstrap.min.css", "bootstrap.min.js", "package.json"],
+      "code": ["class=\"container\"", "class=\"row\"", "class=\"col-", "class=\"btn", "class=\"navbar", "class=\"modal", "data-bs-toggle", "data-bs-target"],
+      "html": ["<link.*bootstrap", "<script.*bootstrap", "class=\".*bootstrap", "data-bs-", "class=\".*btn-", "class=\".*col-"],
+      "css": ["@import.*bootstrap", "\\.container", "\\.row", "\\.col-", "\\.btn", "\\.navbar"],
+      "json": ["\"bootstrap\"", "\"@popperjs/core\""],
+      "scripts": ["npm install bootstrap", "yarn add bootstrap"]
+    },
+    "versions": {
+      "patterns": ["bootstrap@(\\d+)\\.(\\d+)\\.(\\d+)", "bootstrap-(\\d+)\\.(\\d+)\\.(\\d+)", "\"bootstrap\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": ["Popper.js", "jQuery"],
+    "oss": true
+  },
+  "Tailwind CSS": {
+    "name": "Tailwind CSS",
+    "description": "Utility-first CSS framework for rapidly building custom designs",
+    "category": "ui_framework",
+    "website": "https://tailwindcss.com",
+    "confidence": 95,
+    "patterns": {
+      "files": ["*.html", "*.css", "tailwind.config.js", "postcss.config.js", "package.json"],
+      "code": ["class=\".*text-", "class=\".*bg-", "class=\".*p-", "class=\".*m-", "class=\".*flex", "class=\".*grid", "class=\".*w-", "class=\".*h-"],
+      "html": ["class=\".*text-", "class=\".*bg-", "class=\".*p-", "class=\".*m-", "class=\".*flex", "class=\".*grid"],
+      "css": ["@tailwind base", "@tailwind components", "@tailwind utilities", "@apply"],
+      "json": ["\"tailwindcss\"", "\"@tailwindcss/"],
+      "scripts": ["npx tailwindcss", "npm install tailwindcss"]
+    },
+    "versions": {
+      "patterns": ["tailwindcss@(\\d+)\\.(\\d+)\\.(\\d+)", "\"tailwindcss\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "tailwind.config.js"]
+    },
+    "implies": ["PostCSS", "Autoprefixer"],
+    "oss": true
+  },
+  "Bulma": {
+    "name": "Bulma",
+    "description": "Modern CSS framework based on Flexbox",
+    "category": "ui_framework",
+    "website": "https://bulma.io",
+    "confidence": 90,
+    "patterns": {
+      "files": ["*.html", "*.css", "*.scss", "package.json"],
+      "code": ["class=\"container\"", "class=\"columns\"", "class=\"column\"", "class=\"button\"", "class=\"navbar\"", "class=\"hero\"", "class=\"section\""],
+      "html": ["<link.*bulma", "class=\".*is-", "class=\".*has-", "class=\"columns\"", "class=\"column\""],
+      "css": ["@import.*bulma", "\\.container", "\\.columns", "\\.column", "\\.button", "\\.navbar"],
+      "json": ["\"bulma\""],
+      "scripts": ["npm install bulma", "yarn add bulma"]
+    },
+    "versions": {
+      "patterns": ["bulma@(\\d+)\\.(\\d+)\\.(\\d+)", "\"bulma\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": ["Sass"],
+    "oss": true
+  },
+  "Foundation": {
+    "name": "Foundation",
+    "description": "Responsive front-end framework with mobile-first approach",
+    "category": "ui_framework",
+    "website": "https://get.foundation",
+    "confidence": 85,
+    "patterns": {
+      "files": ["*.html", "*.css", "*.scss", "package.json"],
+      "code": ["class=\"grid-container\"", "class=\"grid-x\"", "class=\"cell\"", "class=\"button\"", "class=\"top-bar\"", "class=\"off-canvas\""],
+      "html": ["<link.*foundation", "class=\".*grid-", "class=\".*cell", "class=\".*button", "class=\".*top-bar"],
+      "css": ["@import.*foundation", "\\.grid-container", "\\.grid-x", "\\.cell", "\\.button"],
+      "json": ["\"foundation-sites\""],
+      "scripts": ["npm install foundation-sites"]
+    },
+    "versions": {
+      "patterns": ["foundation-sites@(\\d+)\\.(\\d+)\\.(\\d+)", "\"foundation-sites\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": ["Sass", "jQuery"],
+    "oss": true
+  },
+  "Materialize": {
+    "name": "Materialize",
+    "description": "Modern responsive CSS framework based on Material Design",
+    "category": "ui_framework",
+    "website": "https://materializecss.com",
+    "confidence": 85,
+    "patterns": {
+      "files": ["*.html", "*.css", "*.js", "package.json"],
+      "code": ["class=\"container\"", "class=\"row\"", "class=\"col s", "class=\"btn\"", "class=\"card\"", "class=\"nav-wrapper\"", "class=\"material-icons\""],
+      "html": ["<link.*materialize", "class=\".*col s", "class=\".*btn", "class=\".*card", "class=\".*material-icons"],
+      "css": ["@import.*materialize", "\\.container", "\\.row", "\\.col", "\\.btn", "\\.card"],
+      "json": ["\"materialize-css\""],
+      "scripts": ["npm install materialize-css"]
+    },
+    "versions": {
+      "patterns": ["materialize-css@(\\d+)\\.(\\d+)\\.(\\d+)", "\"materialize-css\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": ["jQuery"],
+    "oss": true
+  },
+  "Semantic UI": {
+    "name": "Semantic UI",
+    "description": "Development framework with natural language naming",
+    "category": "ui_framework",
+    "website": "https://semantic-ui.com",
+    "confidence": 80,
+    "patterns": {
+      "files": ["*.html", "*.css", "*.js", "package.json"],
+      "code": ["class=\"ui container\"", "class=\"ui grid\"", "class=\"ui button\"", "class=\"ui menu\"", "class=\"ui card\"", "class=\"ui modal\""],
+      "html": ["<link.*semantic", "class=\"ui ", "class=\".*ui ", "class=\".*primary", "class=\".*secondary"],
+      "css": ["@import.*semantic", "\\.ui\\.container", "\\.ui\\.grid", "\\.ui\\.button", "\\.ui\\.menu"],
+      "json": ["\"semantic-ui\"", "\"semantic-ui-css\""],
+      "scripts": ["npm install semantic-ui-css"]
+    },
+    "versions": {
+      "patterns": ["semantic-ui@(\\d+)\\.(\\d+)\\.(\\d+)", "\"semantic-ui\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": ["jQuery"],
+    "oss": true
+  },
+  "UIkit": {
+    "name": "UIkit",
+    "description": "Lightweight and modular front-end framework",
+    "category": "ui_framework",
+    "website": "https://getuikit.com",
+    "confidence": 80,
+    "patterns": {
+      "files": ["*.html", "*.css", "*.js", "package.json"],
+      "code": ["class=\"uk-container\"", "class=\"uk-grid\"", "class=\"uk-button\"", "class=\"uk-navbar\"", "class=\"uk-card\"", "uk-", "data-uk-"],
+      "html": ["<link.*uikit", "class=\"uk-", "data-uk-", "class=\".*uk-container", "class=\".*uk-grid"],
+      "css": ["@import.*uikit", "\\.uk-container", "\\.uk-grid", "\\.uk-button", "\\.uk-navbar"],
+      "json": ["\"uikit\""],
+      "scripts": ["npm install uikit"]
+    },
+    "versions": {
+      "patterns": ["uikit@(\\d+)\\.(\\d+)\\.(\\d+)", "\"uikit\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Pure.css": {
+    "name": "Pure.css",
+    "description": "Set of small, responsive CSS modules",
+    "category": "ui_framework",
+    "website": "https://purecss.io",
+    "confidence": 80,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["class=\"pure-g\"", "class=\"pure-u-", "class=\"pure-button\"", "class=\"pure-form\"", "class=\"pure-menu\"", "class=\"pure-table\""],
+      "html": ["<link.*pure", "class=\"pure-", "class=\".*pure-g", "class=\".*pure-u-", "class=\".*pure-button"],
+      "css": ["@import.*pure", "\\.pure-g", "\\.pure-u-", "\\.pure-button", "\\.pure-form"],
+      "json": ["\"purecss\""],
+      "scripts": ["npm install purecss"]
+    },
+    "versions": {
+      "patterns": ["purecss@(\\d+)\\.(\\d+)\\.(\\d+)", "\"purecss\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Tachyons": {
+    "name": "Tachyons",
+    "description": "Functional CSS for humans",
+    "category": "ui_framework",
+    "website": "https://tachyons.io",
+    "confidence": 75,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["class=\".*f1", "class=\".*f2", "class=\".*pa", "class=\".*ma", "class=\".*db", "class=\".*flex", "class=\".*bg-", "class=\".*white"],
+      "html": ["<link.*tachyons", "class=\".*f[1-7]", "class=\".*pa[0-7]", "class=\".*ma[0-7]", "class=\".*bg-"],
+      "css": ["@import.*tachyons", "\\.f1", "\\.f2", "\\.pa1", "\\.ma1", "\\.db"],
+      "json": ["\"tachyons\""],
+      "scripts": ["npm install tachyons"]
+    },
+    "versions": {
+      "patterns": ["tachyons@(\\d+)\\.(\\d+)\\.(\\d+)", "\"tachyons\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Skeleton": {
+    "name": "Skeleton",
+    "description": "Dead simple, responsive boilerplate",
+    "category": "ui_framework",
+    "website": "http://getskeleton.com",
+    "confidence": 70,
+    "patterns": {
+      "files": ["*.html", "*.css", "skeleton.css", "normalize.css"],
+      "code": ["class=\"container\"", "class=\"row\"", "class=\".*columns\"", "class=\".*column\"", "class=\"button\"", "class=\"u-full-width\""],
+      "html": ["<link.*skeleton", "class=\".*columns", "class=\".*column", "class=\".*button", "class=\".*u-full-width"],
+      "css": ["@import.*skeleton", "\\.container", "\\.row", "\\.columns", "\\.column", "\\.button"],
+      "json": ["\"skeleton-css\""],
+      "scripts": ["npm install skeleton-css"]
+    },
+    "versions": {
+      "patterns": ["skeleton@(\\d+)\\.(\\d+)\\.(\\d+)", "\"skeleton-css\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": ["Normalize.css"],
+    "oss": true
+  },
+  "Pico.css": {
+    "name": "Pico.css",
+    "description": "Minimal CSS Framework for semantic HTML",
+    "category": "ui_framework",
+    "website": "https://picocss.com",
+    "confidence": 75,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["<link.*pico", "data-theme=\"", "class=\"container\"", "class=\"grid\"", "role=\"button\""],
+      "html": ["<link.*pico", "data-theme=\"", "class=\".*container", "class=\".*grid", "role=\"button\""],
+      "css": ["@import.*pico", ":root", "\\[data-theme=", "\\.container", "\\.grid"],
+      "json": ["\"@picocss/pico\""],
+      "scripts": ["npm install @picocss/pico"]
+    },
+    "versions": {
+      "patterns": ["@picocss/pico@(\\d+)\\.(\\d+)\\.(\\d+)", "\"@picocss/pico\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Missing.css": {
+    "name": "Missing.css",
+    "description": "The missing CSS stylesheet",
+    "category": "ui_framework",
+    "website": "https://missing.style",
+    "confidence": 70,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["<link.*missing.css", "class=\"missing\"", "data-missing", "class=\".*missing"],
+      "html": ["<link.*missing", "class=\".*missing", "data-missing"],
+      "css": ["@import.*missing", "\\.missing"],
+      "json": ["\"missing.css\""],
+      "scripts": ["npm install missing.css"]
+    },
+    "versions": {
+      "patterns": ["missing.css@(\\d+)\\.(\\d+)\\.(\\d+)", "\"missing.css\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Toucaan": {
+    "name": "Toucaan",
+    "description": "Intrinsic design CSS framework",
+    "category": "ui_framework",
+    "website": "https://www.toucaan.com",
+    "confidence": 65,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["<link.*toucaan", "class=\"toucaan\"", "data-toucaan", "class=\".*toucaan"],
+      "html": ["<link.*toucaan", "class=\".*toucaan", "data-toucaan"],
+      "css": ["@import.*toucaan", "\\.toucaan"],
+      "json": ["\"toucaan\""],
+      "scripts": ["npm install toucaan"]
+    },
+    "versions": {
+      "patterns": ["toucaan@(\\d+)\\.(\\d+)\\.(\\d+)", "\"toucaan\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "W3.CSS": {
+    "name": "W3.CSS",
+    "description": "Modern, responsive, mobile first CSS framework",
+    "category": "ui_framework",
+    "website": "https://www.w3schools.com/w3css/",
+    "confidence": 80,
+    "patterns": {
+      "files": ["*.html", "*.css"],
+      "code": ["<link.*w3.css", "class=\"w3-", "class=\".*w3-container", "class=\".*w3-row", "class=\".*w3-col", "class=\".*w3-button"],
+      "html": ["<link.*w3.css", "class=\"w3-", "class=\".*w3-container", "class=\".*w3-row", "class=\".*w3-col"],
+      "css": ["@import.*w3.css", "\\.w3-container", "\\.w3-row", "\\.w3-col", "\\.w3-button"]
+    },
+    "versions": {
+      "patterns": ["w3.css\\s+v(\\d+)\\.(\\d+)"],
+      "files": ["*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Automatic.css": {
+    "name": "Automatic.css",
+    "description": "CSS framework for WordPress page builders",
+    "category": "ui_framework",
+    "website": "https://automaticcss.com",
+    "confidence": 70,
+    "patterns": {
+      "files": ["*.html", "*.css", "*.php"],
+      "code": ["class=\"acss-", "var(--", "class=\".*acss-", "data-acss", "automatic-css"],
+      "html": ["class=\"acss-", "class=\".*acss-", "data-acss"],
+      "css": ["@import.*automatic", "\\.acss-", "var\\(--", "--space-", "--color-"],
+      "php": ["automatic-css", "acss_"]
+    },
+    "versions": {
+      "patterns": ["automatic-css\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["*.php", "*.css"]
+    },
+    "implies": ["WordPress"],
+    "oss": false
+  },
+  "Core Framework": {
+    "name": "Core Framework",
+    "description": "Visual CSS framework with GUI",
+    "category": "ui_framework",
+    "website": "https://coreframework.com",
+    "confidence": 65,
+    "patterns": {
+      "files": ["*.html", "*.css"],
+      "code": ["class=\"core-", "data-core", "class=\".*core-", "core-framework"],
+      "html": ["class=\"core-", "class=\".*core-", "data-core"],
+      "css": ["@import.*core", "\\.core-", "core-framework"]
+    },
+    "versions": {
+      "patterns": ["core-framework\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["*.css", "*.html"]
+    },
+    "implies": [],
+    "oss": false
+  },
+  "Animate.css": {
+    "name": "Animate.css",
+    "description": "Cross-browser library of CSS animations",
+    "category": "animation",
+    "website": "https://animate.style",
+    "confidence": 85,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["class=\"animate__animated\"", "class=\"animate__", "class=\".*animate__bounce", "class=\".*animate__fadeIn"],
+      "html": ["<link.*animate.css", "class=\"animate__", "class=\".*animate__animated", "class=\".*animate__bounce"],
+      "css": ["@import.*animate", "\\.animate__animated", "\\.animate__bounce", "\\.animate__fadeIn"],
+      "json": ["\"animate.css\""],
+      "scripts": ["npm install animate.css"]
+    },
+    "versions": {
+      "patterns": ["animate.css@(\\d+)\\.(\\d+)\\.(\\d+)", "\"animate.css\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Hover.css": {
+    "name": "Hover.css",
+    "description": "Collection of CSS3 powered hover effects",
+    "category": "animation",
+    "website": "https://ianlunn.github.io/Hover/",
+    "confidence": 75,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["class=\"hvr-", "class=\".*hvr-bounce", "class=\".*hvr-grow", "class=\".*hvr-pulse"],
+      "html": ["<link.*hover.css", "class=\"hvr-", "class=\".*hvr-bounce", "class=\".*hvr-grow"],
+      "css": ["@import.*hover", "\\.hvr-", "\\.hvr-bounce", "\\.hvr-grow"],
+      "json": ["\"hover.css\""],
+      "scripts": ["npm install hover.css"]
+    },
+    "versions": {
+      "patterns": ["hover.css@(\\d+)\\.(\\d+)\\.(\\d+)", "\"hover.css\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "AOS": {
+    "name": "AOS",
+    "description": "Animate On Scroll library",
+    "category": "animation",
+    "website": "https://michalsnik.github.io/aos/",
+    "confidence": 80,
+    "patterns": {
+      "files": ["*.html", "*.css", "*.js", "package.json"],
+      "code": ["data-aos=\"", "data-aos-duration", "data-aos-delay", "AOS.init()", "import AOS"],
+      "html": ["<link.*aos.css", "data-aos=\"", "data-aos-duration", "data-aos-delay"],
+      "css": ["@import.*aos", "\\[data-aos\\]"],
+      "json": ["\"aos\""],
+      "scripts": ["npm install aos"]
+    },
+    "versions": {
+      "patterns": ["aos@(\\d+)\\.(\\d+)\\.(\\d+)", "\"aos\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.js"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Normalize.css": {
+    "name": "Normalize.css",
+    "description": "Modern, HTML5-ready alternative to CSS resets",
+    "category": "reset",
+    "website": "https://necolas.github.io/normalize.css/",
+    "confidence": 85,
+    "patterns": {
+      "files": ["*.html", "*.css", "normalize.css", "package.json"],
+      "code": ["<link.*normalize", "normalize.css", "@import.*normalize"],
+      "html": ["<link.*normalize", "normalize.css"],
+      "css": ["@import.*normalize", "normalize.css", "/*! normalize.css"],
+      "json": ["\"normalize.css\""],
+      "scripts": ["npm install normalize.css"]
+    },
+    "versions": {
+      "patterns": ["normalize.css@(\\d+)\\.(\\d+)\\.(\\d+)", "\"normalize.css\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Reset CSS": {
+    "name": "Reset CSS",
+    "description": "CSS reset stylesheet",
+    "category": "reset",
+    "website": "https://meyerweb.com/eric/tools/css/reset/",
+    "confidence": 75,
+    "patterns": {
+      "files": ["*.html", "*.css", "reset.css"],
+      "code": ["<link.*reset", "reset.css", "@import.*reset", "/* CSS Reset */"],
+      "html": ["<link.*reset", "reset.css"],
+      "css": ["@import.*reset", "reset.css", "/\\* CSS Reset \\*/", "html, body, div, span"]
+    },
+    "versions": {
+      "patterns": ["reset.css\\s+v(\\d+)\\.(\\d+)"],
+      "files": ["*.css", "*.html"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Milligram": {
+    "name": "Milligram",
+    "description": "Minimalist CSS framework",
+    "category": "ui_framework",
+    "website": "https://milligram.io",
+    "confidence": 70,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["<link.*milligram", "class=\"container\"", "class=\"row\"", "class=\"column\"", "class=\"button\""],
+      "html": ["<link.*milligram", "class=\".*container", "class=\".*row", "class=\".*column", "class=\".*button"],
+      "css": ["@import.*milligram", "\\.container", "\\.row", "\\.column", "\\.button"],
+      "json": ["\"milligram\""],
+      "scripts": ["npm install milligram"]
+    },
+    "versions": {
+      "patterns": ["milligram@(\\d+)\\.(\\d+)\\.(\\d+)", "\"milligram\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": ["Normalize.css"],
+    "oss": true
+  },
+  "Spectre.css": {
+    "name": "Spectre.css",
+    "description": "Lightweight, responsive and modern CSS framework",
+    "category": "ui_framework",
+    "website": "https://picturepan2.github.io/spectre/",
+    "confidence": 70,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["<link.*spectre", "class=\"container\"", "class=\"columns\"", "class=\"column\"", "class=\"btn\"", "class=\"navbar\""],
+      "html": ["<link.*spectre", "class=\".*container", "class=\".*columns", "class=\".*column", "class=\".*btn"],
+      "css": ["@import.*spectre", "\\.container", "\\.columns", "\\.column", "\\.btn"],
+      "json": ["\"spectre.css\""],
+      "scripts": ["npm install spectre.css"]
+    },
+    "versions": {
+      "patterns": ["spectre.css@(\\d+)\\.(\\d+)\\.(\\d+)", "\"spectre.css\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Metro UI": {
+    "name": "Metro UI",
+    "description": "CSS framework inspired by Windows Metro design",
+    "category": "ui_framework",
+    "website": "https://metroui.org.ua",
+    "confidence": 65,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["<link.*metro", "class=\"container\"", "class=\"row\"", "class=\"cell\"", "class=\"button\"", "class=\"app-bar\""],
+      "html": ["<link.*metro", "class=\".*container", "class=\".*row", "class=\".*cell", "class=\".*button"],
+      "css": ["@import.*metro", "\\.container", "\\.row", "\\.cell", "\\.button"],
+      "json": ["\"metro4\""],
+      "scripts": ["npm install metro4"]
+    },
+    "versions": {
+      "patterns": ["metro4@(\\d+)\\.(\\d+)\\.(\\d+)", "\"metro4\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": ["jQuery"],
+    "oss": true
+  },
+  "Picnic CSS": {
+    "name": "Picnic CSS",
+    "description": "Lightweight and beautiful CSS library",
+    "category": "ui_framework",
+    "website": "https://picnicss.com",
+    "confidence": 65,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["<link.*picnic", "class=\"flex\"", "class=\"button\"", "class=\"card\"", "class=\"modal\""],
+      "html": ["<link.*picnic", "class=\".*flex", "class=\".*button", "class=\".*card"],
+      "css": ["@import.*picnic", "\\.flex", "\\.button", "\\.card"],
+      "json": ["\"picnic\""],
+      "scripts": ["npm install picnic"]
+    },
+    "versions": {
+      "patterns": ["picnic@(\\d+)\\.(\\d+)\\.(\\d+)", "\"picnic\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Basscss": {
+    "name": "Basscss",
+    "description": "Low-level CSS toolkit",
+    "category": "ui_framework",
+    "website": "https://basscss.com",
+    "confidence": 65,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["<link.*basscss", "class=\".*p1", "class=\".*p2", "class=\".*m1", "class=\".*m2", "class=\".*h1", "class=\".*h2"],
+      "html": ["<link.*basscss", "class=\".*p[1-4]", "class=\".*m[1-4]", "class=\".*h[1-6]"],
+      "css": ["@import.*basscss", "\\.p1", "\\.p2", "\\.m1", "\\.m2"],
+      "json": ["\"basscss\""],
+      "scripts": ["npm install basscss"]
+    },
+    "versions": {
+      "patterns": ["basscss@(\\d+)\\.(\\d+)\\.(\\d+)", "\"basscss\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Wing": {
+    "name": "Wing",
+    "description": "Minimal CSS framework",
+    "category": "ui_framework",
+    "website": "https://kbrsh.github.io/wing/",
+    "confidence": 60,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["<link.*wing", "class=\"row\"", "class=\"col\"", "class=\"button\"", "class=\"card\""],
+      "html": ["<link.*wing", "class=\".*row", "class=\".*col", "class=\".*button"],
+      "css": ["@import.*wing", "\\.row", "\\.col", "\\.button"],
+      "json": ["\"wing-css\""],
+      "scripts": ["npm install wing-css"]
+    },
+    "versions": {
+      "patterns": ["wing-css@(\\d+)\\.(\\d+)\\.(\\d+)", "\"wing-css\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Fomantic UI": {
+    "name": "Fomantic UI",
+    "description": "Community fork of Semantic UI",
+    "category": "ui_framework",
+    "website": "https://fomantic-ui.com",
+    "confidence": 75,
+    "patterns": {
+      "files": ["*.html", "*.css", "*.js", "package.json"],
+      "code": ["class=\"ui container\"", "class=\"ui grid\"", "class=\"ui button\"", "class=\"ui menu\"", "class=\"ui card\""],
+      "html": ["<link.*fomantic", "class=\"ui ", "class=\".*ui ", "class=\".*primary", "class=\".*secondary"],
+      "css": ["@import.*fomantic", "\\.ui\\.container", "\\.ui\\.grid", "\\.ui\\.button"],
+      "json": ["\"fomantic-ui\""],
+      "scripts": ["npm install fomantic-ui"]
+    },
+    "versions": {
+      "patterns": ["fomantic-ui@(\\d+)\\.(\\d+)\\.(\\d+)", "\"fomantic-ui\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": ["jQuery"],
+    "oss": true
+  },
+  "Primer CSS": {
+    "name": "Primer CSS",
+    "description": "GitHub's design system",
+    "category": "ui_framework",
+    "website": "https://primer.style",
+    "confidence": 70,
+    "patterns": {
+      "files": ["*.html", "*.css", "package.json"],
+      "code": ["class=\".*Box\"", "class=\".*btn\"", "class=\".*d-flex\"", "class=\".*p-", "class=\".*m-", "class=\".*text-"],
+      "html": ["<link.*primer", "class=\".*Box", "class=\".*btn", "class=\".*d-flex"],
+      "css": ["@import.*primer", "\\.Box", "\\.btn", "\\.d-flex"],
+      "json": ["\"@primer/css\""],
+      "scripts": ["npm install @primer/css"]
+    },
+    "versions": {
+      "patterns": ["@primer/css@(\\d+)\\.(\\d+)\\.(\\d+)", "\"@primer/css\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Tailwind UI": {
+    "name": "Tailwind UI",
+    "description": "Component library for Tailwind CSS",
+    "category": "ui_library",
+    "website": "https://tailwindui.com",
+    "confidence": 80,
+    "patterns": {
+      "files": ["*.html", "*.css", "*.js", "package.json"],
+      "code": ["@tailwindcss/forms", "@tailwindcss/typography", "@tailwindcss/aspect-ratio", "@headlessui"],
+      "html": ["class=\".*text-", "class=\".*bg-", "class=\".*p-", "class=\".*m-"],
+      "css": ["@tailwind base", "@tailwind components", "@tailwind utilities"],
+      "json": ["\"@tailwindcss/forms\"", "\"@tailwindcss/typography\"", "\"@headlessui"],
+      "scripts": ["npm install @tailwindcss/forms"]
+    },
+    "versions": {
+      "patterns": ["@tailwindcss/forms@(\\d+)\\.(\\d+)\\.(\\d+)", "\"@tailwindcss/forms\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.html", "*.css"]
+    },
+    "implies": ["Tailwind CSS", "Headless UI"],
+    "oss": false
+  },
+  "Headless UI": {
+    "name": "Headless UI",
+    "description": "Unstyled, accessible UI components",
+    "category": "ui_library",
+    "website": "https://headlessui.com",
+    "confidence": 75,
+    "patterns": {
+      "files": ["*.html", "*.js", "*.jsx", "*.ts", "*.tsx", "package.json"],
+      "code": ["import.*@headlessui", "from '@headlessui", "Disclosure", "Dialog", "Listbox", "Menu", "Popover", "RadioGroup", "Switch", "Tab"],
+      "json": ["\"@headlessui/react\"", "\"@headlessui/vue\""],
+      "scripts": ["npm install @headlessui/react", "npm install @headlessui/vue"]
+    },
+    "versions": {
+      "patterns": ["@headlessui/react@(\\d+)\\.(\\d+)\\.(\\d+)", "\"@headlessui/react\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.js", "*.jsx", "*.ts", "*.tsx"]
+    },
+    "implies": ["React", "Vue"],
+    "oss": true
+  },
+  "Styled Components": {
+    "name": "Styled Components",
+    "description": "CSS-in-JS library for styling React components",
+    "category": "css_in_js",
+    "website": "https://styled-components.com",
+    "confidence": 85,
+    "patterns": {
+      "files": ["*.js", "*.jsx", "*.ts", "*.tsx", "package.json"],
+      "code": ["import styled", "from 'styled-components'", "styled.", "css`", "ThemeProvider", "createGlobalStyle"],
+      "json": ["\"styled-components\""],
+      "scripts": ["npm install styled-components"]
+    },
+    "versions": {
+      "patterns": ["styled-components@(\\d+)\\.(\\d+)\\.(\\d+)", "\"styled-components\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.js", "*.jsx", "*.ts", "*.tsx"]
+    },
+    "implies": ["React"],
+    "oss": true
+  },
+  "Emotion": {
+    "name": "Emotion",
+    "description": "CSS-in-JS library designed for high performance style composition",
+    "category": "css_in_js",
+    "website": "https://emotion.sh",
+    "confidence": 80,
+    "patterns": {
+      "files": ["*.js", "*.jsx", "*.ts", "*.tsx", "package.json"],
+      "code": ["import.*@emotion", "from '@emotion", "css`", "jsx`", "Global", "ThemeProvider"],
+      "json": ["\"@emotion/react\"", "\"@emotion/styled\"", "\"@emotion/css\""],
+      "scripts": ["npm install @emotion/react", "npm install @emotion/styled"]
+    },
+    "versions": {
+      "patterns": ["@emotion/react@(\\d+)\\.(\\d+)\\.(\\d+)", "\"@emotion/react\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.js", "*.jsx", "*.ts", "*.tsx"]
+    },
+    "implies": ["React"],
+    "oss": true
+  },
+  "Stitches": {
+    "name": "Stitches",
+    "description": "CSS-in-JS with near-zero runtime",
+    "category": "css_in_js",
+    "website": "https://stitches.dev",
+    "confidence": 75,
+    "patterns": {
+      "files": ["*.js", "*.jsx", "*.ts", "*.tsx", "package.json"],
+      "code": ["import.*@stitches", "from '@stitches", "styled", "css", "createStitches", "globalCss"],
+      "json": ["\"@stitches/react\"", "\"@stitches/core\""],
+      "scripts": ["npm install @stitches/react"]
+    },
+    "versions": {
+      "patterns": ["@stitches/react@(\\d+)\\.(\\d+)\\.(\\d+)", "\"@stitches/react\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.js", "*.jsx", "*.ts", "*.tsx"]
+    },
+    "implies": ["React"],
+    "oss": true
+  },
+  "Vanilla Extract": {
+    "name": "Vanilla Extract",
+    "description": "Zero-runtime CSS-in-JS library",
+    "category": "css_in_js",
+    "website": "https://vanilla-extract.style",
+    "confidence": 70,
+    "patterns": {
+      "files": ["*.css.ts", "*.css.js", "*.js", "*.ts", "package.json"],
+      "code": ["import.*@vanilla-extract", "from '@vanilla-extract", "style", "styleVariants", "globalStyle"],
+      "extensions": ["css.ts", "css.js"],
+      "json": ["\"@vanilla-extract/css\"", "\"@vanilla-extract/webpack-plugin\""],
+      "scripts": ["npm install @vanilla-extract/css"]
+    },
+    "versions": {
+      "patterns": ["@vanilla-extract/css@(\\d+)\\.(\\d+)\\.(\\d+)", "\"@vanilla-extract/css\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.css.ts", "*.css.js"]
+    },
+    "implies": ["TypeScript"],
+    "oss": true
+  },
+  "Linaria": {
+    "name": "Linaria",
+    "description": "Zero-runtime CSS-in-JS library",
+    "category": "css_in_js",
+    "website": "https://linaria.dev",
+    "confidence": 70,
+    "patterns": {
+      "files": ["*.js", "*.jsx", "*.ts", "*.tsx", "package.json"],
+      "code": ["import.*linaria", "from 'linaria", "css`", "styled", "cx"],
+      "json": ["\"linaria\"", "\"@linaria/core\""],
+      "scripts": ["npm install linaria"]
+    },
+    "versions": {
+      "patterns": ["linaria@(\\d+)\\.(\\d+)\\.(\\d+)", "\"linaria\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.js", "*.jsx", "*.ts", "*.tsx"]
+    },
+    "implies": ["React"],
+    "oss": true
+  },
+  "PostCSS": {
+    "name": "PostCSS",
+    "description": "Tool for transforming CSS with JavaScript",
+    "category": "build_tool",
+    "website": "https://postcss.org",
+    "confidence": 90,
+    "patterns": {
+      "files": ["postcss.config.js", "*.js", "*.ts", "package.json"],
+      "code": ["import postcss", "require('postcss')", "postcss(", "postcss.config.js"],
+      "json": ["\"postcss\"", "\"postcss-cli\""],
+      "scripts": ["npm install postcss", "postcss"]
+    },
+    "versions": {
+      "patterns": ["postcss@(\\d+)\\.(\\d+)\\.(\\d+)", "\"postcss\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "postcss.config.js"]
+    },
+    "implies": ["Autoprefixer"],
+    "oss": true
+  },
+  "Sass": {
+    "name": "Sass",
+    "description": "CSS extension language",
+    "category": "preprocessor",
+    "website": "https://sass-lang.com",
+    "confidence": 95,
+    "patterns": {
+      "files": ["*.scss", "*.sass", "package.json"],
+      "code": ["@import", "@use", "@forward", "@mixin", "@include", "@extend", "@function", "$"],
+      "extensions": ["scss", "sass"],
+      "json": ["\"sass\"", "\"node-sass\""],
+      "scripts": ["npm install sass", "sass", "node-sass"]
+    },
+    "versions": {
+      "patterns": ["sass@(\\d+)\\.(\\d+)\\.(\\d+)", "\"sass\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.scss", "*.sass"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Less": {
+    "name": "Less",
+    "description": "CSS preprocessor",
+    "category": "preprocessor",
+    "website": "https://lesscss.org",
+    "confidence": 85,
+    "patterns": {
+      "files": ["*.less", "package.json"],
+      "code": ["@import", "@", "&", ".mixin", ".class()"],
+      "extensions": ["less"],
+      "json": ["\"less\"", "\"less-loader\""],
+      "scripts": ["npm install less", "lessc"]
+    },
+    "versions": {
+      "patterns": ["less@(\\d+)\\.(\\d+)\\.(\\d+)", "\"less\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.less"]
+    },
+    "implies": [],
+    "oss": true
+  },
+  "Stylus": {
+    "name": "Stylus",
+    "description": "Expressive, robust, feature-rich CSS preprocessor",
+    "category": "preprocessor",
+    "website": "https://stylus-lang.com",
+    "confidence": 75,
+    "patterns": {
+      "files": ["*.styl", "package.json"],
+      "code": ["@import", "@require", "&", "=", "?", ":"],
+      "extensions": ["styl"],
+      "json": ["\"stylus\"", "\"stylus-loader\""],
+      "scripts": ["npm install stylus", "stylus"]
+    },
+    "versions": {
+      "patterns": ["stylus@(\\d+)\\.(\\d+)\\.(\\d+)", "\"stylus\":\\s*\"\\^?(\\d+)\\.(\\d+)\\.(\\d+)\""],
+      "files": ["package.json", "*.styl"]
+    },
+    "implies": [],
+    "oss": true
+  }
+} 

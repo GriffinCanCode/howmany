@@ -1,0 +1,866 @@
+{
+  "Qt": {
+    "name": "Qt",
+    "description": "Cross-platform application development framework",
+    "category": "ui_framework",
+    "website": "https://www.qt.io",
+    "confidence": 95,
+    "patterns": {
+      "cmake": ["find_package(Qt6", "find_package(Qt5", "target_link_libraries.*Qt6::", "target_link_libraries.*Qt5::"],
+      "code": ["#include <Qt", "#include <Q", "QApplication", "QWidget", "QMainWindow", "QObject", "Q_OBJECT"],
+      "files": ["*.pro", "*.pri", "CMakeLists.txt", "*.ui", "*.qrc"],
+      "extensions": ["pro", "pri", "ui", "qrc"]
+    },
+    "versions": {
+      "patterns": ["Qt6\\.(\\d+)\\.(\\d+)", "Qt5\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.pro"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Boost": {
+    "name": "Boost",
+    "description": "Collection of portable C++ source libraries",
+    "category": "framework",
+    "website": "https://www.boost.org",
+    "confidence": 95,
+    "patterns": {
+      "cmake": ["find_package(Boost", "Boost::", "target_link_libraries.*Boost"],
+      "code": ["#include <boost/", "boost::", "BOOST_"],
+      "files": ["CMakeLists.txt", "Jamfile", "*.jam"]
+    },
+    "versions": {
+      "patterns": ["Boost\\s+(\\d+)\\.(\\d+)\\.(\\d+)", "boost-(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp", "*.hpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "POCO": {
+    "name": "POCO",
+    "description": "Modern, powerful open source C++ class libraries",
+    "category": "framework",
+    "website": "https://pocoproject.org",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(Poco", "Poco::", "target_link_libraries.*Poco"],
+      "code": ["#include <Poco/", "Poco::", "using namespace Poco"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["Poco\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "OpenCV": {
+    "name": "OpenCV",
+    "description": "Open Source Computer Vision Library",
+    "category": "ml_framework",
+    "website": "https://opencv.org",
+    "confidence": 95,
+    "patterns": {
+      "cmake": ["find_package(OpenCV", "OpenCV::", "target_link_libraries.*opencv"],
+      "code": ["#include <opencv2/", "cv::", "using namespace cv"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["OpenCV\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Eigen": {
+    "name": "Eigen",
+    "description": "C++ template library for linear algebra",
+    "category": "data_library",
+    "website": "https://eigen.tuxfamily.org",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(Eigen3", "Eigen3::", "target_link_libraries.*Eigen"],
+      "code": ["#include <Eigen/", "Eigen::", "using namespace Eigen"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["Eigen\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "FLTK": {
+    "name": "FLTK",
+    "description": "Fast Light Toolkit - Cross-platform C++ GUI toolkit",
+    "category": "ui_framework",
+    "website": "https://www.fltk.org",
+    "confidence": 85,
+    "patterns": {
+      "cmake": ["find_package(fltk", "fltk::", "target_link_libraries.*fltk"],
+      "code": ["#include <FL/", "Fl_", "FL_"],
+      "files": ["CMakeLists.txt", "*.fl"]
+    },
+    "versions": {
+      "patterns": ["FLTK\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "wxWidgets": {
+    "name": "wxWidgets",
+    "description": "Cross-platform GUI library",
+    "category": "ui_framework",
+    "website": "https://www.wxwidgets.org",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(wxWidgets", "wxWidgets::", "target_link_libraries.*wx"],
+      "code": ["#include <wx/", "wx", "wxApp", "wxFrame", "wxPanel"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["wxWidgets\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "GTK": {
+    "name": "GTK",
+    "description": "Multi-platform toolkit for creating graphical user interfaces",
+    "category": "ui_framework",
+    "website": "https://www.gtk.org",
+    "confidence": 85,
+    "patterns": {
+      "cmake": ["find_package(PkgConfig", "pkg_check_modules.*gtk"],
+      "code": ["#include <gtk/", "gtk_", "GTK_"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["gtk\\+(\\d+)\\.(\\d+)\\.(\\d+)", "GTK\\+(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake", "pkg-config"],
+    "oss": true
+  },
+  "Dear ImGui": {
+    "name": "Dear ImGui",
+    "description": "Bloat-free Graphical User interface for C++",
+    "category": "ui_framework",
+    "website": "https://github.com/ocornut/imgui",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(imgui", "imgui::", "target_link_libraries.*imgui"],
+      "code": ["#include \"imgui.h\"", "ImGui::", "ImVec", "ImDrawList"],
+      "files": ["imgui.ini", "CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["imgui\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "SFML": {
+    "name": "SFML",
+    "description": "Simple and Fast Multimedia Library",
+    "category": "game_engine",
+    "website": "https://www.sfml-dev.org",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(SFML", "SFML::", "target_link_libraries.*sfml"],
+      "code": ["#include <SFML/", "sf::", "using namespace sf"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["SFML\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "SDL": {
+    "name": "SDL",
+    "description": "Simple DirectMedia Layer - Cross-platform development library",
+    "category": "game_engine",
+    "website": "https://www.libsdl.org",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(SDL2", "SDL2::", "target_link_libraries.*SDL2"],
+      "code": ["#include <SDL", "SDL_", "using namespace SDL"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["SDL2\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Unreal Engine": {
+    "name": "Unreal Engine",
+    "description": "Game engine developed by Epic Games",
+    "category": "game_engine",
+    "website": "https://www.unrealengine.com",
+    "confidence": 95,
+    "patterns": {
+      "code": ["#include \"Engine/Engine.h\"", "UCLASS", "USTRUCT", "UFUNCTION", "UE_LOG"],
+      "files": ["*.uproject", "*.uplugin", "*.Build.cs", "*.Target.cs"],
+      "extensions": ["uproject", "uplugin"]
+    },
+    "versions": {
+      "patterns": ["EngineVersion\":\\s*\"(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["*.uproject"]
+    },
+    "implies": ["Visual Studio", "Xcode"],
+    "oss": false
+  },
+  "Godot": {
+    "name": "Godot",
+    "description": "Multi-platform 2D and 3D game engine",
+    "category": "game_engine",
+    "website": "https://godotengine.org",
+    "confidence": 85,
+    "patterns": {
+      "code": ["#include <godot_cpp/", "godot::", "GDCLASS", "GDNATIVE"],
+      "files": ["project.godot", "*.gdnlib", "*.gdns", "SConstruct"],
+      "extensions": ["godot", "gdnlib", "gdns"]
+    },
+    "versions": {
+      "patterns": ["config_version=(\\d+)\\.(\\d+)"],
+      "files": ["project.godot"]
+    },
+    "implies": ["SCons"],
+    "oss": true
+  },
+  "OpenGL": {
+    "name": "OpenGL",
+    "description": "Cross-language, cross-platform API for rendering 2D and 3D graphics",
+    "category": "graphics",
+    "website": "https://www.opengl.org",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(OpenGL", "OpenGL::", "target_link_libraries.*OpenGL"],
+      "code": ["#include <GL/", "gl", "GL_", "glfw", "GLFW_"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["OpenGL\\s+(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Vulkan": {
+    "name": "Vulkan",
+    "description": "Low-overhead, cross-platform 3D graphics and computing API",
+    "category": "graphics",
+    "website": "https://www.vulkan.org",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(Vulkan", "Vulkan::", "target_link_libraries.*Vulkan"],
+      "code": ["#include <vulkan/", "vk", "VK_", "using namespace vk"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["Vulkan\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "DirectX": {
+    "name": "DirectX",
+    "description": "Collection of APIs for multimedia and games on Microsoft platforms",
+    "category": "graphics",
+    "website": "https://docs.microsoft.com/en-us/windows/win32/directx",
+    "confidence": 85,
+    "patterns": {
+      "code": ["#include <d3d", "#include <dxgi", "ID3D", "DXGI_", "D3D11_", "D3D12_"],
+      "files": ["*.hlsl", "*.fx"]
+    },
+    "versions": {
+      "patterns": ["D3D(\\d+)", "DirectX\\s+(\\d+)"],
+      "files": ["*.cpp", "*.h"]
+    },
+    "implies": ["Visual Studio", "Windows SDK"],
+    "oss": false
+  },
+  "gRPC": {
+    "name": "gRPC",
+    "description": "High-performance, open-source universal RPC framework",
+    "category": "networking",
+    "website": "https://grpc.io",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(gRPC", "gRPC::", "target_link_libraries.*grpc"],
+      "code": ["#include <grpc", "#include <grpcpp/", "grpc::", "using namespace grpc"],
+      "files": ["*.proto", "CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["gRPC\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake", "Protocol Buffers"],
+    "oss": true
+  },
+  "Protocol Buffers": {
+    "name": "Protocol Buffers",
+    "description": "Language-neutral, platform-neutral extensible mechanism for serializing structured data",
+    "category": "serialization",
+    "website": "https://developers.google.com/protocol-buffers",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(Protobuf", "protobuf::", "target_link_libraries.*protobuf"],
+      "code": ["#include <google/protobuf/", "google::protobuf::", "using namespace google::protobuf"],
+      "files": ["*.proto", "CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["protobuf\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Catch2": {
+    "name": "Catch2",
+    "description": "Modern, C++-native, header-only test framework",
+    "category": "testing",
+    "website": "https://github.com/catchorg/Catch2",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(Catch2", "Catch2::", "target_link_libraries.*Catch2"],
+      "code": ["#include <catch2/", "TEST_CASE", "REQUIRE", "CHECK", "SECTION"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["Catch2\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Google Test": {
+    "name": "Google Test",
+    "description": "Google's C++ testing and mocking framework",
+    "category": "testing",
+    "website": "https://github.com/google/googletest",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(GTest", "GTest::", "target_link_libraries.*gtest"],
+      "code": ["#include <gtest/", "TEST", "EXPECT_", "ASSERT_", "using namespace testing"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["gtest\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Doctest": {
+    "name": "Doctest",
+    "description": "Fastest feature-rich C++ single-header testing framework",
+    "category": "testing",
+    "website": "https://github.com/doctest/doctest",
+    "confidence": 85,
+    "patterns": {
+      "cmake": ["find_package(doctest", "doctest::", "target_link_libraries.*doctest"],
+      "code": ["#include <doctest", "TEST_CASE", "CHECK", "REQUIRE", "SUBCASE"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["doctest\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "nlohmann/json": {
+    "name": "nlohmann/json",
+    "description": "JSON for Modern C++",
+    "category": "serialization",
+    "website": "https://github.com/nlohmann/json",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(nlohmann_json", "nlohmann_json::", "target_link_libraries.*nlohmann_json"],
+      "code": ["#include <nlohmann/json.hpp>", "nlohmann::json", "using json = nlohmann::json"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["nlohmann_json\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "fmt": {
+    "name": "fmt",
+    "description": "Modern formatting library",
+    "category": "utility",
+    "website": "https://fmt.dev",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(fmt", "fmt::", "target_link_libraries.*fmt"],
+      "code": ["#include <fmt/", "fmt::", "using namespace fmt"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["fmt\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "spdlog": {
+    "name": "spdlog",
+    "description": "Fast C++ logging library",
+    "category": "logging",
+    "website": "https://github.com/gabime/spdlog",
+    "confidence": 90,
+    "patterns": {
+      "cmake": ["find_package(spdlog", "spdlog::", "target_link_libraries.*spdlog"],
+      "code": ["#include <spdlog/", "spdlog::", "using namespace spdlog"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["spdlog\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Conan": {
+    "name": "Conan",
+    "description": "C/C++ package manager",
+    "category": "package_manager",
+    "website": "https://conan.io",
+    "confidence": 85,
+    "patterns": {
+      "files": ["conanfile.txt", "conanfile.py", "conandata.yml"],
+      "code": ["from conans import", "conan install", "ConanFile"],
+      "cmake": ["conan_cmake_run", "conan_cmake_configure"]
+    },
+    "versions": {
+      "patterns": ["conan\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["conanfile.txt", "conanfile.py"]
+    },
+    "implies": ["CMake", "Python"],
+    "oss": true
+  },
+  "vcpkg": {
+    "name": "vcpkg",
+    "description": "Microsoft's C++ package manager",
+    "category": "package_manager",
+    "website": "https://vcpkg.io",
+    "confidence": 85,
+    "patterns": {
+      "files": ["vcpkg.json", "vcpkg-configuration.json", "CONTROL"],
+      "cmake": ["find_package.*CONFIG", "CMAKE_TOOLCHAIN_FILE.*vcpkg"],
+      "code": ["vcpkg install", "vcpkg search"]
+    },
+    "versions": {
+      "patterns": ["\"version\":\\s*\"([\\d\\.]+)\""],
+      "files": ["vcpkg.json"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Asio": {
+    "name": "Asio",
+    "description": "Cross-platform C++ library for network and low-level I/O programming",
+    "category": "networking",
+    "website": "https://think-async.com/Asio",
+    "confidence": 85,
+    "patterns": {
+      "cmake": ["find_package(asio", "asio::", "target_link_libraries.*asio"],
+      "code": ["#include <asio", "asio::", "using namespace asio"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["asio\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "CURL": {
+    "name": "CURL",
+    "description": "Command line tool and library for transferring data with URLs",
+    "category": "networking",
+    "website": "https://curl.se",
+    "confidence": 85,
+    "patterns": {
+      "cmake": ["find_package(CURL", "CURL::", "target_link_libraries.*CURL"],
+      "code": ["#include <curl/", "curl_", "CURL", "using namespace curl"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["CURL\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "OpenSSL": {
+    "name": "OpenSSL",
+    "description": "Robust, commercial-grade, and full-featured toolkit for TLS and SSL protocols",
+    "category": "security",
+    "website": "https://www.openssl.org",
+    "confidence": 85,
+    "patterns": {
+      "cmake": ["find_package(OpenSSL", "OpenSSL::", "target_link_libraries.*OpenSSL"],
+      "code": ["#include <openssl/", "SSL_", "EVP_", "using namespace openssl"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["OpenSSL\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "SQLite": {
+    "name": "SQLite",
+    "description": "C-language library that implements a small, fast SQL database engine",
+    "category": "database",
+    "website": "https://www.sqlite.org",
+    "confidence": 85,
+    "patterns": {
+      "cmake": ["find_package(SQLite3", "SQLite::", "target_link_libraries.*sqlite3"],
+      "code": ["#include <sqlite3.h>", "sqlite3_", "SQLITE_"],
+      "files": ["CMakeLists.txt", "*.db", "*.sqlite"]
+    },
+    "versions": {
+      "patterns": ["SQLite\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "MySQL Connector/C++": {
+    "name": "MySQL Connector/C++",
+    "description": "MySQL database connector for C++",
+    "category": "database",
+    "website": "https://dev.mysql.com/downloads/connector/cpp/",
+    "confidence": 80,
+    "patterns": {
+      "cmake": ["find_package(MySQL", "MySQL::", "target_link_libraries.*mysqlcppconn"],
+      "code": ["#include <mysql/", "#include <cppconn/", "mysql::", "sql::"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["MySQL\\s+Connector/C\\+\\+\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "PostgreSQL": {
+    "name": "PostgreSQL",
+    "description": "Advanced open source relational database",
+    "category": "database",
+    "website": "https://www.postgresql.org",
+    "confidence": 80,
+    "patterns": {
+      "cmake": ["find_package(PostgreSQL", "PostgreSQL::", "target_link_libraries.*pq"],
+      "code": ["#include <libpq-fe.h>", "PQ", "libpq"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["PostgreSQL\\s+(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Redis++": {
+    "name": "Redis++",
+    "description": "Redis client for C++",
+    "category": "database",
+    "website": "https://github.com/sewenew/redis-plus-plus",
+    "confidence": 75,
+    "patterns": {
+      "cmake": ["find_package(redis++", "redis++::", "target_link_libraries.*redis++"],
+      "code": ["#include <sw/redis++/", "sw::redis::", "using namespace sw::redis"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["redis\\+\\+\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Brisk": {
+    "name": "Brisk",
+    "description": "Cross-platform C++20 GUI framework with MVVM architecture",
+    "category": "ui_framework",
+    "website": "https://brisklib.com",
+    "confidence": 70,
+    "patterns": {
+      "cmake": ["find_package(brisk", "brisk::", "target_link_libraries.*brisk"],
+      "code": ["#include <brisk/", "brisk::", "using namespace brisk"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["brisk\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake", "C++20"],
+    "oss": true
+  },
+  "Helena Framework": {
+    "name": "Helena Framework",
+    "description": "Modern and Universal Framework on C++20",
+    "category": "framework",
+    "website": "https://github.com/NIKEA-SOFT/HelenaFramework",
+    "confidence": 65,
+    "patterns": {
+      "cmake": ["find_package(Helena", "Helena::", "target_link_libraries.*Helena"],
+      "code": ["#include <Helena/", "Helena::", "using namespace Helena"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["Helena\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake", "C++20"],
+    "oss": true
+  },
+  "CopperSpice": {
+    "name": "CopperSpice",
+    "description": "Modern cross-platform C++ GUI library",
+    "category": "ui_framework",
+    "website": "https://www.copperspice.com",
+    "confidence": 70,
+    "patterns": {
+      "cmake": ["find_package(CopperSpice", "CopperSpice::", "target_link_libraries.*CsCore"],
+      "code": ["#include <CsCore/", "#include <CsGui/", "CsCore::", "CsGui::"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["CopperSpice\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake", "C++20"],
+    "oss": true
+  },
+  "userver": {
+    "name": "userver",
+    "description": "Modern open source asynchronous framework for C++ microservices",
+    "category": "web_framework",
+    "website": "https://userver.tech",
+    "confidence": 75,
+    "patterns": {
+      "cmake": ["find_package(userver", "userver::", "target_link_libraries.*userver"],
+      "code": ["#include <userver/", "userver::", "using namespace userver"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["userver\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Crow": {
+    "name": "Crow",
+    "description": "C++ micro web framework",
+    "category": "web_framework",
+    "website": "https://crowcpp.org",
+    "confidence": 80,
+    "patterns": {
+      "cmake": ["find_package(Crow", "Crow::", "target_link_libraries.*Crow"],
+      "code": ["#include <crow", "crow::", "using namespace crow"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["Crow\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Drogon": {
+    "name": "Drogon",
+    "description": "C++14/17/20 based HTTP web application framework",
+    "category": "web_framework",
+    "website": "https://github.com/drogonframework/drogon",
+    "confidence": 80,
+    "patterns": {
+      "cmake": ["find_package(Drogon", "Drogon::", "target_link_libraries.*drogon"],
+      "code": ["#include <drogon/", "drogon::", "using namespace drogon"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["Drogon\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Pistache": {
+    "name": "Pistache",
+    "description": "Modern and elegant HTTP and REST framework for C++",
+    "category": "web_framework",
+    "website": "https://pistacheio.github.io/pistache/",
+    "confidence": 75,
+    "patterns": {
+      "cmake": ["find_package(pistache", "pistache::", "target_link_libraries.*pistache"],
+      "code": ["#include <pistache/", "Pistache::", "using namespace Pistache"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["pistache\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "TensorFlow C++": {
+    "name": "TensorFlow C++",
+    "description": "Machine learning framework C++ API",
+    "category": "ml_framework",
+    "website": "https://www.tensorflow.org/api_docs/cc",
+    "confidence": 80,
+    "patterns": {
+      "cmake": ["find_package(TensorFlow", "TensorFlow::", "target_link_libraries.*tensorflow"],
+      "code": ["#include <tensorflow/", "tensorflow::", "using namespace tensorflow"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["TensorFlow\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "PyTorch C++": {
+    "name": "PyTorch C++",
+    "description": "Machine learning framework C++ frontend (LibTorch)",
+    "category": "ml_framework",
+    "website": "https://pytorch.org/cppdocs/",
+    "confidence": 80,
+    "patterns": {
+      "cmake": ["find_package(Torch", "torch::", "target_link_libraries.*torch"],
+      "code": ["#include <torch/", "torch::", "using namespace torch"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["Torch\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Armadillo": {
+    "name": "Armadillo",
+    "description": "Fast C++ library for linear algebra",
+    "category": "data_library",
+    "website": "http://arma.sourceforge.net",
+    "confidence": 80,
+    "patterns": {
+      "cmake": ["find_package(Armadillo", "armadillo::", "target_link_libraries.*armadillo"],
+      "code": ["#include <armadillo>", "arma::", "using namespace arma"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["Armadillo\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "CGAL": {
+    "name": "CGAL",
+    "description": "Computational Geometry Algorithms Library",
+    "category": "data_library",
+    "website": "https://www.cgal.org",
+    "confidence": 75,
+    "patterns": {
+      "cmake": ["find_package(CGAL", "CGAL::", "target_link_libraries.*CGAL"],
+      "code": ["#include <CGAL/", "CGAL::", "using namespace CGAL"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["CGAL\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Benchmark": {
+    "name": "Google Benchmark",
+    "description": "Microbenchmark support library",
+    "category": "testing",
+    "website": "https://github.com/google/benchmark",
+    "confidence": 85,
+    "patterns": {
+      "cmake": ["find_package(benchmark", "benchmark::", "target_link_libraries.*benchmark"],
+      "code": ["#include <benchmark/", "benchmark::", "BENCHMARK", "using namespace benchmark"],
+      "files": ["CMakeLists.txt"]
+    },
+    "versions": {
+      "patterns": ["benchmark\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Cppcheck": {
+    "name": "Cppcheck",
+    "description": "Static analysis tool for C/C++ code",
+    "category": "linting",
+    "website": "http://cppcheck.sourceforge.net",
+    "confidence": 80,
+    "patterns": {
+      "cmake": ["find_program(CPPCHECK", "cppcheck"],
+      "files": [".cppcheck", "cppcheck.xml"],
+      "code": ["cppcheck --enable"]
+    },
+    "versions": {
+      "patterns": ["cppcheck\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", "*.cpp"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  },
+  "Clang-Tidy": {
+    "name": "Clang-Tidy",
+    "description": "Clang-based C++ linter tool",
+    "category": "linting",
+    "website": "https://clang.llvm.org/extra/clang-tidy/",
+    "confidence": 85,
+    "patterns": {
+      "cmake": ["find_program(CLANG_TIDY", "clang-tidy", "CMAKE_CXX_CLANG_TIDY"],
+      "files": [".clang-tidy", "_clang-tidy"],
+      "code": ["clang-tidy"]
+    },
+    "versions": {
+      "patterns": ["clang-tidy\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["CMakeLists.txt", ".clang-tidy"]
+    },
+    "implies": ["CMake", "Clang"],
+    "oss": true
+  },
+  "Doxygen": {
+    "name": "Doxygen",
+    "description": "Documentation generator for C++",
+    "category": "documentation",
+    "website": "https://www.doxygen.nl",
+    "confidence": 85,
+    "patterns": {
+      "cmake": ["find_package(Doxygen", "doxygen::", "doxygen_add_docs"],
+      "files": ["Doxyfile", "doxygen.conf"],
+      "code": ["///", "/**", "@brief", "@param", "@return"]
+    },
+    "versions": {
+      "patterns": ["Doxygen\\s+(\\d+)\\.(\\d+)\\.(\\d+)"],
+      "files": ["Doxyfile", "CMakeLists.txt"]
+    },
+    "implies": ["CMake"],
+    "oss": true
+  }
+} 

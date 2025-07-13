@@ -1,172 +1,85 @@
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "howmany")]
-#[command(about = "Count files and lines of code in your projects, intelligently excluding dependencies and generated files")]
-#[command(version = "0.1.0")]
+#[command(about = "Count files and lines of code in your projects")]
+#[command(version = "0.3.0")]
 pub struct Config {
-    #[command(subcommand)]
-    pub command: Option<Commands>,
-    
-    /// Directory to analyze (defaults to current directory) - used when no subcommand is provided
-    #[arg(value_name = "PATH", global = true)]
+    /// Directory to analyze (defaults to current directory)
+    #[arg(value_name = "PATH")]
     pub path: Option<PathBuf>,
     
-    /// Maximum directory depth to traverse
-    #[arg(short, long, global = true)]
-    pub max_depth: Option<usize>,
+    /// Output format: text, json, csv, html, or time-wasted
+    #[arg(short = 'o', long = "output", default_value = "text")]
+    pub format: OutputFormat,
     
     /// Show individual file statistics
-    #[arg(short = 'f', long, global = true)]
-    pub files: bool,
+    #[arg(short = 'f', long = "files")]
+    pub show_files: bool,
+    
+    /// Disable interactive mode (interactive mode is enabled by default)
+    #[arg(long = "no-interactive")]
+    pub no_interactive: bool,
+    
+    /// Show detailed breakdown by file extension
+    #[arg(short = 'v', long = "verbose")]
+    pub verbose: bool,
+    
+    /// Maximum directory depth to traverse
+    #[arg(short = 'd', long = "depth")]
+    pub max_depth: Option<usize>,
+    
+    /// Only count specific file extensions (comma-separated: rs,py,js)
+    #[arg(short = 'e', long = "ext")]
+    pub extensions: Option<String>,
     
     /// Include hidden files and directories
-    #[arg(long, global = true)]
+    #[arg(long = "hidden")]
     pub include_hidden: bool,
     
-    /// Ignore .gitignore files
-    #[arg(long, global = true)]
-    pub ignore_gitignore: bool,
+    /// Sort results by: files, lines, code, comments, or size
+    #[arg(short = 's', long = "sort", default_value = "files")]
+    pub sort_by: SortBy,
     
-    /// Additional patterns to ignore (can be used multiple times)
-    #[arg(long = "ignore", value_name = "PATTERN", global = true)]
-    pub custom_ignores: Vec<String>,
+    /// Sort in descending order
+    #[arg(long = "desc")]
+    pub descending: bool,
     
-    /// Only count specific file extensions (can be used multiple times)
-    #[arg(long = "ext", value_name = "EXTENSION", global = true)]
-    pub extensions: Vec<String>,
+    /// Additional patterns to ignore (comma-separated: node_modules,target,dist)
+    #[arg(long = "ignore")]
+    pub ignore_patterns: Option<String>,
+    
+    /// List files that would be counted (useful for debugging)
+    #[arg(short = 'l', long = "list")]
+    pub list_files: bool,
 }
 
-#[derive(Subcommand)]
-pub enum Commands {
-    /// Count files and lines of code
-    Count {
-        /// Directory to analyze (defaults to current directory)
-        #[arg(value_name = "PATH")]
-        path: Option<PathBuf>,
-        
-        /// Maximum directory depth to traverse
-        #[arg(short, long)]
-        max_depth: Option<usize>,
-        
-        /// Show detailed breakdown by file extension
-        #[arg(short = 'v', long)]
-        verbose: bool,
-        
-        /// Show individual file statistics
-        #[arg(short = 'f', long)]
-        files: bool,
-        
-        /// Include hidden files and directories
-        #[arg(long)]
-        include_hidden: bool,
-        
-        /// Ignore .gitignore files
-        #[arg(long)]
-        ignore_gitignore: bool,
-        
-        /// Additional patterns to ignore (can be used multiple times)
-        #[arg(long = "ignore", value_name = "PATTERN")]
-        custom_ignores: Vec<String>,
-        
-        /// Only count specific file extensions (can be used multiple times)
-        #[arg(long = "ext", value_name = "EXTENSION")]
-        extensions: Vec<String>,
-        
-        /// Output format: text, json, or csv
-        #[arg(long, default_value = "text")]
-        format: OutputFormat,
-        
-        /// Sort results by: files, lines, code, comments, or size
-        #[arg(long, default_value = "files")]
-        sort_by: SortBy,
-        
-        /// Sort in descending order
-        #[arg(long)]
-        descending: bool,
-    },
-    
-    /// List all files that would be counted (useful for debugging filters)
-    List {
-        /// Directory to analyze (defaults to current directory)
-        #[arg(value_name = "PATH")]
-        path: Option<PathBuf>,
-        
-        /// Maximum directory depth to traverse
-        #[arg(short, long)]
-        max_depth: Option<usize>,
-        
-        /// Include hidden files and directories
-        #[arg(long)]
-        include_hidden: bool,
-        
-        /// Ignore .gitignore files
-        #[arg(long)]
-        ignore_gitignore: bool,
-        
-        /// Additional patterns to ignore (can be used multiple times)
-        #[arg(long = "ignore", value_name = "PATTERN")]
-        custom_ignores: Vec<String>,
-        
-        /// Only show specific file extensions (can be used multiple times)
-        #[arg(long = "ext", value_name = "EXTENSION")]
-        extensions: Vec<String>,
-    },
-    
-    /// Interactive mode with beautiful formatting and visualization
-    Interactive {
-        /// Directory to analyze (defaults to current directory)
-        #[arg(value_name = "PATH")]
-        path: Option<PathBuf>,
-        
-        /// Maximum directory depth to traverse
-        #[arg(short, long)]
-        max_depth: Option<usize>,
-        
-        /// Show individual file statistics
-        #[arg(short = 'f', long)]
-        files: bool,
-        
-        /// Include hidden files and directories
-        #[arg(long)]
-        include_hidden: bool,
-        
-        /// Ignore .gitignore files
-        #[arg(long)]
-        ignore_gitignore: bool,
-        
-        /// Additional patterns to ignore (can be used multiple times)
-        #[arg(long = "ignore", value_name = "PATTERN")]
-        custom_ignores: Vec<String>,
-        
-        /// Only count specific file extensions (can be used multiple times)
-        #[arg(long = "ext", value_name = "EXTENSION")]
-        extensions: Vec<String>,
-    },
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum OutputFormat {
     Text,
     Json,
     Csv,
+    Html,
+    TimeWasted,
 }
 
 impl std::str::FromStr for OutputFormat {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "text" => Ok(OutputFormat::Text),
+            "text" | "txt" => Ok(OutputFormat::Text),
             "json" => Ok(OutputFormat::Json),
             "csv" => Ok(OutputFormat::Csv),
-            _ => Err(format!("Invalid output format: {}. Valid options: text, json, csv", s)),
+            "html" => Ok(OutputFormat::Html),
+            "time-wasted" | "time" => Ok(OutputFormat::TimeWasted),
+            _ => Err(format!("Invalid output format: {}", s)),
         }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum SortBy {
     Files,
     Lines,
@@ -177,15 +90,15 @@ pub enum SortBy {
 
 impl std::str::FromStr for SortBy {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "files" => Ok(SortBy::Files),
-            "lines" => Ok(SortBy::Lines),
+            "files" | "file" => Ok(SortBy::Files),
+            "lines" | "line" => Ok(SortBy::Lines),
             "code" => Ok(SortBy::Code),
-            "comments" => Ok(SortBy::Comments),
+            "comments" | "comment" => Ok(SortBy::Comments),
             "size" => Ok(SortBy::Size),
-            _ => Err(format!("Invalid sort option: {}. Valid options: files, lines, code, comments, size", s)),
+            _ => Err(format!("Invalid sort option: {}", s)),
         }
     }
 }
@@ -193,5 +106,26 @@ impl std::str::FromStr for SortBy {
 impl Config {
     pub fn parse_args() -> Self {
         Self::parse()
+    }
+    
+    /// Check if interactive mode should be enabled (default true, unless --no-interactive is passed)
+    pub fn interactive(&self) -> bool {
+        !self.no_interactive
+    }
+    
+    /// Convert comma-separated extensions string to Vec
+    pub fn get_extensions(&self) -> Vec<String> {
+        self.extensions
+            .as_ref()
+            .map(|s| s.split(',').map(|ext| ext.trim().to_string()).collect())
+            .unwrap_or_default()
+    }
+    
+    /// Convert comma-separated ignore patterns string to Vec
+    pub fn get_ignore_patterns(&self) -> Vec<String> {
+        self.ignore_patterns
+            .as_ref()
+            .map(|s| s.split(',').map(|pattern| pattern.trim().to_string()).collect())
+            .unwrap_or_default()
     }
 } 

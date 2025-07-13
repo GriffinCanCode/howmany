@@ -1,0 +1,168 @@
+{
+  "Django": {
+    "name": "Django",
+    "description": "The web framework for perfectionists with deadlines",
+    "category": "web_framework",
+    "website": "https://djangoproject.com",
+    "confidence": 95,
+    "patterns": {
+      "requirements": ["Django==", "django>=", "django~="],
+      "imports": ["from django", "import django", "django.conf", "django.urls"],
+      "files": ["manage.py", "settings.py", "urls.py", "wsgi.py", "asgi.py"],
+      "code": ["INSTALLED_APPS", "MIDDLEWARE", "DATABASES", "django.setup()"],
+      "directories": ["*/migrations/", "*/templates/", "*/static/"]
+    },
+    "versions": {
+      "patterns": ["Django==([\\d\\.]+)", "django>=([\\d\\.]+)", "django~=([\\d\\.]+)"],
+      "files": ["requirements.txt", "setup.py", "pyproject.toml", "Pipfile"]
+    },
+    "implies": ["Python"],
+    "oss": true
+  },
+  "Flask": {
+    "name": "Flask",
+    "description": "A lightweight WSGI web application framework",
+    "category": "web_framework",
+    "website": "https://flask.palletsprojects.com",
+    "confidence": 95,
+    "patterns": {
+      "requirements": ["Flask==", "flask>=", "flask~="],
+      "imports": ["from flask", "import flask", "Flask(__name__)"],
+      "files": ["app.py", "application.py", "main.py"],
+      "code": ["@app.route", "app.run(", "Flask(__name__)"]
+    },
+    "versions": {
+      "patterns": ["Flask==([\\d\\.]+)", "flask>=([\\d\\.]+)"],
+      "files": ["requirements.txt", "setup.py", "pyproject.toml"]
+    },
+    "implies": ["Python"],
+    "oss": true
+  },
+  "FastAPI": {
+    "name": "FastAPI",
+    "description": "Modern, fast web framework for building APIs with Python",
+    "category": "web_framework",
+    "website": "https://fastapi.tiangolo.com",
+    "confidence": 95,
+    "patterns": {
+      "requirements": ["fastapi==", "fastapi>=", "fastapi~="],
+      "imports": ["from fastapi", "import fastapi", "FastAPI()"],
+      "files": ["main.py", "app.py"],
+      "code": ["@app.get", "@app.post", "@app.put", "@app.delete", "FastAPI()"]
+    },
+    "versions": {
+      "patterns": ["fastapi==([\\d\\.]+)", "fastapi>=([\\d\\.]+)"],
+      "files": ["requirements.txt", "setup.py", "pyproject.toml"]
+    },
+    "implies": ["Python"],
+    "oss": true
+  },
+  "Streamlit": {
+    "name": "Streamlit",
+    "description": "The fastest way to build and share data apps",
+    "category": "data_framework",
+    "website": "https://streamlit.io",
+    "confidence": 95,
+    "patterns": {
+      "requirements": ["streamlit==", "streamlit>="],
+      "imports": ["import streamlit", "streamlit as st"],
+      "code": ["st.write", "st.title", "st.header", "st.sidebar"]
+    },
+    "versions": {
+      "patterns": ["streamlit==([\\d\\.]+)", "streamlit>=([\\d\\.]+)"],
+      "files": ["requirements.txt", "setup.py", "pyproject.toml"]
+    },
+    "implies": ["Python"],
+    "oss": true
+  },
+  "Tornado": {
+    "name": "Tornado",
+    "description": "Python web framework and asynchronous networking library",
+    "category": "web_framework",
+    "website": "https://tornadoweb.org",
+    "confidence": 90,
+    "patterns": {
+      "requirements": ["tornado==", "tornado>="],
+      "imports": ["import tornado", "from tornado"],
+      "code": ["tornado.web", "tornado.ioloop", "RequestHandler"]
+    },
+    "versions": {
+      "patterns": ["tornado==([\\d\\.]+)", "tornado>=([\\d\\.]+)"],
+      "files": ["requirements.txt", "setup.py", "pyproject.toml"]
+    },
+    "implies": ["Python"],
+    "oss": true
+  },
+  "Pandas": {
+    "name": "Pandas",
+    "description": "Powerful data structures for data analysis, time series, and statistics",
+    "category": "data_library",
+    "website": "https://pandas.pydata.org",
+    "confidence": 95,
+    "patterns": {
+      "requirements": ["pandas==", "pandas>="],
+      "imports": ["import pandas", "pandas as pd", "from pandas"],
+      "code": ["pd.DataFrame", "pd.read_csv", "pd.Series"]
+    },
+    "versions": {
+      "patterns": ["pandas==([\\d\\.]+)", "pandas>=([\\d\\.]+)"],
+      "files": ["requirements.txt", "setup.py", "pyproject.toml"]
+    },
+    "implies": ["Python"],
+    "oss": true
+  },
+  "NumPy": {
+    "name": "NumPy",
+    "description": "Fundamental package for scientific computing with Python",
+    "category": "data_library",
+    "website": "https://numpy.org",
+    "confidence": 95,
+    "patterns": {
+      "requirements": ["numpy==", "numpy>="],
+      "imports": ["import numpy", "numpy as np", "from numpy"],
+      "code": ["np.array", "np.zeros", "np.ones", "np.random"]
+    },
+    "versions": {
+      "patterns": ["numpy==([\\d\\.]+)", "numpy>=([\\d\\.]+)"],
+      "files": ["requirements.txt", "setup.py", "pyproject.toml"]
+    },
+    "implies": ["Python"],
+    "oss": true
+  },
+  "TensorFlow": {
+    "name": "TensorFlow",
+    "description": "Open source machine learning framework",
+    "category": "ml_framework",
+    "website": "https://tensorflow.org",
+    "confidence": 95,
+    "patterns": {
+      "requirements": ["tensorflow==", "tensorflow>=", "tensorflow-gpu=="],
+      "imports": ["import tensorflow", "tensorflow as tf", "from tensorflow"],
+      "code": ["tf.keras", "tf.Variable", "tf.constant", "tf.Session"]
+    },
+    "versions": {
+      "patterns": ["tensorflow==([\\d\\.]+)", "tensorflow>=([\\d\\.]+)"],
+      "files": ["requirements.txt", "setup.py", "pyproject.toml"]
+    },
+    "implies": ["Python"],
+    "oss": true
+  },
+  "PyTorch": {
+    "name": "PyTorch",
+    "description": "An open source machine learning framework",
+    "category": "ml_framework",
+    "website": "https://pytorch.org",
+    "confidence": 95,
+    "patterns": {
+      "requirements": ["torch==", "torch>=", "pytorch=="],
+      "imports": ["import torch", "from torch", "torch.nn"],
+      "code": ["torch.tensor", "torch.cuda", "nn.Module", "torch.optim"]
+    },
+    "versions": {
+      "patterns": ["torch==([\\d\\.]+)", "torch>=([\\d\\.]+)"],
+      "files": ["requirements.txt", "setup.py", "pyproject.toml"]
+    },
+    "implies": ["Python"],
+    "oss": true
+  }
+} 

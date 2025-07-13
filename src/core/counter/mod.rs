@@ -3,28 +3,8 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use crate::utils::errors::Result;
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct FileStats {
-    pub total_lines: usize,
-    pub code_lines: usize,
-    pub comment_lines: usize,
-    pub blank_lines: usize,
-    pub file_size: u64,
-    pub doc_lines: usize, // New field for documentation content
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct CodeStats {
-    pub total_files: usize,
-    pub total_lines: usize,
-    pub total_code_lines: usize,
-    pub total_comment_lines: usize,
-    pub total_blank_lines: usize,
-    pub total_size: u64,
-    pub total_doc_lines: usize, // New field for documentation content
-    pub stats_by_extension: HashMap<String, (usize, FileStats)>, // (file_count, aggregated_stats)
-}
+use crate::core::types::{CodeStats, FileStats};
+use crate::core::stats::{StatsCalculator, AggregatedStats};
 
 #[derive(Debug, Clone)]
 struct CommentPattern {
@@ -36,6 +16,7 @@ struct CommentPattern {
 
 pub struct CodeCounter {
     comment_patterns: HashMap<String, CommentPattern>,
+    stats_calculator: StatsCalculator,
 }
 
 impl CodeCounter {
@@ -232,7 +213,224 @@ impl CodeCounter {
             doc_patterns: vec![], // Markdown content is documentation by nature
         });
         
-        Self { comment_patterns }
+        // PowerShell patterns
+        comment_patterns.insert("ps1".to_string(), CommentPattern {
+            single_line: vec!["#".to_string()],
+            multi_line_start: vec!["<#".to_string()],
+            multi_line_end: vec!["#>".to_string()],
+            doc_patterns: vec!["<#".to_string()],
+        });
+        
+        // Elm patterns
+        comment_patterns.insert("elm".to_string(), CommentPattern {
+            single_line: vec!["--".to_string()],
+            multi_line_start: vec!["{-".to_string()],
+            multi_line_end: vec!["-}".to_string()],
+            doc_patterns: vec!["{-|".to_string()],
+        });
+        
+        // Erlang patterns
+        comment_patterns.insert("erl".to_string(), CommentPattern {
+            single_line: vec!["%".to_string()],
+            multi_line_start: vec![],
+            multi_line_end: vec![],
+            doc_patterns: vec!["%%".to_string()],
+        });
+        
+        // Elixir patterns
+        comment_patterns.insert("ex".to_string(), CommentPattern {
+            single_line: vec!["#".to_string()],
+            multi_line_start: vec![],
+            multi_line_end: vec![],
+            doc_patterns: vec!["@doc".to_string(), "@moduledoc".to_string()],
+        });
+        comment_patterns.insert("exs".to_string(), CommentPattern {
+            single_line: vec!["#".to_string()],
+            multi_line_start: vec![],
+            multi_line_end: vec![],
+            doc_patterns: vec!["@doc".to_string(), "@moduledoc".to_string()],
+        });
+        
+        // Julia patterns
+        comment_patterns.insert("jl".to_string(), CommentPattern {
+            single_line: vec!["#".to_string()],
+            multi_line_start: vec!["#=".to_string()],
+            multi_line_end: vec!["=#".to_string()],
+            doc_patterns: vec!["\"\"\"".to_string()],
+        });
+        
+        // MATLAB patterns
+        comment_patterns.insert("m".to_string(), CommentPattern {
+            single_line: vec!["%".to_string()],
+            multi_line_start: vec!["%{".to_string()],
+            multi_line_end: vec!["%}".to_string()],
+            doc_patterns: vec!["%%".to_string()],
+        });
+        
+        // SQL patterns
+        comment_patterns.insert("sql".to_string(), CommentPattern {
+            single_line: vec!["--".to_string()],
+            multi_line_start: vec!["/*".to_string()],
+            multi_line_end: vec!["*/".to_string()],
+            doc_patterns: vec!["--".to_string()],
+        });
+        
+        // Objective-C patterns
+        comment_patterns.insert("mm".to_string(), CommentPattern {
+            single_line: vec!["//".to_string()],
+            multi_line_start: vec!["/*".to_string()],
+            multi_line_end: vec!["*/".to_string()],
+            doc_patterns: vec!["/**".to_string()],
+        });
+        
+        // Dart patterns
+        comment_patterns.insert("dart".to_string(), CommentPattern {
+            single_line: vec!["//".to_string()],
+            multi_line_start: vec!["/*".to_string()],
+            multi_line_end: vec!["*/".to_string()],
+            doc_patterns: vec!["///".to_string(), "/**".to_string()],
+        });
+        
+        // Perl patterns
+        comment_patterns.insert("pl".to_string(), CommentPattern {
+            single_line: vec!["#".to_string()],
+            multi_line_start: vec!["=pod".to_string()],
+            multi_line_end: vec!["=cut".to_string()],
+            doc_patterns: vec!["=pod".to_string()],
+        });
+        
+        // Clojure patterns
+        comment_patterns.insert("clj".to_string(), CommentPattern {
+            single_line: vec![";".to_string()],
+            multi_line_start: vec!["#_".to_string()],
+            multi_line_end: vec![], // #_ is single-form comment
+            doc_patterns: vec![";;".to_string()],
+        });
+        comment_patterns.insert("cljs".to_string(), CommentPattern {
+            single_line: vec![";".to_string()],
+            multi_line_start: vec!["#_".to_string()],
+            multi_line_end: vec![],
+            doc_patterns: vec![";;".to_string()],
+        });
+        
+        // F# patterns
+        comment_patterns.insert("fs".to_string(), CommentPattern {
+            single_line: vec!["//".to_string()],
+            multi_line_start: vec!["(*".to_string()],
+            multi_line_end: vec!["*)".to_string()],
+            doc_patterns: vec!["///".to_string(), "(**".to_string()],
+        });
+        
+        // Zig patterns
+        comment_patterns.insert("zig".to_string(), CommentPattern {
+            single_line: vec!["//".to_string()],
+            multi_line_start: vec![],
+            multi_line_end: vec![],
+            doc_patterns: vec!["///".to_string(), "//!".to_string()],
+        });
+        
+        // YAML patterns (comments only)
+        comment_patterns.insert("yaml".to_string(), CommentPattern {
+            single_line: vec!["#".to_string()],
+            multi_line_start: vec![],
+            multi_line_end: vec![],
+            doc_patterns: vec!["##".to_string()],
+        });
+        comment_patterns.insert("yml".to_string(), CommentPattern {
+            single_line: vec!["#".to_string()],
+            multi_line_start: vec![],
+            multi_line_end: vec![],
+            doc_patterns: vec!["##".to_string()],
+        });
+        
+        // TOML patterns
+        comment_patterns.insert("toml".to_string(), CommentPattern {
+            single_line: vec!["#".to_string()],
+            multi_line_start: vec![],
+            multi_line_end: vec![],
+            doc_patterns: vec!["##".to_string()],
+        });
+        
+        // INI patterns
+        comment_patterns.insert("ini".to_string(), CommentPattern {
+            single_line: vec![";".to_string(), "#".to_string()],
+            multi_line_start: vec![],
+            multi_line_end: vec![],
+            doc_patterns: vec![";;".to_string()],
+        });
+        
+        // XML patterns
+        comment_patterns.insert("xml".to_string(), CommentPattern {
+            single_line: vec![],
+            multi_line_start: vec!["<!--".to_string()],
+            multi_line_end: vec!["-->".to_string()],
+            doc_patterns: vec!["<!--".to_string()],
+        });
+        
+        // reStructuredText patterns
+        comment_patterns.insert("rst".to_string(), CommentPattern {
+            single_line: vec!["..".to_string()],
+            multi_line_start: vec![],
+            multi_line_end: vec![],
+            doc_patterns: vec![], // RST content is documentation by nature
+        });
+        
+        // AsciiDoc patterns
+        comment_patterns.insert("adoc".to_string(), CommentPattern {
+            single_line: vec!["//".to_string()],
+            multi_line_start: vec!["////".to_string()],
+            multi_line_end: vec!["////".to_string()],
+            doc_patterns: vec![], // AsciiDoc content is documentation by nature
+        });
+        comment_patterns.insert("asciidoc".to_string(), CommentPattern {
+            single_line: vec!["//".to_string()],
+            multi_line_start: vec!["////".to_string()],
+            multi_line_end: vec!["////".to_string()],
+            doc_patterns: vec![], // AsciiDoc content is documentation by nature
+        });
+        
+        // Batch file patterns
+        comment_patterns.insert("bat".to_string(), CommentPattern {
+            single_line: vec!["REM".to_string(), "rem".to_string(), "::".to_string()],
+            multi_line_start: vec![],
+            multi_line_end: vec![],
+            doc_patterns: vec!["REM".to_string()],
+        });
+        comment_patterns.insert("cmd".to_string(), CommentPattern {
+            single_line: vec!["REM".to_string(), "rem".to_string(), "::".to_string()],
+            multi_line_start: vec![],
+            multi_line_end: vec![],
+            doc_patterns: vec!["REM".to_string()],
+        });
+        
+        // Less patterns
+        comment_patterns.insert("less".to_string(), CommentPattern {
+            single_line: vec!["//".to_string()],
+            multi_line_start: vec!["/*".to_string()],
+            multi_line_end: vec!["*/".to_string()],
+            doc_patterns: vec!["/**".to_string()],
+        });
+        
+        // Vue patterns (similar to HTML but with JS-style comments in script sections)
+        comment_patterns.insert("vue".to_string(), CommentPattern {
+            single_line: vec!["//".to_string()],
+            multi_line_start: vec!["<!--".to_string(), "/*".to_string()],
+            multi_line_end: vec!["-->".to_string(), "*/".to_string()],
+            doc_patterns: vec!["/**".to_string()],
+        });
+        
+        // Svelte patterns
+        comment_patterns.insert("svelte".to_string(), CommentPattern {
+            single_line: vec!["//".to_string()],
+            multi_line_start: vec!["<!--".to_string(), "/*".to_string()],
+            multi_line_end: vec!["-->".to_string(), "*/".to_string()],
+            doc_patterns: vec!["/**".to_string()],
+        });
+        
+        Self { 
+            comment_patterns,
+            stats_calculator: StatsCalculator::new(),
+        }
     }
 
     pub fn count_file(&self, path: &Path) -> Result<FileStats> {
@@ -305,12 +503,13 @@ impl CodeCounter {
             }
             
             if in_multi_line_comment {
+                let is_doc_line = in_doc_comment;
                 if trimmed.contains(&multi_line_end_pattern) {
                     in_multi_line_comment = false;
                     in_doc_comment = false;
                 }
                 
-                if in_doc_comment {
+                if is_doc_line {
                     doc_lines += 1;
                 } else {
                     comment_lines += 1;
@@ -418,7 +617,33 @@ impl CodeCounter {
         }
         false
     }
+
+    /// Calculate comprehensive statistics for a single file
+    pub fn calculate_file_stats(&self, path: &Path) -> Result<AggregatedStats> {
+        let file_stats = self.count_file(path)?;
+        let path_str = path.to_string_lossy().to_string();
+        
+        let start_time = std::time::Instant::now();
+        let mut aggregated_stats = self.stats_calculator.calculate_file_stats(&file_stats, &path_str)?;
+        crate::core::stats::aggregation::StatsAggregator::update_timing(&mut aggregated_stats, start_time);
+        
+        Ok(aggregated_stats)
+    }
     
+    /// Calculate comprehensive statistics for a project
+    pub fn calculate_project_stats(&self, code_stats: &CodeStats, individual_files: &[(String, FileStats)]) -> Result<AggregatedStats> {
+        let start_time = std::time::Instant::now();
+        let mut aggregated_stats = self.stats_calculator.calculate_project_stats(code_stats, individual_files)?;
+        crate::core::stats::aggregation::StatsAggregator::update_timing(&mut aggregated_stats, start_time);
+        
+        Ok(aggregated_stats)
+    }
+    
+    /// Get the stats calculator for direct access
+    pub fn stats_calculator(&self) -> &StatsCalculator {
+        &self.stats_calculator
+    }
+
     pub fn aggregate_stats(&self, file_stats: Vec<(String, FileStats)>) -> CodeStats {
         let mut total_files = 0;
         let mut total_lines = 0;
@@ -647,5 +872,65 @@ More documentation.
         let js_pattern = counter.comment_patterns.get("js").unwrap();
         assert!(js_pattern.single_line.contains(&"//".to_string()));
         assert!(js_pattern.doc_patterns.contains(&"/**".to_string()));
+    }
+    
+    #[test]
+    fn test_new_language_patterns() {
+        let counter = CodeCounter::new();
+        
+        // Test PowerShell patterns
+        assert!(counter.comment_patterns.contains_key("ps1"));
+        let ps_pattern = counter.comment_patterns.get("ps1").unwrap();
+        assert!(ps_pattern.single_line.contains(&"#".to_string()));
+        assert!(ps_pattern.multi_line_start.contains(&"<#".to_string()));
+        
+        // Test Elm patterns
+        assert!(counter.comment_patterns.contains_key("elm"));
+        let elm_pattern = counter.comment_patterns.get("elm").unwrap();
+        assert!(elm_pattern.single_line.contains(&"--".to_string()));
+        assert!(elm_pattern.multi_line_start.contains(&"{-".to_string()));
+        assert!(elm_pattern.doc_patterns.contains(&"{-|".to_string()));
+        
+        // Test Julia patterns
+        assert!(counter.comment_patterns.contains_key("jl"));
+        let julia_pattern = counter.comment_patterns.get("jl").unwrap();
+        assert!(julia_pattern.single_line.contains(&"#".to_string()));
+        assert!(julia_pattern.multi_line_start.contains(&"#=".to_string()));
+        
+        // Test SQL patterns
+        assert!(counter.comment_patterns.contains_key("sql"));
+        let sql_pattern = counter.comment_patterns.get("sql").unwrap();
+        assert!(sql_pattern.single_line.contains(&"--".to_string()));
+        assert!(sql_pattern.multi_line_start.contains(&"/*".to_string()));
+        
+        // Test Elixir patterns
+        assert!(counter.comment_patterns.contains_key("ex"));
+        let elixir_pattern = counter.comment_patterns.get("ex").unwrap();
+        assert!(elixir_pattern.single_line.contains(&"#".to_string()));
+        assert!(elixir_pattern.doc_patterns.contains(&"@doc".to_string()));
+        
+        // Test YAML patterns
+        assert!(counter.comment_patterns.contains_key("yaml"));
+        let yaml_pattern = counter.comment_patterns.get("yaml").unwrap();
+        assert!(yaml_pattern.single_line.contains(&"#".to_string()));
+        
+        // Test Zig patterns
+        assert!(counter.comment_patterns.contains_key("zig"));
+        let zig_pattern = counter.comment_patterns.get("zig").unwrap();
+        assert!(zig_pattern.single_line.contains(&"//".to_string()));
+        assert!(zig_pattern.doc_patterns.contains(&"///".to_string()));
+        
+        // Test Clojure patterns
+        assert!(counter.comment_patterns.contains_key("clj"));
+        let clj_pattern = counter.comment_patterns.get("clj").unwrap();
+        assert!(clj_pattern.single_line.contains(&";".to_string()));
+        assert!(clj_pattern.doc_patterns.contains(&";;".to_string()));
+        
+        // Test F# patterns
+        assert!(counter.comment_patterns.contains_key("fs"));
+        let fs_pattern = counter.comment_patterns.get("fs").unwrap();
+        assert!(fs_pattern.single_line.contains(&"//".to_string()));
+        assert!(fs_pattern.multi_line_start.contains(&"(*".to_string()));
+        assert!(fs_pattern.doc_patterns.contains(&"///".to_string()));
     }
 } 

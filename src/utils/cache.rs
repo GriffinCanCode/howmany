@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::UNIX_EPOCH;
-use serde::{Deserialize, Serialize};
-use crate::core::counter::FileStats;
+use std::time::{SystemTime, UNIX_EPOCH};
+use crate::core::types::FileStats;
 use crate::utils::errors::{HowManyError, Result};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheEntry {

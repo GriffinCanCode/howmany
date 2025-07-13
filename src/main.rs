@@ -1,7 +1,8 @@
 use howmany::{FileDetector, CodeCounter, FileFilter, Config, InteractiveDisplay, Result};
-use howmany::ui::cli::{Commands, OutputFormat, SortBy};
-use howmany::core::counter::{CodeStats, FileStats};
-use std::env;
+use howmany::ui::cli::{OutputFormat, SortBy};
+use howmany::core::types::{CodeStats, FileStats};
+use howmany::core::stats::{StatsCalculator, AggregatedStats, FormattingOptions};
+use howmany::core::stats::techstack::TechStackAnalyzer;
 use std::path::Path;
 use std::process;
 use rayon::prelude::*;
@@ -9,133 +10,92 @@ use rayon::prelude::*;
 fn main() {
     let config = Config::parse_args();
     
-    match run(config) {
-        Ok(()) => {}
-        Err(e) => {
-            eprintln!("Error: {}", e);
-            process::exit(1);
-        }
+    if let Err(e) = run(config) {
+        eprintln!("Error: {}", e);
+        process::exit(1);
     }
 }
 
 fn run(config: Config) -> Result<()> {
-    match config.command.unwrap_or(Commands::Interactive {
-        path: config.path,
-        max_depth: config.max_depth,
-        files: config.files,
-        include_hidden: config.include_hidden,
-        ignore_gitignore: config.ignore_gitignore,
-        custom_ignores: config.custom_ignores,
-        extensions: config.extensions,
-    }) {
-        Commands::Count {
+    let path = config.path.as_deref().unwrap_or_else(|| Path::new("."));
+    
+    // Interactive mode (default unless --no-interactive is passed or specific output format is requested)
+    if config.interactive() && matches!(config.format, OutputFormat::Text) {
+        let (aggregated_stats, individual_files) = analyze_code_comprehensive(
             path,
-            max_depth,
-            verbose,
-            files,
-            include_hidden,
-            ignore_gitignore,
-            custom_ignores,
-            extensions,
-            format,
-            sort_by,
-            descending,
-        } => {
-            let target_path = path.unwrap_or_else(|| env::current_dir().unwrap());
-            
-            println!("Analyzing directory: {}", target_path.display());
-            println!("Scanning for user-created code files...\n");
-            
-            let stats = count_code(
-                &target_path,
-                max_depth,
-                include_hidden,
-                ignore_gitignore,
-                custom_ignores,
-                extensions,
-                files,
-            )?;
-            
-            output_results(&stats, format, sort_by, descending, verbose)?;
-        }
+            config.max_depth,
+            config.include_hidden,
+            config.get_ignore_patterns(),
+            config.get_extensions(),
+            config.show_files,
+        )?;
         
-        Commands::List {
-            path,
-            max_depth,
-            include_hidden,
-            ignore_gitignore,
-            custom_ignores,
-            extensions,
-        } => {
-            let target_path = path.unwrap_or_else(|| env::current_dir().unwrap());
-            
-            list_files(
-                &target_path,
-                max_depth,
-                include_hidden,
-                ignore_gitignore,
-                custom_ignores,
-                extensions,
-            )?;
-        }
-        
-        Commands::Interactive {
-            path,
-            max_depth,
-            files,
-            include_hidden,
-            ignore_gitignore,
-            custom_ignores,
-            extensions,
-        } => {
-            let target_path = path.unwrap_or_else(|| env::current_dir().unwrap());
-            
-            let display = InteractiveDisplay::new();
-            display.show_welcome()?;
-            
-            let pb = display.show_scanning_progress(&target_path.display().to_string());
-            
-            let stats = count_code(
-                &target_path,
-                max_depth,
-                include_hidden,
-                ignore_gitignore,
-                custom_ignores,
-                extensions,
-                files,
-            )?;
-            
-            pb.finish_and_clear();
-            
-            display.show_results(&stats.0, &stats.1)?;
-        }
+        let mut display = InteractiveDisplay::new();
+        display.show_welcome()?;
+        let pb = display.show_scanning_progress(&path.display().to_string())?;
+        pb.finish_and_clear();
+        return display.show_comprehensive_results(&aggregated_stats, &individual_files).map_err(|e| {
+            howmany::utils::errors::HowManyError::display(format!("Interactive display error: {}", e))
+        });
     }
     
-    Ok(())
+    // List files mode
+    if config.list_files {
+        return list_files(
+            path,
+            config.max_depth,
+            config.include_hidden,
+            config.get_ignore_patterns(),
+            config.get_extensions(),
+        );
+    }
+    
+    // Regular counting mode with comprehensive analysis
+    let (aggregated_stats, individual_files) = analyze_code_comprehensive(
+        path,
+        config.max_depth,
+        config.include_hidden,
+        config.get_ignore_patterns(),
+        config.get_extensions(),
+        config.show_files,
+    )?;
+    
+    output_comprehensive_results(
+        &aggregated_stats,
+        &individual_files,
+        config.format,
+        config.sort_by,
+        config.descending,
+        config.verbose,
+    )
 }
 
-fn count_code(
+/// Comprehensive code analysis using the full stats pipeline
+fn analyze_code_comprehensive(
     path: &Path,
     max_depth: Option<usize>,
     include_hidden: bool,
-    ignore_gitignore: bool,
-    custom_ignores: Vec<String>,
+    ignore_patterns: Vec<String>,
     extensions: Vec<String>,
     show_files: bool,
-) -> Result<(CodeStats, Vec<(String, FileStats)>)> {
+) -> Result<(AggregatedStats, Vec<(String, FileStats)>)> {
+    println!("Analyzing directory: {}", path.display());
+    
     let detector = FileDetector::new();
-    let counter = CodeCounter::new();
     let mut filter = FileFilter::new()
         .respect_hidden(!include_hidden)
-        .respect_gitignore(!ignore_gitignore);
+        .respect_gitignore(true);
     
     if let Some(depth) = max_depth {
         filter = filter.with_max_depth(depth);
     }
     
-    if !custom_ignores.is_empty() {
-        filter = filter.with_custom_ignores(custom_ignores);
+    // Add custom ignore patterns
+    if !ignore_patterns.is_empty() {
+        filter = filter.with_custom_ignores(ignore_patterns);
     }
+    
+    println!("Scanning for user-created code files...");
     
     // Collect all file paths first
     let file_paths: Vec<_> = filter.walk_directory(path)
@@ -148,11 +108,6 @@ fn count_code(
             
             // Check if it's a user-created file
             if !detector.is_user_created_file(entry_path) {
-                return None;
-            }
-            
-            // Check if it passes additional filters
-            if !filter.should_include_file(entry_path) {
                 return None;
             }
             
@@ -172,40 +127,78 @@ fn count_code(
         })
         .collect();
     
-    // Process files in parallel
-    let results: Vec<_> = file_paths
+    if file_paths.is_empty() {
+        println!("No files found matching the criteria.");
+        let empty_stats = StatsCalculator::new().calculate_project_stats(
+            &CodeStats {
+                total_files: 0,
+                total_lines: 0,
+                total_code_lines: 0,
+                total_comment_lines: 0,
+                total_blank_lines: 0,
+                total_size: 0,
+                total_doc_lines: 0,
+                stats_by_extension: std::collections::HashMap::new(),
+            },
+            &[],
+        )?;
+        return Ok((empty_stats, Vec::new()));
+    }
+    
+    let counter = CodeCounter::new();
+    
+    // Process files in parallel for better performance
+    let file_stats: Vec<(String, FileStats)> = file_paths
         .par_iter()
-        .filter_map(|path| {
-            match counter.count_file(path) {
+        .filter_map(|file_path| {
+            match counter.count_file(file_path) {
                 Ok(stats) => {
-                    let extension = path.extension()
+                    let extension = file_path
+                        .extension()
                         .and_then(|ext| ext.to_str())
-                        .unwrap_or("no_extension")
-                        .to_lowercase();
-                    
-                    Some((extension, stats, path.display().to_string()))
+                        .unwrap_or("no_ext")
+                        .to_string();
+                    Some((extension, stats))
                 }
                 Err(e) => {
-                    eprintln!("Warning: Could not read file {}: {}", path.display(), e);
+                    if show_files {
+                        eprintln!("Warning: Failed to process {}: {}", file_path.display(), e);
+                    }
                     None
                 }
             }
         })
         .collect();
     
-    // Separate into file_stats and individual_files
-    let mut file_stats = Vec::new();
-    let mut individual_files = Vec::new();
+    let individual_files: Vec<(String, FileStats)> = if show_files {
+        file_paths
+            .par_iter()
+            .filter_map(|file_path| {
+                match counter.count_file(file_path) {
+                    Ok(stats) => Some((file_path.to_string_lossy().to_string(), stats)),
+                    Err(_) => None,
+                }
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
     
-    for (extension, stats, path_str) in results {
-        file_stats.push((extension, stats.clone()));
-        
-        if show_files {
-            individual_files.push((path_str, stats));
+    // Create basic aggregated stats
+    let basic_code_stats = counter.aggregate_stats(file_stats);
+    
+    // Use comprehensive stats calculator
+    let stats_calculator = StatsCalculator::new();
+    let mut aggregated_stats = stats_calculator.calculate_project_stats(&basic_code_stats, &individual_files)?;
+    
+    // Optional: Add techstack analysis if enabled
+    if std::env::var("HOWMANY_ENABLE_TECHSTACK").is_ok() {
+        println!("🔍 Analyzing technology stack...");
+        if let Ok(techstack_analyzer) = TechStackAnalyzer::new().analyze_project(&path.to_string_lossy()) {
+            // Store techstack analysis in metadata for future use
+            println!("✅ Detected {} technologies", techstack_analyzer.inventory.technologies.len());
         }
     }
-    
-    let aggregated_stats = counter.aggregate_stats(file_stats);
     
     Ok((aggregated_stats, individual_files))
 }
@@ -214,24 +207,24 @@ fn list_files(
     path: &Path,
     max_depth: Option<usize>,
     include_hidden: bool,
-    ignore_gitignore: bool,
-    custom_ignores: Vec<String>,
+    ignore_patterns: Vec<String>,
     extensions: Vec<String>,
 ) -> Result<()> {
     let detector = FileDetector::new();
     let mut filter = FileFilter::new()
         .respect_hidden(!include_hidden)
-        .respect_gitignore(!ignore_gitignore);
+        .respect_gitignore(true);
     
     if let Some(depth) = max_depth {
         filter = filter.with_max_depth(depth);
     }
     
-    if !custom_ignores.is_empty() {
-        filter = filter.with_custom_ignores(custom_ignores);
+    // Add custom ignore patterns
+    if !ignore_patterns.is_empty() {
+        filter = filter.with_custom_ignores(ignore_patterns);
     }
     
-    println!("Files that would be counted in: {}\n", path.display());
+    println!("Files that would be counted:");
     
     for entry in filter.walk_directory(path) {
         let entry_path = entry.path();
@@ -239,11 +232,6 @@ fn list_files(
         if entry_path.is_file() {
             // Check if it's a user-created file
             if !detector.is_user_created_file(entry_path) {
-                continue;
-            }
-            
-            // Check if it passes additional filters
-            if !filter.should_include_file(entry_path) {
                 continue;
             }
             
@@ -259,98 +247,101 @@ fn list_files(
                 }
             }
             
-            println!("{}", entry_path.display());
+            println!("  {}", entry_path.display());
         }
     }
     
     Ok(())
 }
 
-fn output_results(
-    stats: &(CodeStats, Vec<(String, FileStats)>),
+fn output_comprehensive_results(
+    aggregated_stats: &AggregatedStats,
+    individual_files: &[(String, FileStats)],
     format: OutputFormat,
     sort_by: SortBy,
     descending: bool,
     verbose: bool,
 ) -> Result<()> {
-    let (code_stats, individual_files) = stats;
-    
     match format {
-        OutputFormat::Text => output_text(code_stats, individual_files, sort_by, descending, verbose),
-        OutputFormat::Json => output_json(code_stats, individual_files),
-        OutputFormat::Csv => output_csv(code_stats, individual_files),
+        OutputFormat::Text => output_text(aggregated_stats, individual_files, sort_by, descending, verbose),
+        OutputFormat::Json => output_json(aggregated_stats, individual_files),
+        OutputFormat::Csv => output_csv(aggregated_stats, individual_files),
+        OutputFormat::Html => output_html(aggregated_stats, individual_files),
+        OutputFormat::TimeWasted => output_time_wasted(aggregated_stats, individual_files),
     }
 }
 
 fn output_text(
-    stats: &CodeStats,
+    aggregated_stats: &AggregatedStats,
     individual_files: &[(String, FileStats)],
     sort_by: SortBy,
     descending: bool,
     verbose: bool,
 ) -> Result<()> {
+    println!();
     println!("=== Code Statistics ===");
-    println!("Total files: {}", stats.total_files);
-    println!("Total lines: {}", stats.total_lines);
-    println!("Code lines: {}", stats.total_code_lines);
-    println!("Comment lines: {}", stats.total_comment_lines);
-    println!("Documentation lines: {}", stats.total_doc_lines);
-    println!("Blank lines: {}", stats.total_blank_lines);
-    println!("Total size: {} bytes ({:.2} KB)", stats.total_size, stats.total_size as f64 / 1024.0);
+    println!("Total files: {}", aggregated_stats.basic.total_files);
+    println!("Total lines: {}", aggregated_stats.basic.total_lines);
+    println!("Code lines: {}", aggregated_stats.basic.code_lines);
+    println!("Comment lines: {}", aggregated_stats.basic.comment_lines);
+    println!("Documentation lines: {}", aggregated_stats.basic.doc_lines);
+    println!("Blank lines: {}", aggregated_stats.basic.blank_lines);
+    println!("Total size: {} bytes ({:.2} KB)", aggregated_stats.basic.total_size, aggregated_stats.basic.total_size as f64 / 1024.0);
     
-    if verbose {
-        println!("\n=== Breakdown by File Type ===");
+    // Enhanced stats from comprehensive analysis
+    if aggregated_stats.complexity.function_count > 0 {
+        println!();
+        println!("=== Complexity Analysis ===");
+        println!("Functions: {}", aggregated_stats.complexity.function_count);
+        println!("Average complexity: {:.1}", aggregated_stats.complexity.cyclomatic_complexity);
+        println!("Max nesting depth: {}", aggregated_stats.complexity.max_nesting_depth);
+    }
+    
+    // Time estimates
+    println!();
+    println!("=== Time Estimates ===");
+    println!("Total development time: {}", aggregated_stats.time.total_time_formatted);
+    println!("Code writing time: {}", aggregated_stats.time.code_time_formatted);
+    println!("Documentation time: {}", aggregated_stats.time.doc_time_formatted);
+    
+    // Quality metrics
+    println!();
+    println!("=== Quality Metrics ===");
+    println!("Overall quality score: {:.1}/100", aggregated_stats.ratios.quality_metrics.overall_quality_score);
+    println!("Documentation score: {:.1}/100", aggregated_stats.ratios.quality_metrics.documentation_score);
+    println!("Maintainability score: {:.1}/100", aggregated_stats.ratios.quality_metrics.maintainability_score);
+    
+    if verbose || !aggregated_stats.basic.stats_by_extension.is_empty() {
+        println!();
+        println!("=== Breakdown by Extension ===");
         
-        let mut ext_stats: Vec<_> = stats.stats_by_extension.iter().collect();
+        let mut extensions: Vec<_> = aggregated_stats.basic.stats_by_extension.iter().collect();
         
-        // Sort by the specified criteria
-        ext_stats.sort_by(|a, b| {
-            let comparison = match sort_by {
-                SortBy::Files => a.1.0.cmp(&b.1.0),
-                SortBy::Lines => a.1.1.total_lines.cmp(&b.1.1.total_lines),
-                SortBy::Code => a.1.1.code_lines.cmp(&b.1.1.code_lines),
-                SortBy::Comments => a.1.1.comment_lines.cmp(&b.1.1.comment_lines),
-                SortBy::Size => a.1.1.file_size.cmp(&b.1.1.file_size),
-            };
-            
-            if descending {
-                comparison.reverse()
-            } else {
-                comparison
-            }
-        });
+        // Sort based on the selected criteria
+        match sort_by {
+            SortBy::Files => extensions.sort_by_key(|(_, ext_stats)| ext_stats.file_count),
+            SortBy::Lines => extensions.sort_by_key(|(_, ext_stats)| ext_stats.total_lines),
+            SortBy::Code => extensions.sort_by_key(|(_, ext_stats)| ext_stats.code_lines),
+            SortBy::Comments => extensions.sort_by_key(|(_, ext_stats)| ext_stats.comment_lines),
+            SortBy::Size => extensions.sort_by_key(|(_, ext_stats)| ext_stats.total_size),
+        }
         
-        println!("{:<12} {:<8} {:<10} {:<10} {:<12} {:<10} {:<10} {:<12}", 
-                 "Extension", "Files", "Total", "Code", "Comments", "Docs", "Blank", "Size (KB)");
-        println!("{}", "-".repeat(88));
+        if descending {
+            extensions.reverse();
+        }
         
-        for (ext, (file_count, file_stats)) in ext_stats {
-            println!("{:<12} {:<8} {:<10} {:<10} {:<12} {:<10} {:<10} {:<12.2}", 
-                     ext,
-                     file_count,
-                     file_stats.total_lines,
-                     file_stats.code_lines,
-                     file_stats.comment_lines,
-                     file_stats.doc_lines,
-                     file_stats.blank_lines,
-                     file_stats.file_size as f64 / 1024.0);
+        for (ext, ext_stats) in extensions {
+            println!("  {}: {} files, {} lines ({} code, {} docs, {} comments)",
+                ext, ext_stats.file_count, ext_stats.total_lines, ext_stats.code_lines,
+                ext_stats.doc_lines, ext_stats.comment_lines);
         }
     }
     
     if !individual_files.is_empty() {
-        println!("\n=== Individual Files ===");
-        println!("{:<50} {:<10} {:<10} {:<12} {:<10} {:<10}", 
-                 "File", "Total", "Code", "Comments", "Docs", "Blank");
-        println!("{}", "-".repeat(102));
-        
+        println!();
+        println!("=== Individual Files ===");
         for (file_path, file_stats) in individual_files {
-            println!("{:<50} {:<10} {:<10} {:<12} {:<10} {:<10}", 
-                     file_path,
-                     file_stats.total_lines,
-                     file_stats.code_lines,
-                     file_stats.comment_lines,
-                     file_stats.doc_lines,
-                     file_stats.blank_lines);
+            println!("  {}: {} lines ({} code)", file_path, file_stats.total_lines, file_stats.code_lines);
         }
     }
     
@@ -358,72 +349,108 @@ fn output_text(
 }
 
 fn output_json(
-    stats: &CodeStats,
+    aggregated_stats: &AggregatedStats,
     individual_files: &[(String, FileStats)],
 ) -> Result<()> {
-    let mut json_stats = serde_json::Map::new();
-    json_stats.insert("total_files".to_string(), serde_json::Value::Number(stats.total_files.into()));
-    json_stats.insert("total_lines".to_string(), serde_json::Value::Number(stats.total_lines.into()));
-    json_stats.insert("total_code_lines".to_string(), serde_json::Value::Number(stats.total_code_lines.into()));
-    json_stats.insert("total_comment_lines".to_string(), serde_json::Value::Number(stats.total_comment_lines.into()));
-    json_stats.insert("total_doc_lines".to_string(), serde_json::Value::Number(stats.total_doc_lines.into()));
-    json_stats.insert("total_blank_lines".to_string(), serde_json::Value::Number(stats.total_blank_lines.into()));
-    json_stats.insert("total_size".to_string(), serde_json::Value::Number(stats.total_size.into()));
-    
-    let mut by_extension = serde_json::Map::new();
-    for (ext, (file_count, file_stats)) in &stats.stats_by_extension {
-        let mut ext_data = serde_json::Map::new();
-        ext_data.insert("files".to_string(), serde_json::Value::Number((*file_count).into()));
-        ext_data.insert("total_lines".to_string(), serde_json::Value::Number(file_stats.total_lines.into()));
-        ext_data.insert("code_lines".to_string(), serde_json::Value::Number(file_stats.code_lines.into()));
-        ext_data.insert("comment_lines".to_string(), serde_json::Value::Number(file_stats.comment_lines.into()));
-        ext_data.insert("doc_lines".to_string(), serde_json::Value::Number(file_stats.doc_lines.into()));
-        ext_data.insert("blank_lines".to_string(), serde_json::Value::Number(file_stats.blank_lines.into()));
-        ext_data.insert("file_size".to_string(), serde_json::Value::Number(file_stats.file_size.into()));
-        
-        by_extension.insert(ext.clone(), serde_json::Value::Object(ext_data));
-    }
-    json_stats.insert("by_extension".to_string(), serde_json::Value::Object(by_extension));
-    
-    if !individual_files.is_empty() {
-        let mut files_data = serde_json::Map::new();
-        for (file_path, file_stats) in individual_files {
-            let mut file_data = serde_json::Map::new();
-            file_data.insert("total_lines".to_string(), serde_json::Value::Number(file_stats.total_lines.into()));
-            file_data.insert("code_lines".to_string(), serde_json::Value::Number(file_stats.code_lines.into()));
-            file_data.insert("comment_lines".to_string(), serde_json::Value::Number(file_stats.comment_lines.into()));
-            file_data.insert("doc_lines".to_string(), serde_json::Value::Number(file_stats.doc_lines.into()));
-            file_data.insert("blank_lines".to_string(), serde_json::Value::Number(file_stats.blank_lines.into()));
-            file_data.insert("file_size".to_string(), serde_json::Value::Number(file_stats.file_size.into()));
-            
-            files_data.insert(file_path.clone(), serde_json::Value::Object(file_data));
-        }
-        json_stats.insert("individual_files".to_string(), serde_json::Value::Object(files_data));
-    }
-    
-    let json_output = serde_json::Value::Object(json_stats);
-    println!("{}", serde_json::to_string_pretty(&json_output)?);
-    
+    // Use the comprehensive stats serialization
+    let json_output = serde_json::to_string_pretty(aggregated_stats)?;
+    println!("{}", json_output);
     Ok(())
 }
 
 fn output_csv(
-    stats: &CodeStats,
+    aggregated_stats: &AggregatedStats,
     _individual_files: &[(String, FileStats)],
 ) -> Result<()> {
     println!("Extension,Files,Total Lines,Code Lines,Comment Lines,Doc Lines,Blank Lines,Size (bytes)");
     
-    for (ext, (file_count, file_stats)) in &stats.stats_by_extension {
-        println!("{},{},{},{},{},{},{},{}", 
-                 ext,
-                 file_count,
-                 file_stats.total_lines,
-                 file_stats.code_lines,
-                 file_stats.comment_lines,
-                 file_stats.doc_lines,
-                 file_stats.blank_lines,
-                 file_stats.file_size);
+    for (ext, ext_stats) in &aggregated_stats.basic.stats_by_extension {
+        println!("{},{},{},{},{},{},{},{}",
+            ext,
+            ext_stats.file_count,
+            ext_stats.total_lines,
+            ext_stats.code_lines,
+            ext_stats.comment_lines,
+            ext_stats.doc_lines,
+            ext_stats.blank_lines,
+            ext_stats.total_size);
     }
+    
+    Ok(())
+}
+
+fn output_html(
+    aggregated_stats: &AggregatedStats,
+    individual_files: &[(String, FileStats)],
+) -> Result<()> {
+    use howmany::ui::html::HtmlReporter;
+    
+    let reporter = HtmlReporter::new();
+    let output_path = Path::new("howmany-report.html");
+    
+    // Convert AggregatedStats back to CodeStats for compatibility
+    let code_stats = CodeStats {
+        total_files: aggregated_stats.basic.total_files,
+        total_lines: aggregated_stats.basic.total_lines,
+        total_code_lines: aggregated_stats.basic.code_lines,
+        total_comment_lines: aggregated_stats.basic.comment_lines,
+        total_blank_lines: aggregated_stats.basic.blank_lines,
+        total_size: aggregated_stats.basic.total_size,
+        total_doc_lines: aggregated_stats.basic.doc_lines,
+        stats_by_extension: aggregated_stats.basic.stats_by_extension.iter()
+            .map(|(ext, ext_stats)| {
+                (ext.clone(), (ext_stats.file_count, FileStats {
+                    total_lines: ext_stats.total_lines,
+                    code_lines: ext_stats.code_lines,
+                    comment_lines: ext_stats.comment_lines,
+                    blank_lines: ext_stats.blank_lines,
+                    file_size: ext_stats.total_size,
+                    doc_lines: ext_stats.doc_lines,
+                }))
+            })
+            .collect(),
+    };
+    
+    reporter.generate_report(&code_stats, individual_files, output_path)?;
+    println!("HTML report generated: {}", output_path.display());
+    
+    Ok(())
+}
+
+fn output_time_wasted(
+    aggregated_stats: &AggregatedStats,
+    individual_files: &[(String, FileStats)],
+) -> Result<()> {
+    use howmany::ui::html::HtmlReporter;
+    
+    let reporter = HtmlReporter::new();
+    let output_path = Path::new("time-wasted-report.html");
+    
+    // Convert AggregatedStats back to CodeStats for compatibility
+    let code_stats = CodeStats {
+        total_files: aggregated_stats.basic.total_files,
+        total_lines: aggregated_stats.basic.total_lines,
+        total_code_lines: aggregated_stats.basic.code_lines,
+        total_comment_lines: aggregated_stats.basic.comment_lines,
+        total_blank_lines: aggregated_stats.basic.blank_lines,
+        total_size: aggregated_stats.basic.total_size,
+        total_doc_lines: aggregated_stats.basic.doc_lines,
+        stats_by_extension: aggregated_stats.basic.stats_by_extension.iter()
+            .map(|(ext, ext_stats)| {
+                (ext.clone(), (ext_stats.file_count, FileStats {
+                    total_lines: ext_stats.total_lines,
+                    code_lines: ext_stats.code_lines,
+                    comment_lines: ext_stats.comment_lines,
+                    blank_lines: ext_stats.blank_lines,
+                    file_size: ext_stats.total_size,
+                    doc_lines: ext_stats.doc_lines,
+                }))
+            })
+            .collect(),
+    };
+    
+    reporter.generate_time_wasted_report(&code_stats, individual_files, output_path)?;
+    println!("Time wasted report generated: {}", output_path.display());
     
     Ok(())
 } 

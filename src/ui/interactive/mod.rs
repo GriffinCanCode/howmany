@@ -1,272 +1,151 @@
-use crate::core::counter::{CodeStats, FileStats};
-use colored::*;
-use comfy_table::{Table, Row, Cell, presets::UTF8_FULL, ContentArrangement, Color};
-use console::Term;
-use indicatif::{ProgressBar, ProgressStyle};
-use std::io;
-use std::time::Duration;
+pub mod app;
+pub mod display;
+pub mod rendering;
+pub mod charts;
+pub mod utils;
+pub mod legacy;
+
+use crate::core::types::{CodeStats, FileStats};
+use crate::core::stats::AggregatedStats;
+use crate::utils::errors::Result;
+use display::ModernInteractiveDisplay;
+use legacy::InteractiveDisplay as LegacyDisplay;
 
 pub struct InteractiveDisplay {
-    term: Term,
+    modern_display: Option<ModernInteractiveDisplay>,
+    legacy_display: LegacyDisplay,
 }
 
 impl InteractiveDisplay {
     pub fn new() -> Self {
+        let modern_display = ModernInteractiveDisplay::new().ok();
+        let legacy_display = LegacyDisplay::new();
+        
         Self {
-            term: Term::stdout(),
+            modern_display,
+            legacy_display,
         }
     }
-
-    pub fn show_welcome(&self) -> io::Result<()> {
-        self.term.clear_screen()?;
-        
-        let title = r#"
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║                                                                               ║
-║                          🔍 HOW MANY CODE ANALYZER 🔍                        ║
-║                                                                               ║
-║              Intelligent code counting with beautiful visualization           ║
-║                                                                               ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-        "#;
-        
-        println!("{}", title.bright_cyan());
-        println!();
-        Ok(())
-    }
-
-    pub fn show_scanning_progress(&self, path: &str) -> ProgressBar {
-        println!("{}", format!("📁 Analyzing directory: {}", path).bright_yellow());
-        println!("{}", "🔍 Scanning for user-created code files...".bright_blue());
-        println!();
-        
-        let pb = ProgressBar::new_spinner();
-        pb.set_style(
-            ProgressStyle::default_spinner()
-                .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
-                .template("{spinner:.cyan} {msg}")
-                .unwrap()
-        );
-        pb.set_message("Scanning files...");
-        pb.enable_steady_tick(Duration::from_millis(100));
-        pb
-    }
-
-    pub fn show_results(&self, stats: &CodeStats, individual_files: &[(String, FileStats)]) -> io::Result<()> {
-        self.term.clear_screen()?;
-        self.show_welcome()?;
-        
-        // Main statistics overview
-        self.show_overview(stats)?;
-        
-        // Detailed breakdown by file type
-        self.show_breakdown_by_type(stats)?;
-        
-        // Individual files if requested
-        if !individual_files.is_empty() {
-            self.show_individual_files(individual_files)?;
+    
+    pub fn show_welcome(&mut self) -> Result<()> {
+        if let Some(ref mut modern) = self.modern_display {
+            modern.show_welcome().map_err(|e| crate::utils::errors::HowManyError::display(e.to_string()))
+        } else {
+            self.legacy_display.show_welcome().map_err(|e| crate::utils::errors::HowManyError::display(e.to_string()))
         }
-        
-        // Summary footer
-        self.show_footer()?;
-        
-        Ok(())
     }
-
-    fn show_overview(&self, stats: &CodeStats) -> io::Result<()> {
-        println!("{}", "📊 OVERVIEW".bright_green().bold());
-        println!("{}", "─".repeat(80).bright_black());
-        
-        let mut table = Table::new();
-        table.load_preset(UTF8_FULL)
-             .set_content_arrangement(ContentArrangement::Dynamic);
-        
-        // Add header
-        table.add_row(Row::from(vec![
-            Cell::new("Metric").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Count").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Percentage").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Visual").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-        ]));
-        
-        // Calculate percentages
-        let total_lines = stats.total_lines as f64;
-        let code_pct = if total_lines > 0.0 { (stats.total_code_lines as f64 / total_lines) * 100.0 } else { 0.0 };
-        let comment_pct = if total_lines > 0.0 { (stats.total_comment_lines as f64 / total_lines) * 100.0 } else { 0.0 };
-        let doc_pct = if total_lines > 0.0 { (stats.total_doc_lines as f64 / total_lines) * 100.0 } else { 0.0 };
-        let blank_pct = if total_lines > 0.0 { (stats.total_blank_lines as f64 / total_lines) * 100.0 } else { 0.0 };
-        
-        // Add data rows
-        table.add_row(Row::from(vec![
-            Cell::new("📁 Total Files").fg(Color::Yellow),
-            Cell::new(format!("{}", stats.total_files)).fg(Color::White),
-            Cell::new("-").fg(Color::DarkGrey),
-            Cell::new("📁".repeat(std::cmp::min(stats.total_files, 20))).fg(Color::Yellow),
-        ]));
-        
-        table.add_row(Row::from(vec![
-            Cell::new("📏 Total Lines").fg(Color::Blue),
-            Cell::new(format!("{}", stats.total_lines)).fg(Color::White),
-            Cell::new("100.0%").fg(Color::Green),
-            Cell::new(self.create_bar(100.0, "█")).fg(Color::Blue),
-        ]));
-        
-        table.add_row(Row::from(vec![
-            Cell::new("💻 Code Lines").fg(Color::Green),
-            Cell::new(format!("{}", stats.total_code_lines)).fg(Color::White),
-            Cell::new(format!("{:.1}%", code_pct)).fg(Color::Green),
-            Cell::new(self.create_bar(code_pct, "█")).fg(Color::Green),
-        ]));
-        
-        table.add_row(Row::from(vec![
-            Cell::new("💬 Comment Lines").fg(Color::Magenta),
-            Cell::new(format!("{}", stats.total_comment_lines)).fg(Color::White),
-            Cell::new(format!("{:.1}%", comment_pct)).fg(Color::Magenta),
-            Cell::new(self.create_bar(comment_pct, "█")).fg(Color::Magenta),
-        ]));
-        
-        table.add_row(Row::from(vec![
-            Cell::new("📚 Documentation Lines").fg(Color::Cyan),
-            Cell::new(format!("{}", stats.total_doc_lines)).fg(Color::White),
-            Cell::new(format!("{:.1}%", doc_pct)).fg(Color::Cyan),
-            Cell::new(self.create_bar(doc_pct, "█")).fg(Color::Cyan),
-        ]));
-        
-        table.add_row(Row::from(vec![
-            Cell::new("⬜ Blank Lines").fg(Color::DarkGrey),
-            Cell::new(format!("{}", stats.total_blank_lines)).fg(Color::White),
-            Cell::new(format!("{:.1}%", blank_pct)).fg(Color::DarkGrey),
-            Cell::new(self.create_bar(blank_pct, "░")).fg(Color::DarkGrey),
-        ]));
-        
-        table.add_row(Row::from(vec![
-            Cell::new("💾 Total Size").fg(Color::Cyan),
-            Cell::new(self.format_size(stats.total_size)).fg(Color::White),
-            Cell::new("-").fg(Color::DarkGrey),
-            Cell::new("💾".repeat(std::cmp::min((stats.total_size / 1024) as usize, 20))).fg(Color::Cyan),
-        ]));
-        
-        println!("{}", table);
-        println!();
-        
-        Ok(())
-    }
-
-    fn show_breakdown_by_type(&self, stats: &CodeStats) -> io::Result<()> {
-        if stats.stats_by_extension.is_empty() {
-            return Ok(());
+    
+    pub fn show_scanning_progress(&mut self, path: &str) -> Result<indicatif::ProgressBar> {
+        if let Some(ref mut modern) = self.modern_display {
+            modern.show_scanning_progress(path).map_err(|e| crate::utils::errors::HowManyError::display(e.to_string()))
+        } else {
+            Ok(self.legacy_display.show_scanning_progress(path))
         }
-        
-        println!("{}", "🔍 BREAKDOWN BY FILE TYPE".bright_green().bold());
-        println!("{}", "─".repeat(80).bright_black());
-        
-        let mut table = Table::new();
-        table.load_preset(UTF8_FULL)
-             .set_content_arrangement(ContentArrangement::Dynamic);
-        
-        // Add header
-        table.add_row(Row::from(vec![
-            Cell::new("Extension").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Files").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Lines").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Code").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Comments").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Docs").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Blanks").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Size").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Distribution").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-        ]));
-        
-        // Sort by total lines descending
-        let mut ext_stats: Vec<_> = stats.stats_by_extension.iter().collect();
-        ext_stats.sort_by(|a, b| b.1.1.total_lines.cmp(&a.1.1.total_lines));
-        
-        for (ext, (file_count, file_stats)) in ext_stats {
-            let ext_icon = self.get_extension_icon(ext);
-            let percentage = if stats.total_lines > 0 {
-                (file_stats.total_lines as f64 / stats.total_lines as f64) * 100.0
-            } else {
-                0.0
+    }
+    
+    pub fn show_results(&mut self, stats: &CodeStats, individual_files: &[(String, FileStats)]) -> Result<()> {
+        if let Some(ref mut modern) = self.modern_display {
+            // Convert CodeStats to AggregatedStats for comprehensive display
+            let stats_calculator = crate::core::stats::StatsCalculator::new();
+            if let Ok(aggregated_stats) = stats_calculator.calculate_project_stats(stats, individual_files) {
+                return self.show_comprehensive_results(&aggregated_stats, individual_files);
+            }
+        }
+        self.legacy_display.show_results(stats, individual_files).map_err(|e| crate::utils::errors::HowManyError::display(e.to_string()))
+    }
+    
+    pub fn show_comprehensive_results(&mut self, aggregated_stats: &AggregatedStats, individual_files: &[(String, FileStats)]) -> Result<()> {
+        if let Some(ref mut modern) = self.modern_display {
+            // Convert AggregatedStats back to CodeStats for compatibility
+            let code_stats = CodeStats {
+                total_files: aggregated_stats.basic.total_files,
+                total_lines: aggregated_stats.basic.total_lines,
+                total_code_lines: aggregated_stats.basic.code_lines,
+                total_comment_lines: aggregated_stats.basic.comment_lines,
+                total_blank_lines: aggregated_stats.basic.blank_lines,
+                total_size: aggregated_stats.basic.total_size,
+                total_doc_lines: aggregated_stats.basic.doc_lines,
+                stats_by_extension: aggregated_stats.basic.stats_by_extension.iter()
+                    .map(|(ext, ext_stats)| {
+                        (ext.clone(), (ext_stats.file_count, crate::core::types::FileStats {
+                            total_lines: ext_stats.total_lines,
+                            code_lines: ext_stats.code_lines,
+                            comment_lines: ext_stats.comment_lines,
+                            blank_lines: ext_stats.blank_lines,
+                            file_size: ext_stats.total_size,
+                            doc_lines: ext_stats.doc_lines,
+                        }))
+                    })
+                    .collect(),
             };
             
-            table.add_row(Row::from(vec![
-                Cell::new(format!("{} {}", ext_icon, ext)).fg(Color::Yellow),
-                Cell::new(format!("{}", file_count)).fg(Color::White),
-                Cell::new(format!("{}", file_stats.total_lines)).fg(Color::Blue),
-                Cell::new(format!("{}", file_stats.code_lines)).fg(Color::Green),
-                Cell::new(format!("{}", file_stats.comment_lines)).fg(Color::Magenta),
-                Cell::new(format!("{}", file_stats.doc_lines)).fg(Color::Cyan),
-                Cell::new(format!("{}", file_stats.blank_lines)).fg(Color::DarkGrey),
-                Cell::new(self.format_size(file_stats.file_size)).fg(Color::Cyan),
-                Cell::new(format!("{} {:.1}%", self.create_bar(percentage, "▓"), percentage)).fg(Color::Yellow),
-            ]));
+            modern.run_interactive_mode(code_stats, individual_files.to_vec()).map_err(|e| crate::utils::errors::HowManyError::display(e.to_string()))
+        } else {
+            // Fallback to legacy display with enhanced output
+            self.show_enhanced_legacy_results(aggregated_stats, individual_files)
+        }
+    }
+    
+    fn show_enhanced_legacy_results(&mut self, aggregated_stats: &AggregatedStats, individual_files: &[(String, FileStats)]) -> Result<()> {
+        use owo_colors::OwoColorize;
+        
+        println!("{}", "📊 COMPREHENSIVE RESULTS".bright_green());
+        println!("{}", "─".repeat(80));
+        
+        // Basic stats
+        println!("📁 Total Files: {}", aggregated_stats.basic.total_files.to_string().bright_yellow());
+        println!("📏 Total Lines: {}", aggregated_stats.basic.total_lines.to_string().bright_blue());
+        println!("💻 Code Lines: {}", aggregated_stats.basic.code_lines.to_string().bright_green());
+        println!("💬 Comment Lines: {}", aggregated_stats.basic.comment_lines.to_string().bright_magenta());
+        println!("📚 Documentation Lines: {}", aggregated_stats.basic.doc_lines.to_string().bright_cyan());
+        println!("⬜ Blank Lines: {}", aggregated_stats.basic.blank_lines.to_string().bright_black());
+        println!("💾 Total Size: {}", self.format_size_fallback(aggregated_stats.basic.total_size).bright_cyan());
+        
+        // Enhanced stats
+        if aggregated_stats.complexity.function_count > 0 {
+            println!();
+            println!("{}", "🔧 COMPLEXITY ANALYSIS".bright_green());
+            println!("{}", "─".repeat(80));
+            println!("⚙️  Functions: {}", aggregated_stats.complexity.function_count.to_string().bright_yellow());
+            println!("📊 Average Complexity: {:.1}", aggregated_stats.complexity.cyclomatic_complexity);
+            println!("🏗️  Max Nesting Depth: {}", aggregated_stats.complexity.max_nesting_depth);
         }
         
-        println!("{}", table);
+        // Time estimates
         println!();
+        println!("{}", "⏱️  TIME ESTIMATES".bright_green());
+        println!("{}", "─".repeat(80));
+        println!("🕐 Total Development Time: {}", aggregated_stats.time.total_time_formatted.bright_blue());
+        println!("💻 Code Writing Time: {}", aggregated_stats.time.code_time_formatted.bright_green());
+        println!("📝 Documentation Time: {}", aggregated_stats.time.doc_time_formatted.bright_cyan());
         
-        Ok(())
-    }
-
-    fn show_individual_files(&self, individual_files: &[(String, FileStats)]) -> io::Result<()> {
-        println!("{}", "📄 INDIVIDUAL FILES".bright_green().bold());
-        println!("{}", "─".repeat(80).bright_black());
+        // Quality metrics
+        println!();
+        println!("{}", "🏆 QUALITY METRICS".bright_green());
+        println!("{}", "─".repeat(80));
+        println!("🎯 Overall Quality: {:.1}/100", aggregated_stats.ratios.quality_metrics.overall_quality_score);
+        println!("📖 Documentation Score: {:.1}/100", aggregated_stats.ratios.quality_metrics.documentation_score);
+        println!("🔧 Maintainability Score: {:.1}/100", aggregated_stats.ratios.quality_metrics.maintainability_score);
         
-        let mut table = Table::new();
-        table.load_preset(UTF8_FULL)
-             .set_content_arrangement(ContentArrangement::Dynamic);
-        
-        // Add header
-        table.add_row(Row::from(vec![
-            Cell::new("File").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Lines").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Code").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Comments").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Docs").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Blanks").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-            Cell::new("Size").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
-        ]));
-        
-        for (file_path, file_stats) in individual_files {
-            let file_icon = self.get_file_icon(file_path);
-            let shortened_path = self.shorten_path(file_path, 40);
+        if !individual_files.is_empty() {
+            println!();
+            println!("{}", "📄 INDIVIDUAL FILES".bright_green());
+            println!("{}", "─".repeat(80));
             
-            table.add_row(Row::from(vec![
-                Cell::new(format!("{} {}", file_icon, shortened_path)).fg(Color::Yellow),
-                Cell::new(format!("{}", file_stats.total_lines)).fg(Color::Blue),
-                Cell::new(format!("{}", file_stats.code_lines)).fg(Color::Green),
-                Cell::new(format!("{}", file_stats.comment_lines)).fg(Color::Magenta),
-                Cell::new(format!("{}", file_stats.doc_lines)).fg(Color::Cyan),
-                Cell::new(format!("{}", file_stats.blank_lines)).fg(Color::DarkGrey),
-                Cell::new(self.format_size(file_stats.file_size)).fg(Color::Cyan),
-            ]));
+            for (file_path, file_stats) in individual_files {
+                println!("📄 {} - {} lines", file_path, file_stats.total_lines);
+            }
         }
-        
-        println!("{}", table);
-        println!();
+
+        println!("\n{}", "Press any key to exit...".bright_green());
+        use std::io::Read;
+        let _ = std::io::stdin().read(&mut [0u8]).unwrap();
         
         Ok(())
     }
-
-    fn show_footer(&self) -> io::Result<()> {
-        println!("{}", "─".repeat(80).bright_black());
-        println!("{}", "✨ Analysis complete! Press any key to exit...".bright_green());
-        
-        // Wait for user input
-        self.term.read_key()?;
-        
-        Ok(())
-    }
-
-    fn create_bar(&self, percentage: f64, char: &str) -> String {
-        let width = 20;
-        let filled = ((percentage / 100.0) * width as f64) as usize;
-        let filled = std::cmp::min(filled, width);
-        char.repeat(filled)
-    }
-
-    fn format_size(&self, size: u64) -> String {
-        const UNITS: &[&str] = &["B", "KB", "MB", "GB"];
+    
+    fn format_size_fallback(&self, size: u64) -> String {
+        const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
         let mut size = size as f64;
         let mut unit_index = 0;
         
@@ -281,65 +160,10 @@ impl InteractiveDisplay {
             format!("{:.1} {}", size, UNITS[unit_index])
         }
     }
+}
 
-    fn get_extension_icon(&self, ext: &str) -> &'static str {
-        match ext {
-            "rs" => "🦀",
-            "py" => "🐍",
-            "js" | "jsx" => "📜",
-            "ts" | "tsx" => "📘",
-            "html" => "🌐",
-            "css" | "scss" | "sass" => "🎨",
-            "json" => "📋",
-            "xml" => "📄",
-            "yaml" | "yml" => "⚙️",
-            "toml" => "🔧",
-            "md" => "📝",
-            "txt" => "📄",
-            "java" => "☕",
-            "c" | "cpp" | "cc" | "cxx" => "⚡",
-            "h" | "hpp" => "📎",
-            "go" => "🐹",
-            "php" => "🐘",
-            "rb" => "💎",
-            "swift" => "🍎",
-            "kt" => "🎯",
-            "scala" => "🎭",
-            "sh" | "bash" | "zsh" => "🐚",
-            _ => "📄",
-        }
-    }
-
-    fn get_file_icon(&self, file_path: &str) -> &'static str {
-        if file_path.ends_with(".rs") {
-            "🦀"
-        } else if file_path.ends_with(".py") {
-            "🐍"
-        } else if file_path.ends_with(".js") || file_path.ends_with(".jsx") {
-            "📜"
-        } else if file_path.ends_with(".ts") || file_path.ends_with(".tsx") {
-            "📘"
-        } else if file_path.ends_with(".toml") {
-            "🔧"
-        } else if file_path.ends_with(".json") {
-            "📋"
-        } else if file_path.ends_with(".md") {
-            "📝"
-        } else {
-            "📄"
-        }
-    }
-
-    fn shorten_path(&self, path: &str, max_length: usize) -> String {
-        if path.len() <= max_length {
-            path.to_string()
-        } else {
-            let parts: Vec<&str> = path.split('/').collect();
-            if parts.len() > 2 {
-                format!(".../{}", parts[parts.len()-1])
-            } else {
-                format!("...{}", &path[path.len()-max_length+3..])
-            }
-        }
+impl Default for InteractiveDisplay {
+    fn default() -> Self {
+        Self::new()
     }
 } 

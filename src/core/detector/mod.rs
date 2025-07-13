@@ -50,11 +50,11 @@ impl FileDetector {
 
         let cache_patterns = vec![
             // Generic cache patterns
-            Regex::new(r"(?i)cache").unwrap(),
-            Regex::new(r"(?i)temp").unwrap(),
-            Regex::new(r"(?i)tmp").unwrap(),
+            Regex::new(r"(?i)/cache/").unwrap(),
+            Regex::new(r"(?i)/temp/").unwrap(),
+            Regex::new(r"(?i)/tmp/").unwrap(),
             Regex::new(r"\.cache").unwrap(),
-            Regex::new(r"\.tmp").unwrap(),
+            Regex::new(r"\.tmp$").unwrap(),
             
             // IDE/Editor files
             Regex::new(r"\.vscode").unwrap(),
@@ -74,9 +74,10 @@ impl FileDetector {
             "cpp".to_string(), "cc".to_string(), "cxx".to_string(), "h".to_string(),
             "hpp".to_string(), "cs".to_string(), "php".to_string(), "rb".to_string(),
             "go".to_string(), "swift".to_string(), "kt".to_string(), "scala".to_string(),
-            "clj".to_string(), "hs".to_string(), "ml".to_string(), "fs".to_string(),
+            "clj".to_string(), "cljs".to_string(), "hs".to_string(), "ml".to_string(), "fs".to_string(),
             "elm".to_string(), "dart".to_string(), "lua".to_string(), "pl".to_string(),
-            "r".to_string(), "m".to_string(), "mm".to_string(),
+            "r".to_string(), "m".to_string(), "mm".to_string(), "erl".to_string(), "ex".to_string(),
+            "exs".to_string(), "jl".to_string(), "sql".to_string(), "zig".to_string(),
             
             // Web technologies
             "html".to_string(), "css".to_string(), "scss".to_string(), "sass".to_string(),
@@ -92,6 +93,7 @@ impl FileDetector {
             
             // Documentation that might be user-created
             "md".to_string(), "rst".to_string(), "txt".to_string(), "adoc".to_string(),
+            "asciidoc".to_string(),
         ];
 
         Self {

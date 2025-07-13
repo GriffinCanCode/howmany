@@ -8,6 +8,12 @@ pub enum HowManyError {
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
     
+    #[error("File not found: {0}")]
+    FileNotFound(String),
+    
+    #[error("Parse error: {0}")]
+    ParseError(String),
+    
     #[error("File processing error: {message}")]
     FileProcessing { message: String },
     

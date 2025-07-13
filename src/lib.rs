@@ -1,14 +1,17 @@
 // Core functionality modules
 pub mod core {
+    pub mod types;
     pub mod detector;
     pub mod counter;
     pub mod filters;
+    pub mod stats;
 }
 
 // User interface modules
 pub mod ui {
     pub mod cli;
     pub mod interactive;
+    pub mod html;
 }
 
 // Utility modules
@@ -27,11 +30,22 @@ pub mod testing {
 }
 
 // Re-export commonly used types for convenience
+pub use core::types::{CodeStats, FileStats};
 pub use core::detector::FileDetector;
 pub use core::counter::CodeCounter;
 pub use core::filters::FileFilter;
+pub use core::stats::StatsCalculator;
+
+// Re-export techstack types for easy access
+pub use core::stats::{
+    TechStackAnalyzer, TechStackDetector, TechStackInventory, DetectedTechnology,
+    TechCategory, ConfidenceLevel, TechStackInsights, TechStackStats,
+    DependencyGraph, DependencyMapper, FrameworkRecommendation
+};
+
 pub use ui::cli::Config;
 pub use ui::interactive::InteractiveDisplay;
+pub use ui::html::HtmlReporter;
 pub use utils::errors::{HowManyError, Result};
 pub use utils::config::HowManyConfig;
 pub use utils::progress::ProgressReporter;

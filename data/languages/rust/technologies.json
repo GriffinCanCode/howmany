@@ -1,0 +1,1132 @@
+{
+  "Actix Web": {
+    "name": "Actix Web",
+    "description": "Powerful, pragmatic, and extremely fast web framework for Rust",
+    "category": "web_framework",
+    "website": "https://actix.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["actix-web = ", "actix-web = {", "actix-web.workspace", "actix-web-"],
+      "imports": ["use actix_web", "actix_web::", "from actix_web", "actix_web::web", "actix_web::App"],
+      "code": ["HttpServer::", "App::new()", "web::get", "web::post", "web::put", "web::delete", "HttpResponse::", "HttpRequest"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "src/handlers.rs"],
+      "annotations": ["#[actix_web::main]", "#[get(", "#[post(", "#[put(", "#[delete("]
+    },
+    "versions": {
+      "patterns": ["actix-web = \"([^\"]+)\"", "actix-web = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Axum": {
+    "name": "Axum",
+    "description": "Ergonomic and modular web framework built with Tokio, Tower, and Hyper",
+    "category": "web_framework",
+    "website": "https://github.com/tokio-rs/axum",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["axum = ", "axum = {", "axum.workspace"],
+      "imports": ["use axum", "axum::", "axum::extract", "axum::response", "axum::routing"],
+      "code": ["Router::new()", "route(", "get(", "post(", "put(", "delete(", "serve(", "Json(", "Path(", "Query("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "src/handlers.rs"]
+    },
+    "versions": {
+      "patterns": ["axum = \"([^\"]+)\"", "axum = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust", "Tokio"],
+    "oss": true
+  },
+  "Rocket": {
+    "name": "Rocket",
+    "description": "Web framework for Rust that makes it simple to write fast, secure web applications",
+    "category": "web_framework",
+    "website": "https://rocket.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["rocket = ", "rocket = {", "rocket.workspace"],
+      "imports": ["use rocket", "rocket::", "#[macro_use] extern crate rocket"],
+      "code": ["#[get(", "#[post(", "#[put(", "#[delete(", "#[patch(", "rocket::launch", "Rocket::build()", "routes!["],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"],
+      "annotations": ["#[get(", "#[post(", "#[put(", "#[delete(", "#[patch(", "#[launch]"]
+    },
+    "versions": {
+      "patterns": ["rocket = \"([^\"]+)\"", "rocket = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Warp": {
+    "name": "Warp",
+    "description": "Super-easy, composable, web server framework for warp speeds",
+    "category": "web_framework",
+    "website": "https://github.com/seanmonstar/warp",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["warp = ", "warp = {", "warp.workspace"],
+      "imports": ["use warp", "warp::", "warp::Filter"],
+      "code": ["warp::serve(", "warp::path", "warp::get(", "warp::post(", "warp::reply", "warp::filters", "and(", "or("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["warp = \"([^\"]+)\"", "warp = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust", "Tokio"],
+    "oss": true
+  },
+  "Tide": {
+    "name": "Tide",
+    "description": "Serve the web – HTTP server framework",
+    "category": "web_framework",
+    "website": "https://github.com/http-rs/tide",
+    "confidence": 85,
+    "patterns": {
+      "cargo_toml": ["tide = ", "tide = {", "tide.workspace"],
+      "imports": ["use tide", "tide::", "tide::Request", "tide::Response"],
+      "code": ["tide::new()", "app.at(", "app.listen(", "Request", "Response", "tide::Result"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["tide = \"([^\"]+)\"", "tide = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Poem": {
+    "name": "Poem",
+    "description": "Full-featured and easy-to-use web framework",
+    "category": "web_framework",
+    "website": "https://github.com/poem-web/poem",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["poem = ", "poem = {", "poem.workspace"],
+      "imports": ["use poem", "poem::", "poem::web", "poem::Route"],
+      "code": ["Route::new()", "get(", "post(", "put(", "delete(", "handler(", "Server::new("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["poem = \"([^\"]+)\"", "poem = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust", "Tokio"],
+    "oss": true
+  },
+  "Salvo": {
+    "name": "Salvo",
+    "description": "Powerful and simple Rust web server framework",
+    "category": "web_framework",
+    "website": "https://salvo.rs",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["salvo = ", "salvo = {", "salvo.workspace"],
+      "imports": ["use salvo", "salvo::", "salvo::prelude"],
+      "code": ["Router::new()", "get(", "post(", "put(", "delete(", "handler(", "Server::new("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["salvo = \"([^\"]+)\"", "salvo = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust", "Tokio"],
+    "oss": true
+  },
+  "Loco": {
+    "name": "Loco",
+    "description": "Rails-inspired web framework for Rust",
+    "category": "web_framework",
+    "website": "https://loco.rs",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["loco-rs = ", "loco-rs = {", "loco.workspace"],
+      "imports": ["use loco_rs", "loco_rs::", "loco::app"],
+      "code": ["App::new()", "controller::", "model::", "migration::", "task::"],
+      "files": ["Cargo.toml", "src/main.rs", "src/app.rs", "src/controllers/", "src/models/"],
+      "directories": ["src/controllers/", "src/models/", "src/views/", "migration/"]
+    },
+    "versions": {
+      "patterns": ["loco-rs = \"([^\"]+)\"", "loco-rs = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Leptos": {
+    "name": "Leptos",
+    "description": "Build fast web apps with Rust",
+    "category": "ui_framework",
+    "website": "https://leptos.dev",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["leptos = ", "leptos = {", "leptos.workspace"],
+      "imports": ["use leptos", "leptos::", "leptos::*"],
+      "code": ["view!", "component!", "create_signal(", "create_effect(", "create_resource(", "provide_context("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "src/app.rs"],
+      "annotations": ["#[component]", "#[server]", "#[island]"]
+    },
+    "versions": {
+      "patterns": ["leptos = \"([^\"]+)\"", "leptos = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust", "WebAssembly"],
+    "oss": true
+  },
+  "Yew": {
+    "name": "Yew",
+    "description": "Rust / Wasm framework for building client web apps",
+    "category": "ui_framework",
+    "website": "https://yew.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["yew = ", "yew = {", "yew.workspace"],
+      "imports": ["use yew", "yew::", "yew::prelude::*"],
+      "code": ["html!", "Component", "Properties", "use_state", "use_effect", "Callback", "Html"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "src/app.rs", "index.html"],
+      "annotations": ["#[derive(Properties)]", "#[function_component]"]
+    },
+    "versions": {
+      "patterns": ["yew = \"([^\"]+)\"", "yew = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust", "WebAssembly"],
+    "oss": true
+  },
+  "Dioxus": {
+    "name": "Dioxus",
+    "description": "Fullstack GUI library for desktop, web, mobile, and more",
+    "category": "ui_framework",
+    "website": "https://dioxuslabs.com",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["dioxus = ", "dioxus = {", "dioxus.workspace"],
+      "imports": ["use dioxus", "dioxus::", "dioxus::prelude::*"],
+      "code": ["rsx!", "component!", "use_state", "use_effect", "Props", "Element", "VNode"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "src/app.rs"],
+      "annotations": ["#[derive(Props)]", "#[component]"]
+    },
+    "versions": {
+      "patterns": ["dioxus = \"([^\"]+)\"", "dioxus = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Tauri": {
+    "name": "Tauri",
+    "description": "Build smaller, faster, and more secure desktop applications with a web frontend",
+    "category": "desktop_framework",
+    "website": "https://tauri.app",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["tauri = ", "tauri = {", "tauri.workspace"],
+      "imports": ["use tauri", "tauri::", "tauri::generate_handler"],
+      "code": ["tauri::Builder", "tauri::generate_handler", "tauri::command", "tauri::Manager", "tauri::Window"],
+      "files": ["Cargo.toml", "src-tauri/", "tauri.conf.json", "src/main.rs"],
+      "directories": ["src-tauri/", "src-tauri/src/", "src-tauri/icons/"],
+      "annotations": ["#[tauri::command]", "#[cfg_attr(mobile, tauri::mobile_entry_point)]"]
+    },
+    "versions": {
+      "patterns": ["tauri = \"([^\"]+)\"", "tauri = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Egui": {
+    "name": "Egui",
+    "description": "Immediate mode GUI in Rust that runs on both web and native",
+    "category": "desktop_framework",
+    "website": "https://egui.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["egui = ", "egui = {", "eframe = ", "eframe = {"],
+      "imports": ["use egui", "egui::", "use eframe", "eframe::"],
+      "code": ["egui::CentralPanel", "egui::SidePanel", "egui::TopBottomPanel", "ui.label(", "ui.button(", "ui.text_edit("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "src/app.rs"]
+    },
+    "versions": {
+      "patterns": ["egui = \"([^\"]+)\"", "eframe = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Iced": {
+    "name": "Iced",
+    "description": "Cross-platform GUI library for Rust focused on simplicity and type-safety",
+    "category": "desktop_framework",
+    "website": "https://iced.rs",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["iced = ", "iced = {", "iced.workspace"],
+      "imports": ["use iced", "iced::", "iced::widget", "iced::Element"],
+      "code": ["Application", "update(", "view(", "subscription(", "Element", "Command", "Message"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "src/app.rs"]
+    },
+    "versions": {
+      "patterns": ["iced = \"([^\"]+)\"", "iced = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Slint": {
+    "name": "Slint",
+    "description": "Declarative GUI toolkit to build native user interfaces for Rust applications",
+    "category": "desktop_framework",
+    "website": "https://slint.dev",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["slint = ", "slint = {", "slint.workspace"],
+      "imports": ["use slint", "slint::", "slint::Model"],
+      "code": ["slint::include_modules!", "ComponentHandle", "Model", "VecModel", "SharedString"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "*.slint", "ui/*.slint"],
+      "directories": ["ui/"]
+    },
+    "versions": {
+      "patterns": ["slint = \"([^\"]+)\"", "slint = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Bevy": {
+    "name": "Bevy",
+    "description": "Refreshingly simple data-driven game engine built in Rust",
+    "category": "game_engine",
+    "website": "https://bevyengine.org",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["bevy = ", "bevy = {", "bevy.workspace"],
+      "imports": ["use bevy", "bevy::", "bevy::prelude::*"],
+      "code": ["bevy::prelude", "App::new()", "DefaultPlugins", "bevy::ecs", "Query", "Res", "ResMut", "Commands"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "assets/"],
+      "directories": ["assets/", "src/systems/", "src/components/"],
+      "annotations": ["#[derive(Component)]", "#[derive(Resource)]"]
+    },
+    "versions": {
+      "patterns": ["bevy = \"([^\"]+)\"", "bevy = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Macroquad": {
+    "name": "Macroquad",
+    "description": "Simple and easy to use game library for Rust programming language",
+    "category": "game_engine",
+    "website": "https://macroquad.rs",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["macroquad = ", "macroquad = {", "macroquad.workspace"],
+      "imports": ["use macroquad", "macroquad::", "macroquad::prelude::*"],
+      "code": ["macroquad::prelude", "main_conf(", "next_frame(", "draw_texture(", "draw_rectangle(", "clear_background("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["macroquad = \"([^\"]+)\"", "macroquad = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Diesel": {
+    "name": "Diesel",
+    "description": "Safe, extensible ORM and Query Builder for Rust",
+    "category": "orm",
+    "website": "https://diesel.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["diesel = ", "diesel = {", "diesel.workspace"],
+      "imports": ["use diesel", "diesel::", "#[macro_use] extern crate diesel", "diesel::prelude::*"],
+      "code": ["diesel::prelude", "diesel::table", "diesel::insert_into", "diesel::update", "diesel::delete", "establish_connection"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "diesel.toml", "migrations/", "src/schema.rs"],
+      "directories": ["migrations/", "src/models/"],
+      "annotations": ["#[derive(Queryable)]", "#[derive(Insertable)]", "#[table_name"]
+    },
+    "versions": {
+      "patterns": ["diesel = \"([^\"]+)\"", "diesel = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "SeaORM": {
+    "name": "SeaORM",
+    "description": "Async & dynamic ORM for Rust",
+    "category": "orm",
+    "website": "https://sea-ql.org/SeaORM",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["sea-orm = ", "sea-orm = {", "sea-orm.workspace"],
+      "imports": ["use sea_orm", "sea_orm::", "sea_orm::entity::prelude::*"],
+      "code": ["sea_orm::entity", "sea_orm::Database", "DeriveEntityModel", "ActiveModelTrait", "EntityTrait"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "src/entities/", "migration/"],
+      "directories": ["src/entities/", "migration/", "src/migrator/"],
+      "annotations": ["#[derive(DeriveEntityModel)]", "#[sea_orm(table_name"]
+    },
+    "versions": {
+      "patterns": ["sea-orm = \"([^\"]+)\"", "sea-orm = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "SQLx": {
+    "name": "SQLx",
+    "description": "Async SQL crate featuring compile-time checked queries without a DSL",
+    "category": "orm",
+    "website": "https://github.com/launchbadge/sqlx",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["sqlx = ", "sqlx = {", "sqlx.workspace"],
+      "imports": ["use sqlx", "sqlx::", "sqlx::prelude::*"],
+      "code": ["sqlx::query", "sqlx::query_as", "sqlx::Pool", "sqlx::Row", "sqlx::FromRow", "PgPool", "MySqlPool", "SqlitePool"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", ".sqlx/", "migrations/"],
+      "directories": [".sqlx/", "migrations/"],
+      "annotations": ["#[derive(FromRow)]", "#[sqlx(table_name"]
+    },
+    "versions": {
+      "patterns": ["sqlx = \"([^\"]+)\"", "sqlx = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Serde": {
+    "name": "Serde",
+    "description": "Serialization framework for Rust",
+    "category": "serialization",
+    "website": "https://serde.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["serde = ", "serde = {", "serde.workspace", "serde_json = ", "serde_yaml = "],
+      "imports": ["use serde", "serde::", "serde_json", "serde_yaml", "serde_derive"],
+      "code": ["serde::Serialize", "serde::Deserialize", "serde_json::from_str", "serde_json::to_string", "serde_yaml::from_str"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"],
+      "annotations": ["#[derive(Serialize)]", "#[derive(Deserialize)]", "#[serde("]
+    },
+    "versions": {
+      "patterns": ["serde = \"([^\"]+)\"", "serde = { version = \"([^\"]+)\"", "serde_json = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Tokio": {
+    "name": "Tokio",
+    "description": "Runtime for writing reliable asynchronous applications with Rust",
+    "category": "async_runtime",
+    "website": "https://tokio.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["tokio = ", "tokio = {", "tokio.workspace"],
+      "imports": ["use tokio", "tokio::", "tokio::prelude::*"],
+      "code": ["tokio::main", "tokio::spawn", "tokio::time", "tokio::net", "tokio::fs", "tokio::io", "async fn", "await"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"],
+      "annotations": ["#[tokio::main]", "#[tokio::test]"]
+    },
+    "versions": {
+      "patterns": ["tokio = \"([^\"]+)\"", "tokio = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "async-std": {
+    "name": "async-std",
+    "description": "Async version of the Rust standard library",
+    "category": "async_runtime",
+    "website": "https://async.rs",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["async-std = ", "async-std = {", "async-std.workspace"],
+      "imports": ["use async_std", "async_std::", "async_std::prelude::*"],
+      "code": ["async_std::main", "async_std::task", "async_std::net", "async_std::fs", "async_std::io"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"],
+      "annotations": ["#[async_std::main]", "#[async_std::test]"]
+    },
+    "versions": {
+      "patterns": ["async-std = \"([^\"]+)\"", "async-std = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Smol": {
+    "name": "Smol",
+    "description": "Small and fast async runtime for Rust",
+    "category": "async_runtime",
+    "website": "https://github.com/smol-rs/smol",
+    "confidence": 85,
+    "patterns": {
+      "cargo_toml": ["smol = ", "smol = {", "smol.workspace"],
+      "imports": ["use smol", "smol::", "smol::prelude::*"],
+      "code": ["smol::run", "smol::spawn", "smol::block_on", "smol::Timer", "smol::Executor"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["smol = \"([^\"]+)\"", "smol = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Rayon": {
+    "name": "Rayon",
+    "description": "Data parallelism library for Rust",
+    "category": "async_runtime",
+    "website": "https://github.com/rayon-rs/rayon",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["rayon = ", "rayon = {", "rayon.workspace"],
+      "imports": ["use rayon", "rayon::", "rayon::prelude::*"],
+      "code": ["par_iter(", "par_chunks(", "par_sort(", "par_bridge(", "into_par_iter(", "ParallelIterator"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["rayon = \"([^\"]+)\"", "rayon = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Clap": {
+    "name": "Clap",
+    "description": "Command Line Argument Parser for Rust",
+    "category": "cli",
+    "website": "https://clap.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["clap = ", "clap = {", "clap.workspace"],
+      "imports": ["use clap", "clap::", "clap::Parser", "clap::Subcommand"],
+      "code": ["#[derive(Parser", "clap::App", "clap::Arg", "clap::Command", "parse(", "get_matches("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "src/cli.rs"],
+      "annotations": ["#[derive(Parser)]", "#[derive(Subcommand)]", "#[clap("]
+    },
+    "versions": {
+      "patterns": ["clap = \"([^\"]+)\"", "clap = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Structopt": {
+    "name": "Structopt",
+    "description": "Parse command line arguments by defining a struct",
+    "category": "cli",
+    "website": "https://github.com/TeXitoi/structopt",
+    "confidence": 85,
+    "patterns": {
+      "cargo_toml": ["structopt = ", "structopt = {", "structopt.workspace"],
+      "imports": ["use structopt", "structopt::", "structopt::StructOpt"],
+      "code": ["#[derive(StructOpt", "StructOpt::from_args(", "from_args("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"],
+      "annotations": ["#[derive(StructOpt)]", "#[structopt("]
+    },
+    "versions": {
+      "patterns": ["structopt = \"([^\"]+)\"", "structopt = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Reqwest": {
+    "name": "Reqwest",
+    "description": "Higher level HTTP client library for Rust",
+    "category": "utility_library",
+    "website": "https://github.com/seanmonstar/reqwest",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["reqwest = ", "reqwest = {", "reqwest.workspace"],
+      "imports": ["use reqwest", "reqwest::", "reqwest::Client"],
+      "code": ["reqwest::get(", "reqwest::Client::new(", "reqwest::blocking", "get(", "post(", "put(", "delete("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["reqwest = \"([^\"]+)\"", "reqwest = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Hyper": {
+    "name": "Hyper",
+    "description": "Fast and correct HTTP library for Rust",
+    "category": "utility_library",
+    "website": "https://hyper.rs",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["hyper = ", "hyper = {", "hyper.workspace"],
+      "imports": ["use hyper", "hyper::", "hyper::service", "hyper::server"],
+      "code": ["hyper::Server", "hyper::Client", "hyper::Request", "hyper::Response", "hyper::Body"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["hyper = \"([^\"]+)\"", "hyper = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust", "Tokio"],
+    "oss": true
+  },
+  "Tonic": {
+    "name": "Tonic",
+    "description": "gRPC over HTTP/2 implementation focused on high performance",
+    "category": "utility_library",
+    "website": "https://github.com/hyperium/tonic",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["tonic = ", "tonic = {", "tonic.workspace", "tonic-build = "],
+      "imports": ["use tonic", "tonic::", "tonic::transport", "tonic::Request", "tonic::Response"],
+      "code": ["tonic::transport::Server", "tonic::transport::Channel", "tonic::Request", "tonic::Response", "tonic::Status"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "build.rs", "proto/"],
+      "directories": ["proto/", "src/proto/"]
+    },
+    "versions": {
+      "patterns": ["tonic = \"([^\"]+)\"", "tonic = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust", "Tokio"],
+    "oss": true
+  },
+  "Tracing": {
+    "name": "Tracing",
+    "description": "Application-level tracing for Rust",
+    "category": "logging",
+    "website": "https://tracing.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["tracing = ", "tracing = {", "tracing.workspace", "tracing-subscriber = "],
+      "imports": ["use tracing", "tracing::", "tracing_subscriber"],
+      "code": ["tracing::info", "tracing::error", "tracing::warn", "tracing::debug", "tracing::trace", "instrument"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"],
+      "annotations": ["#[tracing::instrument]", "#[instrument]"]
+    },
+    "versions": {
+      "patterns": ["tracing = \"([^\"]+)\"", "tracing = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Log": {
+    "name": "Log",
+    "description": "Lightweight logging facade for Rust",
+    "category": "logging",
+    "website": "https://github.com/rust-lang/log",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["log = ", "log = {", "log.workspace", "env_logger = "],
+      "imports": ["use log", "log::", "env_logger"],
+      "code": ["log::info", "log::error", "log::warn", "log::debug", "log::trace", "env_logger::init"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["log = \"([^\"]+)\"", "log = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Slog": {
+    "name": "Slog",
+    "description": "Structured, contextual, extensible, composable logging for Rust",
+    "category": "logging",
+    "website": "https://github.com/slog-rs/slog",
+    "confidence": 85,
+    "patterns": {
+      "cargo_toml": ["slog = ", "slog = {", "slog.workspace"],
+      "imports": ["use slog", "slog::", "slog::Logger"],
+      "code": ["slog::Logger", "slog::info", "slog::error", "slog::warn", "slog::debug", "slog::o!"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["slog = \"([^\"]+)\"", "slog = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Anyhow": {
+    "name": "Anyhow",
+    "description": "Flexible concrete Error type built on std::error::Error",
+    "category": "utility_library",
+    "website": "https://github.com/dtolnay/anyhow",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["anyhow = ", "anyhow = {", "anyhow.workspace"],
+      "imports": ["use anyhow", "anyhow::", "anyhow::Result", "anyhow::Error"],
+      "code": ["anyhow::Result", "anyhow::Error", "anyhow::bail", "anyhow::ensure", "anyhow::Context"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["anyhow = \"([^\"]+)\"", "anyhow = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Thiserror": {
+    "name": "Thiserror",
+    "description": "derive(Error) for struct and enum error types",
+    "category": "utility_library",
+    "website": "https://github.com/dtolnay/thiserror",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["thiserror = ", "thiserror = {", "thiserror.workspace"],
+      "imports": ["use thiserror", "thiserror::", "thiserror::Error"],
+      "code": ["thiserror::Error", "#[derive(Error", "#[error("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"],
+      "annotations": ["#[derive(Error)]", "#[error("]
+    },
+    "versions": {
+      "patterns": ["thiserror = \"([^\"]+)\"", "thiserror = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Regex": {
+    "name": "Regex",
+    "description": "Regular expressions for Rust",
+    "category": "utility_library",
+    "website": "https://github.com/rust-lang/regex",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["regex = ", "regex = {", "regex.workspace"],
+      "imports": ["use regex", "regex::", "regex::Regex"],
+      "code": ["regex::Regex", "Regex::new(", "is_match(", "find(", "captures(", "replace("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["regex = \"([^\"]+)\"", "regex = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Uuid": {
+    "name": "Uuid",
+    "description": "Generate and parse UUIDs",
+    "category": "utility_library",
+    "website": "https://github.com/uuid-rs/uuid",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["uuid = ", "uuid = {", "uuid.workspace"],
+      "imports": ["use uuid", "uuid::", "uuid::Uuid"],
+      "code": ["uuid::Uuid", "Uuid::new_v4(", "Uuid::parse_str(", "Uuid::nil("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["uuid = \"([^\"]+)\"", "uuid = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Chrono": {
+    "name": "Chrono",
+    "description": "Date and time library for Rust",
+    "category": "utility_library",
+    "website": "https://github.com/chronotope/chrono",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["chrono = ", "chrono = {", "chrono.workspace"],
+      "imports": ["use chrono", "chrono::", "chrono::prelude::*"],
+      "code": ["chrono::DateTime", "chrono::Utc", "chrono::Local", "chrono::NaiveDateTime", "Utc::now("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["chrono = \"([^\"]+)\"", "chrono = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Time": {
+    "name": "Time",
+    "description": "Date and time library for Rust",
+    "category": "utility_library",
+    "website": "https://time-rs.github.io",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["time = ", "time = {", "time.workspace"],
+      "imports": ["use time", "time::", "time::OffsetDateTime"],
+      "code": ["time::OffsetDateTime", "time::Date", "time::Time", "OffsetDateTime::now_utc("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["time = \"([^\"]+)\"", "time = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Rand": {
+    "name": "Rand",
+    "description": "Random number generation library for Rust",
+    "category": "utility_library",
+    "website": "https://rust-random.github.io/rand",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["rand = ", "rand = {", "rand.workspace"],
+      "imports": ["use rand", "rand::", "rand::prelude::*"],
+      "code": ["rand::random", "rand::thread_rng", "rand::Rng", "thread_rng(", "gen_range("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["rand = \"([^\"]+)\"", "rand = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Config": {
+    "name": "Config",
+    "description": "Layered configuration system for Rust applications",
+    "category": "configuration",
+    "website": "https://github.com/mehcode/config-rs",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["config = ", "config = {", "config.workspace"],
+      "imports": ["use config", "config::", "config::Config"],
+      "code": ["config::Config", "Config::builder(", "Config::new(", "add_source(", "try_deserialize("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "config.toml", "config.yaml", "config.json"],
+      "directories": ["config/"]
+    },
+    "versions": {
+      "patterns": ["config = \"([^\"]+)\"", "config = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Dotenv": {
+    "name": "Dotenv",
+    "description": "Dotenv implementation for Rust",
+    "category": "configuration",
+    "website": "https://github.com/dotenv-rs/dotenv",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["dotenv = ", "dotenv = {", "dotenv.workspace"],
+      "imports": ["use dotenv", "dotenv::", "dotenv::dotenv"],
+      "code": ["dotenv::dotenv", "dotenv()", "var(", "vars("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", ".env", ".env.example"]
+    },
+    "versions": {
+      "patterns": ["dotenv = \"([^\"]+)\"", "dotenv = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Redis": {
+    "name": "Redis",
+    "description": "Redis driver for Rust",
+    "category": "cache",
+    "website": "https://github.com/redis-rs/redis-rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["redis = ", "redis = {", "redis.workspace"],
+      "imports": ["use redis", "redis::", "redis::Client"],
+      "code": ["redis::Client", "redis::Connection", "redis::Commands", "get_connection(", "cmd("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["redis = \"([^\"]+)\"", "redis = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Moka": {
+    "name": "Moka",
+    "description": "High performance concurrent caching library for Rust",
+    "category": "cache",
+    "website": "https://github.com/moka-rs/moka",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["moka = ", "moka = {", "moka.workspace"],
+      "imports": ["use moka", "moka::", "moka::future::Cache"],
+      "code": ["moka::future::Cache", "moka::sync::Cache", "Cache::new(", "get(", "insert("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["moka = \"([^\"]+)\"", "moka = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Criterion": {
+    "name": "Criterion",
+    "description": "Statistics-driven benchmarking library for Rust",
+    "category": "testing",
+    "website": "https://bheisler.github.io/criterion.rs",
+    "confidence": 95,
+    "patterns": {
+      "cargo_toml": ["criterion = ", "criterion = {", "criterion.workspace"],
+      "imports": ["use criterion", "criterion::", "criterion::Criterion"],
+      "code": ["criterion::Criterion", "criterion_group!", "criterion_main!", "bench_function(", "black_box("],
+      "files": ["Cargo.toml", "benches/", "src/main.rs", "src/lib.rs"],
+      "directories": ["benches/", "target/criterion/"]
+    },
+    "versions": {
+      "patterns": ["criterion = \"([^\"]+)\"", "criterion = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Proptest": {
+    "name": "Proptest",
+    "description": "Property testing framework for Rust",
+    "category": "testing",
+    "website": "https://github.com/proptest-rs/proptest",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["proptest = ", "proptest = {", "proptest.workspace"],
+      "imports": ["use proptest", "proptest::", "proptest::prelude::*"],
+      "code": ["proptest!", "prop_assert!", "prop_assume!", "any::", "strategy::"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "tests/"],
+      "directories": ["tests/"]
+    },
+    "versions": {
+      "patterns": ["proptest = \"([^\"]+)\"", "proptest = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Mockall": {
+    "name": "Mockall",
+    "description": "Mock object library for Rust",
+    "category": "testing",
+    "website": "https://github.com/asomers/mockall",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["mockall = ", "mockall = {", "mockall.workspace"],
+      "imports": ["use mockall", "mockall::", "mockall::predicate", "mockall::mock"],
+      "code": ["mockall::automock", "mock!", "expect_", "with(", "return_const("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "tests/"],
+      "annotations": ["#[mockall::automock]", "#[automock]"]
+    },
+    "versions": {
+      "patterns": ["mockall = \"([^\"]+)\"", "mockall = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Wiremock": {
+    "name": "Wiremock",
+    "description": "HTTP mocking library for Rust",
+    "category": "testing",
+    "website": "https://github.com/LukeMathWalker/wiremock-rs",
+    "confidence": 85,
+    "patterns": {
+      "cargo_toml": ["wiremock = ", "wiremock = {", "wiremock.workspace"],
+      "imports": ["use wiremock", "wiremock::", "wiremock::MockServer"],
+      "code": ["wiremock::MockServer", "MockServer::start(", "Mock::given(", "respond_with("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "tests/"]
+    },
+    "versions": {
+      "patterns": ["wiremock = \"([^\"]+)\"", "wiremock = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Cargo": {
+    "name": "Cargo",
+    "description": "Rust package manager and build system",
+    "category": "build_tool",
+    "website": "https://doc.rust-lang.org/cargo",
+    "confidence": 95,
+    "patterns": {
+      "files": ["Cargo.toml", "Cargo.lock", ".cargo/config.toml"],
+      "code": ["[package]", "[dependencies]", "[dev-dependencies]", "[build-dependencies]", "name =", "version ="],
+      "scripts": ["cargo build", "cargo run", "cargo test", "cargo check", "cargo clippy"],
+      "directories": ["src/", "target/", ".cargo/"]
+    },
+    "versions": {
+      "patterns": ["rust-version = \"([^\"]+)\"", "edition = \"([^\"]+)\""],
+      "files": ["Cargo.toml"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Clippy": {
+    "name": "Clippy",
+    "description": "Collection of lints to catch common mistakes and improve Rust code",
+    "category": "build_tool",
+    "website": "https://github.com/rust-lang/rust-clippy",
+    "confidence": 95,
+    "patterns": {
+      "files": ["clippy.toml", ".clippy.toml"],
+      "code": ["#[allow(clippy::", "#[warn(clippy::", "#[deny(clippy::", "#[forbid(clippy::"],
+      "scripts": ["cargo clippy", "clippy"],
+      "annotations": ["#[allow(clippy::", "#[warn(clippy::", "#[deny(clippy::"]
+    },
+    "implies": ["Rust", "Cargo"],
+    "oss": true
+  },
+  "Rustfmt": {
+    "name": "Rustfmt",
+    "description": "Tool for formatting Rust code according to style guidelines",
+    "category": "build_tool",
+    "website": "https://github.com/rust-lang/rustfmt",
+    "confidence": 95,
+    "patterns": {
+      "files": ["rustfmt.toml", ".rustfmt.toml"],
+      "code": ["max_width =", "hard_tabs =", "tab_spaces =", "newline_style ="],
+      "scripts": ["cargo fmt", "rustfmt"]
+    },
+    "implies": ["Rust", "Cargo"],
+    "oss": true
+  },
+  "Miri": {
+    "name": "Miri",
+    "description": "Interpreter for Rust's mid-level intermediate representation",
+    "category": "testing",
+    "website": "https://github.com/rust-lang/miri",
+    "confidence": 85,
+    "patterns": {
+      "scripts": ["cargo miri", "miri"],
+      "code": ["#[cfg(miri)]", "#[cfg(not(miri))]"],
+      "annotations": ["#[cfg(miri)]", "#[cfg(not(miri))]"]
+    },
+    "implies": ["Rust", "Cargo"],
+    "oss": true
+  },
+  "Cross": {
+    "name": "Cross",
+    "description": "Zero setup cross compilation and cross testing of Rust crates",
+    "category": "build_tool",
+    "website": "https://github.com/cross-rs/cross",
+    "confidence": 85,
+    "patterns": {
+      "files": ["Cross.toml"],
+      "code": ["[build]", "[target.", "image =", "dockerfile ="],
+      "scripts": ["cross build", "cross test", "cross run"]
+    },
+    "implies": ["Rust", "Cargo"],
+    "oss": true
+  },
+  "Wasm-pack": {
+    "name": "Wasm-pack",
+    "description": "Tool for building and packaging Rust-generated WebAssembly",
+    "category": "build_tool",
+    "website": "https://rustwasm.github.io/wasm-pack",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["wasm-bindgen = ", "web-sys = ", "js-sys = "],
+      "imports": ["use wasm_bindgen", "wasm_bindgen::", "web_sys", "js_sys"],
+      "code": ["wasm_bindgen", "#[wasm_bindgen]", "web_sys::", "js_sys::"],
+      "files": ["Cargo.toml", "src/lib.rs", "pkg/"],
+      "directories": ["pkg/", "www/"],
+      "scripts": ["wasm-pack build", "wasm-pack test"],
+      "annotations": ["#[wasm_bindgen]", "#[wasm_bindgen("]
+    },
+    "versions": {
+      "patterns": ["wasm-bindgen = \"([^\"]+)\"", "web-sys = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust", "WebAssembly"],
+    "oss": true
+  },
+  "Trunk": {
+    "name": "Trunk",
+    "description": "Build tool for Rust-generated WebAssembly web apps",
+    "category": "build_tool",
+    "website": "https://trunkrs.dev",
+    "confidence": 90,
+    "patterns": {
+      "files": ["Trunk.toml", "index.html"],
+      "code": ["[build]", "[watch]", "[serve]", "data-trunk"],
+      "scripts": ["trunk build", "trunk serve", "trunk watch"],
+      "html": ["data-trunk"]
+    },
+    "implies": ["Rust", "WebAssembly"],
+    "oss": true
+  },
+  "WGPU": {
+    "name": "WGPU",
+    "description": "Cross-platform, safe, pure-rust graphics API",
+    "category": "graphics",
+    "website": "https://wgpu.rs",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["wgpu = ", "wgpu = {", "wgpu.workspace"],
+      "imports": ["use wgpu", "wgpu::", "wgpu::util"],
+      "code": ["wgpu::Instance", "wgpu::Device", "wgpu::Queue", "wgpu::Surface", "wgpu::Buffer"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "src/renderer.rs"]
+    },
+    "versions": {
+      "patterns": ["wgpu = \"([^\"]+)\"", "wgpu = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Winit": {
+    "name": "Winit",
+    "description": "Cross-platform window creation and management in Rust",
+    "category": "graphics",
+    "website": "https://github.com/rust-windowing/winit",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["winit = ", "winit = {", "winit.workspace"],
+      "imports": ["use winit", "winit::", "winit::event_loop", "winit::window"],
+      "code": ["winit::event_loop::EventLoop", "winit::window::Window", "EventLoop::new(", "WindowBuilder::new("],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["winit = \"([^\"]+)\"", "winit = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Ratatui": {
+    "name": "Ratatui",
+    "description": "Library for building rich terminal user interfaces and dashboards",
+    "category": "ui_framework",
+    "website": "https://ratatui.rs",
+    "confidence": 90,
+    "patterns": {
+      "cargo_toml": ["ratatui = ", "ratatui = {", "ratatui.workspace"],
+      "imports": ["use ratatui", "ratatui::", "ratatui::prelude::*"],
+      "code": ["ratatui::Terminal", "ratatui::backend", "ratatui::widgets", "Frame", "Paragraph", "Block"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs", "src/ui.rs"]
+    },
+    "versions": {
+      "patterns": ["ratatui = \"([^\"]+)\"", "ratatui = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  },
+  "Cursive": {
+    "name": "Cursive",
+    "description": "TUI (Text User Interface) library for Rust",
+    "category": "ui_framework",
+    "website": "https://github.com/gyscos/cursive",
+    "confidence": 85,
+    "patterns": {
+      "cargo_toml": ["cursive = ", "cursive = {", "cursive.workspace"],
+      "imports": ["use cursive", "cursive::", "cursive::views"],
+      "code": ["cursive::Cursive", "cursive::views::", "Cursive::default(", "Dialog::", "TextView::"],
+      "files": ["Cargo.toml", "src/main.rs", "src/lib.rs"]
+    },
+    "versions": {
+      "patterns": ["cursive = \"([^\"]+)\"", "cursive = { version = \"([^\"]+)\""],
+      "files": ["Cargo.toml", "Cargo.lock"]
+    },
+    "implies": ["Rust"],
+    "oss": true
+  }
+} 
