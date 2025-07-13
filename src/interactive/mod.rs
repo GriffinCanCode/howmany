@@ -93,6 +93,7 @@ impl InteractiveDisplay {
         let total_lines = stats.total_lines as f64;
         let code_pct = if total_lines > 0.0 { (stats.total_code_lines as f64 / total_lines) * 100.0 } else { 0.0 };
         let comment_pct = if total_lines > 0.0 { (stats.total_comment_lines as f64 / total_lines) * 100.0 } else { 0.0 };
+        let doc_pct = if total_lines > 0.0 { (stats.total_doc_lines as f64 / total_lines) * 100.0 } else { 0.0 };
         let blank_pct = if total_lines > 0.0 { (stats.total_blank_lines as f64 / total_lines) * 100.0 } else { 0.0 };
         
         // Add data rows
@@ -122,6 +123,13 @@ impl InteractiveDisplay {
             Cell::new(format!("{}", stats.total_comment_lines)).fg(Color::White),
             Cell::new(format!("{:.1}%", comment_pct)).fg(Color::Magenta),
             Cell::new(self.create_bar(comment_pct, "█")).fg(Color::Magenta),
+        ]));
+        
+        table.add_row(Row::from(vec![
+            Cell::new("📚 Documentation Lines").fg(Color::Cyan),
+            Cell::new(format!("{}", stats.total_doc_lines)).fg(Color::White),
+            Cell::new(format!("{:.1}%", doc_pct)).fg(Color::Cyan),
+            Cell::new(self.create_bar(doc_pct, "█")).fg(Color::Cyan),
         ]));
         
         table.add_row(Row::from(vec![
@@ -163,6 +171,7 @@ impl InteractiveDisplay {
             Cell::new("Lines").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
             Cell::new("Code").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
             Cell::new("Comments").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
+            Cell::new("Docs").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
             Cell::new("Blanks").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
             Cell::new("Size").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
             Cell::new("Distribution").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
@@ -186,6 +195,7 @@ impl InteractiveDisplay {
                 Cell::new(format!("{}", file_stats.total_lines)).fg(Color::Blue),
                 Cell::new(format!("{}", file_stats.code_lines)).fg(Color::Green),
                 Cell::new(format!("{}", file_stats.comment_lines)).fg(Color::Magenta),
+                Cell::new(format!("{}", file_stats.doc_lines)).fg(Color::Cyan),
                 Cell::new(format!("{}", file_stats.blank_lines)).fg(Color::DarkGrey),
                 Cell::new(self.format_size(file_stats.file_size)).fg(Color::Cyan),
                 Cell::new(format!("{} {:.1}%", self.create_bar(percentage, "▓"), percentage)).fg(Color::Yellow),
@@ -212,6 +222,7 @@ impl InteractiveDisplay {
             Cell::new("Lines").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
             Cell::new("Code").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
             Cell::new("Comments").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
+            Cell::new("Docs").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
             Cell::new("Blanks").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
             Cell::new("Size").fg(Color::Cyan).add_attribute(comfy_table::Attribute::Bold),
         ]));
@@ -225,6 +236,7 @@ impl InteractiveDisplay {
                 Cell::new(format!("{}", file_stats.total_lines)).fg(Color::Blue),
                 Cell::new(format!("{}", file_stats.code_lines)).fg(Color::Green),
                 Cell::new(format!("{}", file_stats.comment_lines)).fg(Color::Magenta),
+                Cell::new(format!("{}", file_stats.doc_lines)).fg(Color::Cyan),
                 Cell::new(format!("{}", file_stats.blank_lines)).fg(Color::DarkGrey),
                 Cell::new(self.format_size(file_stats.file_size)).fg(Color::Cyan),
             ]));

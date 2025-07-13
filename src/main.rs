@@ -275,6 +275,7 @@ fn output_text(
     println!("Total lines: {}", stats.total_lines);
     println!("Code lines: {}", stats.total_code_lines);
     println!("Comment lines: {}", stats.total_comment_lines);
+    println!("Documentation lines: {}", stats.total_doc_lines);
     println!("Blank lines: {}", stats.total_blank_lines);
     println!("Total size: {} bytes ({:.2} KB)", stats.total_size, stats.total_size as f64 / 1024.0);
     
@@ -300,17 +301,18 @@ fn output_text(
             }
         });
         
-        println!("{:<12} {:<8} {:<10} {:<10} {:<12} {:<10} {:<12}", 
-                 "Extension", "Files", "Total", "Code", "Comments", "Blank", "Size (KB)");
-        println!("{}", "-".repeat(80));
+        println!("{:<12} {:<8} {:<10} {:<10} {:<12} {:<10} {:<10} {:<12}", 
+                 "Extension", "Files", "Total", "Code", "Comments", "Docs", "Blank", "Size (KB)");
+        println!("{}", "-".repeat(88));
         
         for (ext, (file_count, file_stats)) in ext_stats {
-            println!("{:<12} {:<8} {:<10} {:<10} {:<12} {:<10} {:<12.2}", 
+            println!("{:<12} {:<8} {:<10} {:<10} {:<12} {:<10} {:<10} {:<12.2}", 
                      ext,
                      file_count,
                      file_stats.total_lines,
                      file_stats.code_lines,
                      file_stats.comment_lines,
+                     file_stats.doc_lines,
                      file_stats.blank_lines,
                      file_stats.file_size as f64 / 1024.0);
         }
@@ -318,16 +320,17 @@ fn output_text(
     
     if !individual_files.is_empty() {
         println!("\n=== Individual Files ===");
-        println!("{:<50} {:<10} {:<10} {:<12} {:<10}", 
-                 "File", "Total", "Code", "Comments", "Blank");
-        println!("{}", "-".repeat(92));
+        println!("{:<50} {:<10} {:<10} {:<12} {:<10} {:<10}", 
+                 "File", "Total", "Code", "Comments", "Docs", "Blank");
+        println!("{}", "-".repeat(102));
         
         for (file_path, file_stats) in individual_files {
-            println!("{:<50} {:<10} {:<10} {:<12} {:<10}", 
+            println!("{:<50} {:<10} {:<10} {:<12} {:<10} {:<10}", 
                      file_path,
                      file_stats.total_lines,
                      file_stats.code_lines,
                      file_stats.comment_lines,
+                     file_stats.doc_lines,
                      file_stats.blank_lines);
         }
     }
@@ -344,6 +347,7 @@ fn output_json(
     json_stats.insert("total_lines".to_string(), serde_json::Value::Number(stats.total_lines.into()));
     json_stats.insert("total_code_lines".to_string(), serde_json::Value::Number(stats.total_code_lines.into()));
     json_stats.insert("total_comment_lines".to_string(), serde_json::Value::Number(stats.total_comment_lines.into()));
+    json_stats.insert("total_doc_lines".to_string(), serde_json::Value::Number(stats.total_doc_lines.into()));
     json_stats.insert("total_blank_lines".to_string(), serde_json::Value::Number(stats.total_blank_lines.into()));
     json_stats.insert("total_size".to_string(), serde_json::Value::Number(stats.total_size.into()));
     
@@ -354,6 +358,7 @@ fn output_json(
         ext_data.insert("total_lines".to_string(), serde_json::Value::Number(file_stats.total_lines.into()));
         ext_data.insert("code_lines".to_string(), serde_json::Value::Number(file_stats.code_lines.into()));
         ext_data.insert("comment_lines".to_string(), serde_json::Value::Number(file_stats.comment_lines.into()));
+        ext_data.insert("doc_lines".to_string(), serde_json::Value::Number(file_stats.doc_lines.into()));
         ext_data.insert("blank_lines".to_string(), serde_json::Value::Number(file_stats.blank_lines.into()));
         ext_data.insert("file_size".to_string(), serde_json::Value::Number(file_stats.file_size.into()));
         
@@ -368,6 +373,7 @@ fn output_json(
             file_data.insert("total_lines".to_string(), serde_json::Value::Number(file_stats.total_lines.into()));
             file_data.insert("code_lines".to_string(), serde_json::Value::Number(file_stats.code_lines.into()));
             file_data.insert("comment_lines".to_string(), serde_json::Value::Number(file_stats.comment_lines.into()));
+            file_data.insert("doc_lines".to_string(), serde_json::Value::Number(file_stats.doc_lines.into()));
             file_data.insert("blank_lines".to_string(), serde_json::Value::Number(file_stats.blank_lines.into()));
             file_data.insert("file_size".to_string(), serde_json::Value::Number(file_stats.file_size.into()));
             
@@ -386,15 +392,16 @@ fn output_csv(
     stats: &CodeStats,
     _individual_files: &[(String, FileStats)],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Extension,Files,Total Lines,Code Lines,Comment Lines,Blank Lines,Size (bytes)");
+    println!("Extension,Files,Total Lines,Code Lines,Comment Lines,Doc Lines,Blank Lines,Size (bytes)");
     
     for (ext, (file_count, file_stats)) in &stats.stats_by_extension {
-        println!("{},{},{},{},{},{},{}", 
+        println!("{},{},{},{},{},{},{},{}", 
                  ext,
                  file_count,
                  file_stats.total_lines,
                  file_stats.code_lines,
                  file_stats.comment_lines,
+                 file_stats.doc_lines,
                  file_stats.blank_lines,
                  file_stats.file_size);
     }

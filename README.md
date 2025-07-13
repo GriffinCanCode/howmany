@@ -21,7 +21,9 @@
 - **File Type Icons**: Language-specific icons for easy identification
 
 ### 📊 **Comprehensive Analysis**
-- **Line Classification**: Separates code, comments, and blank lines
+- **Advanced Line Classification**: Separates code, comments, documentation, and blank lines
+- **Smart Documentation Detection**: Distinguishes JSDoc, Rustdoc, Python docstrings, and other documentation formats
+- **Enhanced Markdown Support**: Proper parsing of Markdown files with code blocks and HTML comments
 - **File Type Breakdown**: Detailed statistics by programming language
 - **Individual File Stats**: Optional per-file analysis
 - **Size Calculations**: File size analysis with human-readable formatting
@@ -66,6 +68,15 @@ cargo install --path .
 # Now you can run from anywhere
 howmany
 ```
+
+### Quick Rebuild Script
+For development, use the included rebuild script:
+```bash
+# Make executable and run
+chmod +x rebuild.sh
+./rebuild.sh
+```
+This script will clean, rebuild, and create a system-wide symlink for easy access.
 
 ## 📖 Usage
 
@@ -196,7 +207,8 @@ howmany list --ext rs --ext toml
 │ 📁 Total Files  │ 42      │ -          │ 📁📁📁📁📁📁📁📁📁📁 │
 │ 📏 Total Lines  │ 1,247   │ 100.0%     │ ████████████████████ │
 │ 💻 Code Lines   │ 891     │ 71.4%      │ ██████████████▓▓▓▓▓▓ │
-│ 💬 Comments     │ 203     │ 16.3%      │ ███▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
+│ 💬 Comments     │ 108     │ 8.7%       │ █▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
+│ 📚 Documentation│ 95      │ 7.6%       │ █▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
 │ ⬜ Blank Lines  │ 153     │ 12.3%      │ ██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │
 │ 💾 Total Size   │ 47.3 KB │ -          │ 💾💾💾💾💾💾💾💾💾💾 │
 └─────────────────┴─────────┴────────────┴─────────────────────┘
@@ -208,18 +220,43 @@ howmany list --ext rs --ext toml
 Total files: 42
 Total lines: 1,247
 Code lines: 891
-Comment lines: 203
+Comment lines: 108
+Documentation lines: 95
 Blank lines: 153
 Total size: 48,432 bytes (47.30 KB)
 
 === Breakdown by File Type ===
-Extension    Files    Total      Code       Comments   Blank      Size (KB)
-────────────────────────────────────────────────────────────────────────────
-rs           15       856        612        144        100        32.45
-toml         3        89         67         12         10         2.31
-md           2        127        98         8          21         4.82
-json         1        45         45         0          0          1.23
+Extension    Files    Total      Code       Comments   Docs       Blank      Size (KB)
+────────────────────────────────────────────────────────────────────────────────────
+rs           15       856        612        89         55         100        32.45
+toml         3        89         67         12         0          10         2.31
+md           2        127        45         7          54         21         4.82
+json         1        45         45         0          0          0          1.23
 ```
+
+## 📚 Enhanced Documentation Support
+
+HowMany now provides intelligent documentation detection and counting:
+
+### Smart Comment Classification
+- **JSDoc**: `/**` comments in JavaScript/TypeScript
+- **Rustdoc**: `///` and `//!` comments in Rust
+- **Python Docstrings**: `"""` and `'''` strings
+- **JavaDoc**: `/**` comments in Java
+- **XML Documentation**: `///` comments in C#
+- **Doxygen**: `/**` and `/*!` comments in C/C++
+- **And many more language-specific patterns**
+
+### Advanced Markdown Parsing
+- **Code Block Detection**: Fenced (```) and indented code blocks
+- **HTML Comments**: Proper handling of `<!-- -->` comments
+- **Content Classification**: Distinguishes documentation from code examples
+- **Multi-line Support**: Handles complex markdown structures
+
+### Documentation Metrics
+- **Separate Counting**: Documentation lines counted separately from regular comments
+- **Coverage Analysis**: Understand your project's documentation coverage
+- **Language-Aware**: Different documentation patterns for different languages
 
 ## 🔍 Supported Languages
 
@@ -257,7 +294,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ### Development Setup
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/GriffinCanCode/howmany.git
 cd howmany
 
 # Install dependencies
