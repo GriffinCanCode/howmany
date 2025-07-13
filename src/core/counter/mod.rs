@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::fs;
-use std::io::{self, BufRead, BufReader};
+use std::io::{BufRead, BufReader};
 use std::path::Path;
+use crate::utils::errors::Result;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FileStats {
     pub total_lines: usize,
     pub code_lines: usize,
@@ -13,7 +14,7 @@ pub struct FileStats {
     pub doc_lines: usize, // New field for documentation content
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CodeStats {
     pub total_files: usize,
     pub total_lines: usize,
@@ -234,7 +235,7 @@ impl CodeCounter {
         Self { comment_patterns }
     }
 
-    pub fn count_file(&self, path: &Path) -> io::Result<FileStats> {
+    pub fn count_file(&self, path: &Path) -> Result<FileStats> {
         let file = fs::File::open(path)?;
         let reader = BufReader::new(file);
         
@@ -339,7 +340,7 @@ impl CodeCounter {
         })
     }
     
-    fn count_markdown_file(&self, reader: BufReader<fs::File>, file_size: u64) -> io::Result<FileStats> {
+    fn count_markdown_file(&self, reader: BufReader<fs::File>, file_size: u64) -> Result<FileStats> {
         let mut total_lines = 0;
         let mut code_lines = 0; // Code blocks
         let mut comment_lines = 0; // HTML comments
@@ -465,5 +466,186 @@ impl CodeCounter {
             total_doc_lines,
             stats_by_extension,
         }
+    }
+} 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::test_utils::TestProject;
+    
+    #[test]
+    fn test_rust_file_counting() {
+        let project = TestProject::new().unwrap();
+        let file_path = project.create_rust_file("test.rs", 2, 3).unwrap();
+        
+        let counter = CodeCounter::new();
+        let stats = counter.count_file(&file_path).unwrap();
+        
+        assert!(stats.total_lines > 0);
+        assert!(stats.code_lines > 0);
+        assert!(stats.comment_lines > 0);
+        assert!(stats.doc_lines > 0);
+        assert!(stats.blank_lines > 0);
+    }
+    
+    #[test]
+    fn test_python_file_counting() {
+        let project = TestProject::new().unwrap();
+        let file_path = project.create_python_file("test.py", 2).unwrap();
+        
+        let counter = CodeCounter::new();
+        let stats = counter.count_file(&file_path).unwrap();
+        
+        assert!(stats.total_lines > 0);
+        assert!(stats.code_lines > 0);
+        assert!(stats.comment_lines > 0);
+        assert!(stats.doc_lines > 0); // Python docstrings
+    }
+    
+    #[test]
+    fn test_javascript_file_counting() {
+        let project = TestProject::new().unwrap();
+        let file_path = project.create_javascript_file("test.js", 2).unwrap();
+        
+        let counter = CodeCounter::new();
+        let stats = counter.count_file(&file_path).unwrap();
+        
+        assert!(stats.total_lines > 0);
+        assert!(stats.code_lines > 0);
+        assert!(stats.comment_lines > 0);
+        assert!(stats.doc_lines > 0); // JSDoc comments
+    }
+    
+    #[test]
+    fn test_markdown_file_counting() {
+        let project = TestProject::new().unwrap();
+        let content = r#"# Title
+
+This is documentation content.
+
+```rust
+fn main() {
+    println!("Hello, world!");
+}
+```
+
+More documentation.
+
+<!-- HTML comment -->
+"#;
+        let file_path = project.create_file("test.md", content).unwrap();
+        
+        let counter = CodeCounter::new();
+        let stats = counter.count_file(&file_path).unwrap();
+        
+        assert!(stats.total_lines > 0);
+        assert!(stats.code_lines > 0); // Code blocks
+        assert!(stats.comment_lines > 0); // HTML comments
+        assert!(stats.doc_lines > 0); // Markdown content
+    }
+    
+    #[test]
+    fn test_empty_file() {
+        let project = TestProject::new().unwrap();
+        let file_path = project.create_file("empty.rs", "").unwrap();
+        
+        let counter = CodeCounter::new();
+        let stats = counter.count_file(&file_path).unwrap();
+        
+        assert_eq!(stats.total_lines, 0);
+        assert_eq!(stats.code_lines, 0);
+        assert_eq!(stats.comment_lines, 0);
+        assert_eq!(stats.doc_lines, 0);
+        assert_eq!(stats.blank_lines, 0);
+    }
+    
+    #[test]
+    fn test_only_blank_lines() {
+        let project = TestProject::new().unwrap();
+        let file_path = project.create_file("blank.rs", "\n\n\n\n").unwrap();
+        
+        let counter = CodeCounter::new();
+        let stats = counter.count_file(&file_path).unwrap();
+        
+        assert_eq!(stats.total_lines, 4);
+        assert_eq!(stats.code_lines, 0);
+        assert_eq!(stats.comment_lines, 0);
+        assert_eq!(stats.doc_lines, 0);
+        assert_eq!(stats.blank_lines, 4);
+    }
+    
+    #[test]
+    fn test_aggregation() {
+        let counter = CodeCounter::new();
+        
+        let file_stats = vec![
+            ("rs".to_string(), FileStats {
+                total_lines: 100,
+                code_lines: 70,
+                comment_lines: 20,
+                blank_lines: 10,
+                file_size: 1000,
+                doc_lines: 15,
+            }),
+            ("rs".to_string(), FileStats {
+                total_lines: 50,
+                code_lines: 35,
+                comment_lines: 10,
+                blank_lines: 5,
+                file_size: 500,
+                doc_lines: 8,
+            }),
+            ("py".to_string(), FileStats {
+                total_lines: 80,
+                code_lines: 60,
+                comment_lines: 15,
+                blank_lines: 5,
+                file_size: 800,
+                doc_lines: 12,
+            }),
+        ];
+        
+        let aggregated = counter.aggregate_stats(file_stats);
+        
+        assert_eq!(aggregated.total_files, 3);
+        assert_eq!(aggregated.total_lines, 230);
+        assert_eq!(aggregated.total_code_lines, 165);
+        assert_eq!(aggregated.total_comment_lines, 45);
+        assert_eq!(aggregated.total_blank_lines, 20);
+        assert_eq!(aggregated.total_size, 2300);
+        assert_eq!(aggregated.total_doc_lines, 35);
+        
+        // Check per-extension stats
+        assert_eq!(aggregated.stats_by_extension.len(), 2);
+        
+        let rust_stats = &aggregated.stats_by_extension["rs"];
+        assert_eq!(rust_stats.0, 2); // 2 files
+        assert_eq!(rust_stats.1.total_lines, 150);
+        
+        let python_stats = &aggregated.stats_by_extension["py"];
+        assert_eq!(python_stats.0, 1); // 1 file
+        assert_eq!(python_stats.1.total_lines, 80);
+    }
+    
+    #[test]
+    fn test_comment_patterns() {
+        let counter = CodeCounter::new();
+        
+        // Test Rust patterns
+        let rust_pattern = counter.comment_patterns.get("rs").unwrap();
+        assert!(rust_pattern.single_line.contains(&"//".to_string()));
+        assert!(rust_pattern.doc_patterns.contains(&"///".to_string()));
+        assert!(rust_pattern.doc_patterns.contains(&"//!".to_string()));
+        
+        // Test Python patterns
+        let python_pattern = counter.comment_patterns.get("py").unwrap();
+        assert!(python_pattern.single_line.contains(&"#".to_string()));
+        assert!(python_pattern.doc_patterns.contains(&"\"\"\"".to_string()));
+        
+        // Test JavaScript patterns
+        let js_pattern = counter.comment_patterns.get("js").unwrap();
+        assert!(js_pattern.single_line.contains(&"//".to_string()));
+        assert!(js_pattern.doc_patterns.contains(&"/**".to_string()));
     }
 } 

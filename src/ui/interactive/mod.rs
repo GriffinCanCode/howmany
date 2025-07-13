@@ -1,4 +1,4 @@
-use crate::counter::{CodeStats, FileStats};
+use crate::core::counter::{CodeStats, FileStats};
 use colored::*;
 use comfy_table::{Table, Row, Cell, presets::UTF8_FULL, ContentArrangement, Color};
 use console::Term;

@@ -1,9 +1,10 @@
-use howmany::{FileDetector, CodeCounter, FileFilter, Config, InteractiveDisplay};
-use howmany::cli::{Commands, OutputFormat, SortBy};
-use howmany::counter::{CodeStats, FileStats};
+use howmany::{FileDetector, CodeCounter, FileFilter, Config, InteractiveDisplay, Result};
+use howmany::ui::cli::{Commands, OutputFormat, SortBy};
+use howmany::core::counter::{CodeStats, FileStats};
 use std::env;
 use std::path::Path;
 use std::process;
+use rayon::prelude::*;
 
 fn main() {
     let config = Config::parse_args();
@@ -17,7 +18,7 @@ fn main() {
     }
 }
 
-fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+fn run(config: Config) -> Result<()> {
     match config.command.unwrap_or(Commands::Interactive {
         path: config.path,
         max_depth: config.max_depth,
@@ -121,7 +122,7 @@ fn count_code(
     custom_ignores: Vec<String>,
     extensions: Vec<String>,
     show_files: bool,
-) -> Result<(CodeStats, Vec<(String, FileStats)>), Box<dyn std::error::Error>> {
+) -> Result<(CodeStats, Vec<(String, FileStats)>)> {
     let detector = FileDetector::new();
     let counter = CodeCounter::new();
     let mut filter = FileFilter::new()
@@ -136,21 +137,23 @@ fn count_code(
         filter = filter.with_custom_ignores(custom_ignores);
     }
     
-    let mut file_stats = Vec::new();
-    let mut individual_files = Vec::new();
-    
-    for entry in filter.walk_directory(path) {
-        let entry_path = entry.path();
-        
-        if entry_path.is_file() {
+    // Collect all file paths first
+    let file_paths: Vec<_> = filter.walk_directory(path)
+        .filter_map(|entry| {
+            let entry_path = entry.path();
+            
+            if !entry_path.is_file() {
+                return None;
+            }
+            
             // Check if it's a user-created file
             if !detector.is_user_created_file(entry_path) {
-                continue;
+                return None;
             }
             
             // Check if it passes additional filters
             if !filter.should_include_file(entry_path) {
-                continue;
+                return None;
             }
             
             // Check extension filter if specified
@@ -158,31 +161,47 @@ fn count_code(
                 if let Some(ext) = entry_path.extension() {
                     let ext_str = ext.to_string_lossy().to_lowercase();
                     if !extensions.iter().any(|e| e.to_lowercase() == ext_str) {
-                        continue;
+                        return None;
                     }
                 } else {
-                    continue;
+                    return None;
                 }
             }
             
-            // Count the file
-            match counter.count_file(entry_path) {
+            Some(entry_path.to_path_buf())
+        })
+        .collect();
+    
+    // Process files in parallel
+    let results: Vec<_> = file_paths
+        .par_iter()
+        .filter_map(|path| {
+            match counter.count_file(path) {
                 Ok(stats) => {
-                    let extension = entry_path.extension()
+                    let extension = path.extension()
                         .and_then(|ext| ext.to_str())
                         .unwrap_or("no_extension")
                         .to_lowercase();
                     
-                    file_stats.push((extension, stats.clone()));
-                    
-                    if show_files {
-                        individual_files.push((entry_path.display().to_string(), stats));
-                    }
+                    Some((extension, stats, path.display().to_string()))
                 }
                 Err(e) => {
-                    eprintln!("Warning: Could not read file {}: {}", entry_path.display(), e);
+                    eprintln!("Warning: Could not read file {}: {}", path.display(), e);
+                    None
                 }
             }
+        })
+        .collect();
+    
+    // Separate into file_stats and individual_files
+    let mut file_stats = Vec::new();
+    let mut individual_files = Vec::new();
+    
+    for (extension, stats, path_str) in results {
+        file_stats.push((extension, stats.clone()));
+        
+        if show_files {
+            individual_files.push((path_str, stats));
         }
     }
     
@@ -198,7 +217,7 @@ fn list_files(
     ignore_gitignore: bool,
     custom_ignores: Vec<String>,
     extensions: Vec<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let detector = FileDetector::new();
     let mut filter = FileFilter::new()
         .respect_hidden(!include_hidden)
@@ -253,7 +272,7 @@ fn output_results(
     sort_by: SortBy,
     descending: bool,
     verbose: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let (code_stats, individual_files) = stats;
     
     match format {
@@ -269,7 +288,7 @@ fn output_text(
     sort_by: SortBy,
     descending: bool,
     verbose: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     println!("=== Code Statistics ===");
     println!("Total files: {}", stats.total_files);
     println!("Total lines: {}", stats.total_lines);
@@ -341,7 +360,7 @@ fn output_text(
 fn output_json(
     stats: &CodeStats,
     individual_files: &[(String, FileStats)],
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     let mut json_stats = serde_json::Map::new();
     json_stats.insert("total_files".to_string(), serde_json::Value::Number(stats.total_files.into()));
     json_stats.insert("total_lines".to_string(), serde_json::Value::Number(stats.total_lines.into()));
@@ -391,7 +410,7 @@ fn output_json(
 fn output_csv(
     stats: &CodeStats,
     _individual_files: &[(String, FileStats)],
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<()> {
     println!("Extension,Files,Total Lines,Code Lines,Comment Lines,Doc Lines,Blank Lines,Size (bytes)");
     
     for (ext, (file_count, file_stats)) in &stats.stats_by_extension {
