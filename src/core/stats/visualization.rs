@@ -1,7 +1,5 @@
-use crate::core::stats::basic::BasicStats;
 use crate::core::stats::aggregation::AggregatedStats;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Pie chart data for visualization
 #[derive(Debug, Clone, Serialize, Deserialize)]

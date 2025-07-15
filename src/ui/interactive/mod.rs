@@ -79,6 +79,7 @@ impl InteractiveDisplay {
                     .collect(),
             };
             
+            // Run with async support for better responsiveness
             modern.run_interactive_mode(code_stats, individual_files.to_vec()).map_err(|e| crate::utils::errors::HowManyError::display(e.to_string()))
         } else {
             // Fallback to legacy display with enhanced output

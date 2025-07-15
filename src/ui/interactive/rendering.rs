@@ -1,8 +1,8 @@
 use crate::core::types::CodeStats;
-use crate::core::stats::techstack::detection::TechStackInventory;
-use crate::ui::interactive::app::{AppMode, InteractiveApp, DisplayMode, ExportFormat, SearchMode};
-use crate::ui::interactive::utils::{centered_rect, format_size, get_extension_icon, get_file_icon, shorten_path};
-use crate::ui::interactive::charts::{render_enhanced_overview, render_quality_metrics, render_complexity_summary, render_function_complexity_table};
+
+use crate::ui::interactive::app::{AppMode, InteractiveApp, ExportFormat, SearchMode};
+use crate::ui::interactive::utils::{centered_rect, format_size, get_file_icon, shorten_path};
+use crate::ui::interactive::charts::{render_enhanced_overview, render_advanced_language_visualizer};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -14,7 +14,7 @@ use ratatui::{
 
 // Standalone rendering functions to avoid borrow checker issues
 pub fn render_header(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
-    let titles = vec!["Overview", "File Types", "Individual Files", "Stack View", "Export", "Quality Analysis"];
+    let titles = vec!["Overview", "Languages", "Export"];
     let tabs = Tabs::new(titles)
         .block(Block::default().borders(Borders::ALL).title(" Navigation "))
         .style(Style::default().fg(Color::White))
@@ -30,11 +30,8 @@ pub fn render_main_content(f: &mut ratatui::Frame, area: Rect, app: &mut Interac
     } else {
         match app.mode {
             AppMode::Overview => render_overview(f, area, app),
-            AppMode::FileTypes => render_file_types(f, area, app),
-            AppMode::IndividualFiles => render_individual_files(f, area, app),
-            AppMode::StackView => render_stack_view(f, area, app),
+            AppMode::Languages => render_languages(f, area, app),
             AppMode::Export => render_export(f, area, app),
-            AppMode::QualityAnalysis => render_quality_analysis(f, area, app),
             AppMode::Help => render_help(f, area),
             AppMode::Search => render_search(f, area, app),
         }
@@ -128,8 +125,14 @@ pub fn render_search(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
 
 pub fn render_overview(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
     if let Some(ref stats) = app.stats {
-        // Create aggregated stats from the basic stats
-        let aggregated_stats = create_aggregated_stats_from_basic(stats);
+        // Create comprehensive aggregated stats with real-time tracking
+        let stats_calculator = crate::core::stats::StatsCalculator::new();
+        let aggregated_stats = stats_calculator.calculate_project_stats(stats, &app.individual_files)
+            .unwrap_or_else(|_| {
+                // Fallback to basic aggregated stats if comprehensive calculation fails
+                create_aggregated_stats_from_basic(stats)
+            });
+        
         render_enhanced_overview(f, area, &aggregated_stats);
     } else {
         let no_data = Paragraph::new("No data available")
@@ -140,25 +143,21 @@ pub fn render_overview(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp)
     }
 }
 
-pub fn render_quality_analysis(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
+pub fn render_code_health(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
     if let Some(ref stats) = app.stats {
-        let aggregated_stats = create_aggregated_stats_from_basic(stats);
+        // Create comprehensive aggregated stats with real-time tracking
+        let stats_calculator = crate::core::stats::StatsCalculator::new();
+        let aggregated_stats = stats_calculator.calculate_project_stats(stats, &app.individual_files)
+            .unwrap_or_else(|_| {
+                // Fallback to basic aggregated stats if comprehensive calculation fails
+                create_aggregated_stats_from_basic(stats)
+            });
         
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(6),  // Complexity summary
-                Constraint::Length(12), // Quality metrics
-                Constraint::Min(10),    // Function complexity table
-            ])
-            .split(area);
-        
-        render_complexity_summary(f, chunks[0], &aggregated_stats);
-        render_quality_metrics(f, chunks[1], &aggregated_stats);
-        render_function_complexity_table(f, chunks[2], &aggregated_stats);
+        // Use the new advanced language visualizer instead of the old code health sections
+        render_advanced_language_visualizer(f, area, &aggregated_stats);
     } else {
-        let no_data = Paragraph::new("No data available")
-            .block(Block::default().borders(Borders::ALL).title(" Quality Analysis "))
+        let no_data = Paragraph::new("No data available for language analysis")
+            .block(Block::default().borders(Borders::ALL).title(" Language Analysis "))
             .style(Style::default().fg(Color::Gray))
             .alignment(Alignment::Center);
         f.render_widget(no_data, area);
@@ -186,8 +185,8 @@ fn create_aggregated_stats_from_basic(stats: &CodeStats) -> crate::core::stats::
         total_size: stats.total_size,
         average_file_size: if stats.total_files > 0 { stats.total_size as f64 / stats.total_files as f64 } else { 0.0 },
         average_lines_per_file: if stats.total_files > 0 { stats.total_lines as f64 / stats.total_files as f64 } else { 0.0 },
-        largest_file_size: stats.total_size, // Placeholder
-        smallest_file_size: if stats.total_size > 0 { stats.total_size } else { 0 },
+        largest_file_size: calculate_largest_file_size(stats),
+        smallest_file_size: calculate_smallest_file_size(stats),
         stats_by_extension: convert_to_extension_stats(&stats.stats_by_extension),
     };
     
@@ -230,36 +229,99 @@ fn create_aggregated_stats_from_basic(stats: &CodeStats) -> crate::core::stats::
         },
         function_complexity_details: Vec::new(),
         quality_metrics: QualityMetrics {
-            overall_quality_score: 75.0,
-            maintainability_score: 80.0,
-            readability_score: 70.0,
-            testability_score: 65.0,
-            code_duplication_ratio: 10.0,
-            comment_coverage_ratio: 25.0,
-            function_size_score: 85.0,
-            complexity_score: 70.0,
+            code_health_score: if stats.total_lines > 0 {
+                let comment_ratio = stats.total_comment_lines as f64 / stats.total_lines as f64;
+                let code_ratio = stats.total_code_lines as f64 / stats.total_lines as f64;
+                ((comment_ratio * 30.0) + (code_ratio * 50.0) + 20.0).min(100.0)
+            } else { 0.0 },
+            maintainability_index: if stats.total_code_lines > 0 {
+                let doc_ratio = (stats.total_doc_lines + stats.total_comment_lines) as f64 / stats.total_code_lines as f64;
+                (doc_ratio * 100.0).min(100.0)
+            } else { 0.0 },
+            documentation_coverage: if stats.total_code_lines > 0 {
+                let doc_lines = stats.total_doc_lines + stats.total_comment_lines;
+                (doc_lines as f64 / stats.total_code_lines as f64 * 100.0).min(100.0)
+            } else { 0.0 },
+            avg_complexity: if stats.total_files > 0 {
+                // Estimate average complexity based on file structure
+                let avg_lines_per_file = stats.total_lines as f64 / stats.total_files as f64;
+                (avg_lines_per_file / 20.0).min(10.0) // Rough estimate
+            } else { 0.0 },
+            function_size_health: if stats.total_files > 0 {
+                let avg_lines_per_file = stats.total_lines as f64 / stats.total_files as f64;
+                // Smaller files generally indicate better function sizes
+                (100.0 - (avg_lines_per_file / 10.0)).max(0.0).min(100.0)
+            } else { 0.0 },
+            nesting_depth_health: if stats.total_files > 0 {
+                // Estimate nesting health based on file structure
+                let avg_lines_per_file = stats.total_lines as f64 / stats.total_files as f64;
+                (100.0 - (avg_lines_per_file / 15.0)).max(0.0).min(100.0)
+            } else { 0.0 },
+            code_duplication_ratio: 5.0, // Conservative estimate
+            technical_debt_ratio: if stats.total_files > 0 {
+                // Estimate technical debt based on various factors
+                let avg_lines_per_file = stats.total_lines as f64 / stats.total_files as f64;
+                let large_file_penalty: f64 = if avg_lines_per_file > 100.0 { 20.0 } else { 0.0 };
+                let low_comment_penalty: f64 = if stats.total_code_lines > 0 && (stats.total_comment_lines as f64 / stats.total_code_lines as f64) < 0.1 { 15.0 } else { 0.0 };
+                (large_file_penalty + low_comment_penalty).min(100.0)
+            } else { 0.0 },
         },
     };
     
-    // Create placeholder time stats
-    let time_stats = TimeStats {
-        total_time_minutes: 0,
-        code_time_minutes: 0,
-        doc_time_minutes: 0,
-        comment_time_minutes: 0,
-        total_time_formatted: "0h 0m".to_string(),
-        code_time_formatted: "0h 0m".to_string(),
-        doc_time_formatted: "0h 0m".to_string(),
-        comment_time_formatted: "0h 0m".to_string(),
-        time_by_extension: HashMap::new(),
-        productivity_metrics: crate::core::stats::time::ProductivityMetrics {
-            lines_per_hour: 0.0,
-            code_lines_per_hour: 0.0,
-            files_per_hour: 0.0,
-            estimated_development_days: 0.0,
-            estimated_development_hours: 0.0,
-        },
-    };
+    // Create realistic time stats using actual calculations
+    let time_calculator = crate::core::stats::time::TimeStatsCalculator::new();
+    let time_stats = time_calculator.calculate_project_time_stats(stats).unwrap_or_else(|_| {
+        // Fallback to basic calculation if advanced calculation fails
+        let code_minutes = (stats.total_code_lines as f64 * 0.2) as usize; // 0.2 minutes per line of code (realistic for modern dev)
+        let doc_minutes = (stats.total_doc_lines as f64 * 0.5) as usize; // 0.5 minutes per line of docs
+        let comment_minutes = (stats.total_comment_lines as f64 * 0.1) as usize; // 0.1 minutes per line of comments
+        let total_minutes = code_minutes + doc_minutes + comment_minutes;
+        
+        let total_hours = total_minutes as f64 / 60.0;
+        let productivity_metrics = crate::core::stats::time::ProductivityMetrics {
+            lines_per_hour: if total_hours > 0.0 { stats.total_lines as f64 / total_hours } else { 0.0 },
+            code_lines_per_hour: if total_hours > 0.0 { stats.total_code_lines as f64 / total_hours } else { 0.0 },
+            files_per_hour: if total_hours > 0.0 { stats.total_files as f64 / total_hours } else { 0.0 },
+            estimated_development_days: total_hours / 8.0, // 8 hours per day
+            estimated_development_hours: total_hours,
+        };
+        
+        // Simple time formatting function
+        let format_time = |minutes: usize| -> String {
+            if minutes < 60 {
+                format!("{}min", minutes)
+            } else if minutes < 1440 { // less than 24 hours
+                let hours = minutes / 60;
+                let mins = minutes % 60;
+                if mins > 0 {
+                    format!("{}h {}min", hours, mins)
+                } else {
+                    format!("{}h", hours)
+                }
+            } else {
+                let days = minutes / 1440;
+                let hours = (minutes % 1440) / 60;
+                if hours > 0 {
+                    format!("{} days {}h", days, hours)
+                } else {
+                    format!("{} days", days)
+                }
+            }
+        };
+        
+        TimeStats {
+            total_time_minutes: total_minutes,
+            code_time_minutes: code_minutes,
+            doc_time_minutes: doc_minutes,
+            comment_time_minutes: comment_minutes,
+            total_time_formatted: format_time(total_minutes),
+            code_time_formatted: format_time(code_minutes),
+            doc_time_formatted: format_time(doc_minutes),
+            comment_time_formatted: format_time(comment_minutes),
+            time_by_extension: HashMap::new(),
+            productivity_metrics,
+        }
+    });
     
     // Create placeholder ratio stats
     let ratio_stats = RatioStats {
@@ -273,12 +335,60 @@ fn create_aggregated_stats_from_basic(stats: &CodeStats) -> crate::core::stats::
         language_distribution: HashMap::new(),
         file_distribution: HashMap::new(),
         size_distribution: HashMap::new(),
-        quality_metrics: crate::core::stats::ratios::QualityMetrics {
-            documentation_score: 75.0,
-            maintainability_score: 80.0,
-            readability_score: 70.0,
-            consistency_score: 85.0,
-            overall_quality_score: 77.5,
+        quality_metrics: {
+            let doc_score = if stats.total_code_lines > 0 {
+                ((stats.total_doc_lines + stats.total_comment_lines) as f64 / stats.total_code_lines as f64 * 100.0).min(100.0)
+            } else { 0.0 };
+            
+            let maintainability_score = if stats.total_lines > 0 {
+                let comment_ratio = stats.total_comment_lines as f64 / stats.total_lines as f64;
+                let code_ratio = stats.total_code_lines as f64 / stats.total_lines as f64;
+                ((comment_ratio * 30.0) + (code_ratio * 50.0) + 20.0).min(100.0)
+            } else { 0.0 };
+            
+            let readability_score = if stats.total_lines > 0 {
+                let comment_ratio = stats.total_comment_lines as f64 / stats.total_lines as f64;
+                let blank_ratio = stats.total_blank_lines as f64 / stats.total_lines as f64;
+                
+                // Comment contribution (0-70 points)
+                let comment_score = if comment_ratio >= 0.15 {
+                    70.0
+                } else {
+                    (comment_ratio / 0.15) * 70.0
+                };
+                
+                // Blank lines contribution (0-30 points) - ideal is 15%
+                let blank_score = if blank_ratio <= 0.15 {
+                    (blank_ratio / 0.15) * 30.0
+                } else {
+                    let penalty = (blank_ratio - 0.15) * 60.0;
+                    (30.0 - penalty).max(0.0)
+                };
+                
+                (comment_score + blank_score).min(100.0)
+            } else { 0.0 };
+            
+            let consistency_score = if stats.stats_by_extension.len() > 0 {
+                // Calculate consistency based on how evenly distributed the code is
+                let avg_lines_per_ext = stats.total_lines as f64 / stats.stats_by_extension.len() as f64;
+                let variance = stats.stats_by_extension.values()
+                    .map(|(_, file_stats)| {
+                        let diff = file_stats.total_lines as f64 - avg_lines_per_ext;
+                        diff * diff
+                    })
+                    .sum::<f64>() / stats.stats_by_extension.len() as f64;
+                (100.0 - (variance.sqrt() / avg_lines_per_ext * 100.0)).max(0.0).min(100.0)
+            } else { 0.0 };
+            
+            let overall_score = (doc_score + maintainability_score + readability_score + consistency_score) / 4.0;
+            
+            crate::core::stats::ratios::QualityMetrics {
+                documentation_score: doc_score,
+                maintainability_score: maintainability_score,
+                readability_score: readability_score,
+                consistency_score: consistency_score,
+                overall_quality_score: overall_score,
+            }
         },
     };
     
@@ -335,10 +445,6 @@ pub fn render_main_stats(f: &mut ratatui::Frame, area: Rect, stats: &CodeStats) 
 
     // Files count with enhanced styling
     let files_text = vec![
-        Line::from(vec![
-            Span::styled("📁 ", Style::default().fg(Color::Yellow)),
-            Span::styled("Files", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-        ]),
         Line::from(""),
         Line::from(vec![
             Span::styled(format!("{}", stats.total_files), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
@@ -360,10 +466,6 @@ pub fn render_main_stats(f: &mut ratatui::Frame, area: Rect, stats: &CodeStats) 
 
     // Total lines with enhanced styling
     let lines_text = vec![
-        Line::from(vec![
-            Span::styled("📏 ", Style::default().fg(Color::Blue)),
-            Span::styled("Total Lines", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-        ]),
         Line::from(""),
         Line::from(vec![
             Span::styled(format!("{}", stats.total_lines), Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
@@ -390,10 +492,6 @@ pub fn render_main_stats(f: &mut ratatui::Frame, area: Rect, stats: &CodeStats) 
         0
     };
     let code_text = vec![
-        Line::from(vec![
-            Span::styled("💻 ", Style::default().fg(Color::Green)),
-            Span::styled("Code Lines", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-        ]),
         Line::from(""),
         Line::from(vec![
             Span::styled(format!("{}", stats.total_code_lines), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
@@ -415,10 +513,6 @@ pub fn render_main_stats(f: &mut ratatui::Frame, area: Rect, stats: &CodeStats) 
 
     // Size with enhanced styling
     let size_text = vec![
-        Line::from(vec![
-            Span::styled("💾 ", Style::default().fg(Color::Cyan)),
-            Span::styled("Total Size", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-        ]),
         Line::from(""),
         Line::from(vec![
             Span::styled(format_size(stats.total_size), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
@@ -509,320 +603,373 @@ pub fn render_progress_bars(f: &mut ratatui::Frame, area: Rect, stats: &CodeStat
     f.render_widget(blank_gauge, chunks[3]);
 }
 
-pub fn render_file_types(f: &mut ratatui::Frame, area: Rect, app: &mut InteractiveApp) {
-    if let Some(ref stats) = app.stats {
-        let header = Row::new(vec![
-            Cell::from("Extension"),
-            Cell::from("Files"),
-            Cell::from("Lines"),
-            Cell::from("Code"),
-            Cell::from("Comments"),
-            Cell::from("Docs"),
-            Cell::from("Blank"),
-            Cell::from("Size"),
-        ]);
-
-        let current_extensions = app.get_current_extensions();
-        let mut rows = Vec::new();
-        
-        for ext in current_extensions {
-            if let Some((file_count, file_stats)) = stats.stats_by_extension.get(ext) {
-                let icon = get_extension_icon(ext);
-                let row = Row::new(vec![
-                    Cell::from(format!("{} {}", icon, ext)),
-                    Cell::from(file_count.to_string()),
-                    Cell::from(file_stats.total_lines.to_string()),
-                    Cell::from(file_stats.code_lines.to_string()),
-                    Cell::from(file_stats.comment_lines.to_string()),
-                    Cell::from(file_stats.doc_lines.to_string()),
-                    Cell::from(file_stats.blank_lines.to_string()),
-                    Cell::from(format_size(file_stats.file_size)),
-                ]);
-                rows.push(row);
-            }
-        }
-
-        let table = Table::new(rows, &[
-            Constraint::Length(12),
-            Constraint::Length(8),
-            Constraint::Length(8),
-            Constraint::Length(8),
-            Constraint::Length(10),
-            Constraint::Length(8),
-            Constraint::Length(8),
-            Constraint::Length(10),
-        ])
-        .header(header)
-        .block(Block::default().borders(Borders::ALL).title(" File Types "))
-        .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED))
-        .highlight_symbol(">> ");
-
-        f.render_stateful_widget(table, area, &mut app.table_state);
+pub fn render_languages(f: &mut ratatui::Frame, area: Rect, app: &mut InteractiveApp) {
+    if app.show_code_health {
+        // Show code health integrated into languages page
+        render_languages_with_code_health(f, area, app);
+    } else {
+        // Show regular language analysis
+        render_languages_regular(f, area, app);
     }
 }
 
-pub fn render_individual_files(f: &mut ratatui::Frame, area: Rect, app: &mut InteractiveApp) {
-    let current_files = app.get_current_files();
-    let items: Vec<ListItem> = current_files
-        .iter()
-        .map(|(file_path, file_stats)| {
-            let icon = get_file_icon(file_path);
-            let shortened_path = shorten_path(file_path, 50);
-            
-            ListItem::new(vec![
-                Line::from(vec![
-                    Span::styled(format!("{} ", icon), Style::default().fg(Color::Yellow)),
-                    Span::styled(shortened_path, Style::default().fg(Color::White)),
-                ]),
-                Line::from(vec![
-                    Span::styled(format!("  Lines: {}", file_stats.total_lines), Style::default().fg(Color::Blue)),
-                    Span::styled(format!(" | Code: {}", file_stats.code_lines), Style::default().fg(Color::Green)),
-                    Span::styled(format!(" | Size: {}", format_size(file_stats.file_size)), Style::default().fg(Color::Cyan)),
-                ]),
-            ])
-        })
-        .collect();
-
-    let title = if app.search_state.is_active && !app.search_state.query.is_empty() {
-        format!(" Individual Files (Filtered: {}) ", current_files.len())
-    } else {
-        " Individual Files ".to_string()
-    };
-
-    let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title(title))
-        .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
-        .highlight_symbol(">> ");
-
-    f.render_stateful_widget(list, area, &mut app.list_state);
-}
-
-pub fn render_stack_view(f: &mut ratatui::Frame, area: Rect, app: &mut InteractiveApp) {
-    // Split the area into two sections: directory tree and techstack analysis
+fn render_languages_regular(f: &mut ratatui::Frame, area: Rect, app: &mut InteractiveApp) {
     let chunks = Layout::default()
-        .direction(Direction::Horizontal)
+        .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage(60), // Directory tree
-            Constraint::Percentage(40), // Techstack analysis
+            Constraint::Length(12), // Language overview chart
+            Constraint::Min(0),     // Language details table
         ])
         .split(area);
 
-    // Render directory tree on the left
-    render_directory_tree_section(f, chunks[0], app);
+    // Render language overview chart (without quick stats)
+    render_language_overview_chart_no_stats(f, chunks[0], app);
     
-    // Render techstack analysis on the right
-    render_techstack_analysis_section(f, chunks[1], app);
+    // Render language details table
+    render_language_details_table(f, chunks[1], app);
 }
 
-fn render_directory_tree_section(f: &mut ratatui::Frame, area: Rect, app: &mut InteractiveApp) {
-    if let Some(ref tree) = app.directory_tree {
-        let flattened = app.flatten_tree_for_display(tree);
+fn render_languages_with_code_health(f: &mut ratatui::Frame, area: Rect, app: &mut InteractiveApp) {
+    if let Some(ref stats) = app.stats {
+        // Create comprehensive aggregated stats
+        let stats_calculator = crate::core::stats::StatsCalculator::new();
+        let aggregated_stats = stats_calculator.calculate_project_stats(stats, &app.individual_files)
+            .unwrap_or_else(|_| {
+                // Fallback to basic aggregated stats if comprehensive calculation fails
+                create_aggregated_stats_from_basic(stats)
+            });
         
-        let title = match app.display_mode {
-            DisplayMode::Lines => " Directory Tree - Lines View ",
-            DisplayMode::Files => " Directory Tree - Files View ",
-        };
-        
-        let items: Vec<ListItem> = flattened
-            .iter()
-            .map(|node| {
-                let indent = "  ".repeat(node.depth.saturating_sub(1));
-                let icon = if node.is_directory {
-                    if node.is_expanded {
-                        "📂"
-                    } else {
-                        "📁"
-                    }
-                } else {
-                    get_file_icon(&node.path)
-                };
-                
-                let name = if node.name.len() > 25 {
-                    format!("{}...", &node.name[..22])
-                } else {
-                    node.name.clone()
-                };
-                
-                let count_display = match app.display_mode {
-                    DisplayMode::Lines => {
-                        if node.is_directory {
-                            format!("({} lines)", node.line_count)
-                        } else {
-                            format!("({} lines)", node.line_count)
-                        }
-                    }
-                    DisplayMode::Files => {
-                        if node.is_directory {
-                            format!("({} files)", node.file_count)
-                        } else {
-                            "".to_string()
-                        }
-                    }
-                };
-                
-                // Create a compact single-line display
-                let display_text = if node.is_directory {
-                    format!("{}{} {} {}", indent, icon, name, count_display)
-                } else {
-                    format!("{}{} {} {}", indent, icon, name, count_display)
-                };
-                
-                // Truncate if too long for small terminals
-                let max_width = area.width.saturating_sub(4) as usize;
-                let truncated = if display_text.len() > max_width {
-                    format!("{}...", &display_text[..max_width.saturating_sub(3)])
-                } else {
-                    display_text
-                };
-                
-                let style = if node.is_directory {
-                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
-                } else {
-                    Style::default().fg(Color::White)
-                };
-                
-                ListItem::new(vec![
-                    Line::from(vec![
-                        Span::styled(truncated, style),
-                    ]),
-                ])
-            })
-            .collect();
-
-        let list = List::new(items)
-            .block(Block::default().borders(Borders::ALL).title(title))
-            .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
-            .highlight_symbol(">> ");
-
-        f.render_stateful_widget(list, area, &mut app.tree_state);
-    }
-}
-
-fn render_techstack_analysis_section(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
-    if let Some(ref inventory) = app.techstack_inventory {
-        // Split techstack section into summary and technologies list
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(8),  // Summary
-                Constraint::Min(0),     // Technologies list
-            ])
-            .split(area);
-
-        // Render summary
-        render_techstack_summary(f, chunks[0], inventory);
-        
-        // Render technologies list
-        render_technologies_list(f, chunks[1], inventory);
+        // Use the new advanced language visualizer instead of the old code health sections
+        render_advanced_language_visualizer(f, area, &aggregated_stats);
     } else {
-        // Show loading or error state
-        let loading_text = Paragraph::new("🔍 Analyzing techstack...")
-            .block(Block::default().borders(Borders::ALL).title(" Tech Stack Analysis "))
+        let no_data = Paragraph::new("No data available for language analysis")
+            .block(Block::default().borders(Borders::ALL).title(" Language Analysis "))
             .style(Style::default().fg(Color::Gray))
             .alignment(Alignment::Center);
-        f.render_widget(loading_text, area);
+        f.render_widget(no_data, area);
     }
 }
 
-fn render_techstack_summary(f: &mut ratatui::Frame, area: Rect, inventory: &TechStackInventory) {
-    let summary = &inventory.analysis_summary;
+fn render_language_overview_chart(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(60), // Bar chart
+            Constraint::Percentage(40), // Stats summary
+        ])
+        .split(area);
+
+    render_language_bar_chart(f, chunks[0], app);
+    render_language_stats_summary(f, chunks[1], app);
+}
+
+fn render_language_overview_chart_no_stats(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
+    // Show enhanced language chart without quick stats
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(70), // Expanded bar chart
+            Constraint::Percentage(30), // Toggle hint and instructions
+        ])
+        .split(area);
+
+    render_language_bar_chart(f, chunks[0], app);
+    render_language_toggle_hint(f, chunks[1], app);
+}
+
+fn render_language_toggle_hint(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
+    let toggle_text = if app.show_code_health {
+        "Press 't' to view\nlanguage breakdown"
+    } else {
+        "Press 't' to view\ncode health"
+    };
     
-    let summary_text = vec![
+    let hint_lines = vec![
         Line::from(vec![
-            Span::styled("🏗️ Architecture: ", Style::default().fg(Color::Cyan)),
-            Span::styled(format!("{:?}", summary.architecture_type), Style::default().fg(Color::White)),
+            Span::styled("💡 Toggle View", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled(toggle_text, Style::default().fg(Color::Cyan)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("📊 Current Mode:", Style::default().fg(Color::White)),
         ]),
         Line::from(vec![
-            Span::styled("☁️ Deployment: ", Style::default().fg(Color::Blue)),
-            Span::styled(format!("{:?}", summary.deployment_type), Style::default().fg(Color::White)),
+            Span::styled(
+                if app.show_code_health { "Code Health" } else { "Language Stats" },
+                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+            ),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("🔍 Navigation:", Style::default().fg(Color::Gray)),
         ]),
         Line::from(vec![
-            Span::styled("🔒 Security: ", Style::default().fg(Color::Red)),
-            Span::styled(format!("{:?}", summary.security_posture), Style::default().fg(Color::White)),
+            Span::styled("↑/↓ - Navigate", Style::default().fg(Color::Gray)),
         ]),
         Line::from(vec![
-            Span::styled("📊 Modernization: ", Style::default().fg(Color::Green)),
-            Span::styled(format!("{:.1}%", summary.modernization_score), Style::default().fg(Color::White)),
-        ]),
-        Line::from(vec![
-            Span::styled("🎯 Confidence: ", Style::default().fg(Color::Yellow)),
-            Span::styled(format!("{:.1}%", inventory.overall_confidence * 100.0), Style::default().fg(Color::White)),
-        ]),
-        Line::from(vec![
-            Span::styled("📦 Technologies: ", Style::default().fg(Color::Magenta)),
-            Span::styled(format!("{}", inventory.technologies.len()), Style::default().fg(Color::White)),
+            Span::styled("Tab - Switch tabs", Style::default().fg(Color::Gray)),
         ]),
     ];
-
-    let summary_block = Paragraph::new(summary_text)
-        .block(Block::default().borders(Borders::ALL).title(" Tech Stack Summary "))
-        .style(Style::default().fg(Color::White));
     
-    f.render_widget(summary_block, area);
-}
-
-fn render_technologies_list(f: &mut ratatui::Frame, area: Rect, inventory: &TechStackInventory) {
-    let items: Vec<ListItem> = inventory.technologies
-        .iter()
-        .take(20) // Limit to prevent overflow
-        .map(|tech| {
-            let confidence_bar = create_confidence_bar(tech.confidence);
-            let category_emoji = get_category_emoji(&tech.category);
-            
-            let tech_line = Line::from(vec![
-                Span::styled(format!("{} ", category_emoji), Style::default().fg(Color::Yellow)),
-                Span::styled(&tech.name, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Span::styled(
-                    if let Some(ref version) = tech.version {
-                        format!(" v{}", version)
-                    } else {
-                        "".to_string()
-                    },
-                    Style::default().fg(Color::Gray)
-                ),
-                Span::styled(format!(" {}", confidence_bar), Style::default()),
-            ]);
-            
-            ListItem::new(vec![tech_line])
-        })
-        .collect();
-
-    let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title(" Detected Technologies "))
-        .style(Style::default().fg(Color::White));
-
-    f.render_widget(list, area);
-}
-
-fn create_confidence_bar(confidence: f64) -> String {
-    let width = 10;
-    let filled = (confidence * width as f64) as usize;
-    let empty = width - filled;
+    let hint_paragraph = Paragraph::new(hint_lines)
+        .alignment(Alignment::Left)
+        .block(Block::default().borders(Borders::ALL).title(" Controls "))
+        .wrap(Wrap { trim: true });
     
-    format!("[{}{}] {:.0}%", 
-        "█".repeat(filled), 
-        "░".repeat(empty), 
-        confidence * 100.0
-    )
+    f.render_widget(hint_paragraph, area);
 }
 
-fn get_category_emoji(category: &crate::core::stats::techstack::TechCategory) -> &'static str {
-    match category {
-        crate::core::stats::techstack::TechCategory::ProgrammingLanguage => "🔤",
-        crate::core::stats::techstack::TechCategory::Frontend => "🎨",
-        crate::core::stats::techstack::TechCategory::Backend => "⚙️",
-        crate::core::stats::techstack::TechCategory::Database => "🗄️",
-        crate::core::stats::techstack::TechCategory::WebFramework => "🌐",
-        crate::core::stats::techstack::TechCategory::BuildTool => "🔨",
-        crate::core::stats::techstack::TechCategory::TestingFramework => "🧪",
-        crate::core::stats::techstack::TechCategory::Containerization => "📦",
-        crate::core::stats::techstack::TechCategory::CloudProvider => "☁️",
-        crate::core::stats::techstack::TechCategory::Security => "🔒",
-        crate::core::stats::techstack::TechCategory::Monitoring => "📊",
-        crate::core::stats::techstack::TechCategory::Runtime => "⚡",
-        _ => "🔧",
+fn render_language_bar_chart(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
+    let mut chart_data = Vec::new();
+    let mut total_lines = 0;
+    
+    // Collect data for the chart
+    for (language_name, (language_info, _file_count, file_stats)) in &app.language_stats {
+        chart_data.push((language_name.clone(), language_info.clone(), file_stats.total_lines));
+        total_lines += file_stats.total_lines;
     }
+    
+    // Sort by lines descending
+    chart_data.sort_by(|a, b| b.2.cmp(&a.2));
+    
+    let chart_lines = if chart_data.is_empty() {
+        vec![
+            Line::from(vec![
+                Span::styled("No languages detected", Style::default().fg(Color::Gray)),
+            ]),
+        ]
+    } else {
+        let mut lines = vec![
+            Line::from(vec![
+                Span::styled("📊 Language Distribution", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            ]),
+            Line::from(""),
+        ];
+        
+        for (language_name, language_info, line_count) in chart_data.iter().take(8) {
+            let percentage = if total_lines > 0 {
+                (*line_count as f64 / total_lines as f64) * 100.0
+            } else {
+                0.0
+            };
+            
+            // Create a visual bar using Unicode blocks with gradient effect
+            let bar_width = 35;
+            let filled_width = ((percentage / 100.0) * bar_width as f64) as usize;
+            
+            // Create gradient bar with different block characters
+            let mut bar = String::new();
+            for i in 0..bar_width {
+                if i < filled_width {
+                    let intensity = (i as f64 / filled_width as f64) * 0.8 + 0.2;
+                    if intensity > 0.8 {
+                        bar.push('█');
+                    } else if intensity > 0.6 {
+                        bar.push('▉');
+                    } else if intensity > 0.4 {
+                        bar.push('▊');
+                    } else if intensity > 0.2 {
+                        bar.push('▋');
+                    } else {
+                        bar.push('▌');
+                    }
+                } else {
+                    bar.push('░');
+                }
+            }
+            
+            // Enhanced color mapping with RGB values
+            let color = parse_hex_color(&language_info.color);
+            
+            lines.push(Line::from(vec![
+                Span::styled(format!("{} ", language_info.icon), Style::default().fg(color)),
+                Span::styled(format!("{:<12}", language_name), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::styled(bar, Style::default().fg(color)),
+                Span::styled(format!(" {:.1}%", percentage), Style::default().fg(Color::Gray)),
+            ]));
+        }
+        
+        if chart_data.len() > 8 {
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled(format!("... and {} more languages", chart_data.len() - 8), Style::default().fg(Color::DarkGray)),
+            ]));
+        }
+        
+        lines
+    };
+    
+    let chart_paragraph = Paragraph::new(chart_lines)
+        .alignment(Alignment::Left)
+        .block(Block::default().borders(Borders::ALL).title(" Language Distribution "))
+        .wrap(Wrap { trim: true });
+    
+    f.render_widget(chart_paragraph, area);
 }
+
+fn render_language_stats_summary(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
+    let mut total_files = 0;
+    let mut total_lines = 0;
+    let mut total_code_lines = 0;
+    let language_count = app.language_stats.len();
+    
+    // Calculate totals
+    for (_, (_, file_count, file_stats)) in &app.language_stats {
+        total_files += file_count;
+        total_lines += file_stats.total_lines;
+        total_code_lines += file_stats.code_lines;
+    }
+    
+    // Find dominant language
+    let dominant_language = app.language_stats.iter()
+        .max_by_key(|(_, (_, _, file_stats))| file_stats.total_lines)
+        .map(|(name, (info, _, _))| (name.clone(), info.clone()));
+    
+    let mut summary_lines = vec![
+        Line::from(vec![
+            Span::styled("📈 Project Summary", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from(""),
+    ];
+    
+    // Language count with icon
+    summary_lines.push(Line::from(vec![
+        Span::styled("🌐 Languages: ", Style::default().fg(Color::Cyan)),
+        Span::styled(language_count.to_string(), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+    ]));
+    
+    // Total files with icon
+    summary_lines.push(Line::from(vec![
+        Span::styled("📁 Files: ", Style::default().fg(Color::Blue)),
+        Span::styled(total_files.to_string(), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+    ]));
+    
+    // Total lines with icon
+    summary_lines.push(Line::from(vec![
+        Span::styled("📏 Lines: ", Style::default().fg(Color::Green)),
+        Span::styled(total_lines.to_string(), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+    ]));
+    
+    // Code lines with icon
+    summary_lines.push(Line::from(vec![
+        Span::styled("⚡ Code: ", Style::default().fg(Color::Magenta)),
+        Span::styled(total_code_lines.to_string(), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+    ]));
+    
+    summary_lines.push(Line::from(""));
+    
+    // Dominant language
+    if let Some((lang_name, lang_info)) = dominant_language {
+        summary_lines.push(Line::from(vec![
+            Span::styled("👑 Primary: ", Style::default().fg(Color::Yellow)),
+        ]));
+        summary_lines.push(Line::from(vec![
+            Span::styled(format!("{} {}", lang_info.icon, lang_name), 
+                Style::default().fg(parse_hex_color(&lang_info.color)).add_modifier(Modifier::BOLD)),
+        ]));
+    }
+    
+    // Code quality indicator
+    let code_ratio = if total_lines > 0 {
+        (total_code_lines as f64 / total_lines as f64) * 100.0
+    } else {
+        0.0
+    };
+    
+    summary_lines.push(Line::from(""));
+    summary_lines.push(Line::from(vec![
+        Span::styled("📊 Code Ratio: ", Style::default().fg(Color::Cyan)),
+        Span::styled(format!("{:.1}%", code_ratio), 
+            Style::default().fg(if code_ratio > 70.0 { Color::Green } else if code_ratio > 50.0 { Color::Yellow } else { Color::Red })),
+    ]));
+    
+    let summary_paragraph = Paragraph::new(summary_lines)
+        .alignment(Alignment::Left)
+        .block(Block::default().borders(Borders::ALL).title(" Quick Stats "))
+        .wrap(Wrap { trim: true });
+    
+    f.render_widget(summary_paragraph, area);
+}
+
+fn parse_hex_color(hex: &str) -> Color {
+    if hex.starts_with('#') && hex.len() == 7 {
+        if let (Ok(r), Ok(g), Ok(b)) = (
+            u8::from_str_radix(&hex[1..3], 16),
+            u8::from_str_radix(&hex[3..5], 16),
+            u8::from_str_radix(&hex[5..7], 16),
+        ) {
+            return Color::Rgb(r, g, b);
+        }
+    }
+    Color::White
+}
+
+fn render_language_details_table(f: &mut ratatui::Frame, area: Rect, app: &mut InteractiveApp) {
+    let header = Row::new(vec![
+        Cell::from("Language"),
+        Cell::from("Files"),
+        Cell::from("Lines"),
+        Cell::from("Code"),
+        Cell::from("Comments"),
+        Cell::from("Docs"),
+        Cell::from("Blank"),
+        Cell::from("Size"),
+        Cell::from("Extensions"),
+    ]);
+
+    let mut rows = Vec::new();
+    let mut language_data: Vec<_> = app.language_stats.iter().collect();
+    
+    // Sort by total lines descending
+    language_data.sort_by(|a, b| b.1.2.total_lines.cmp(&a.1.2.total_lines));
+    
+    for (language_name, (language_info, file_count, file_stats)) in language_data {
+        let extensions_str = language_info.extensions.join(", ");
+        let row = Row::new(vec![
+            Cell::from(format!("{} {}", language_info.icon, language_name)),
+            Cell::from(file_count.to_string()),
+            Cell::from(file_stats.total_lines.to_string()),
+            Cell::from(file_stats.code_lines.to_string()),
+            Cell::from(file_stats.comment_lines.to_string()),
+            Cell::from(file_stats.doc_lines.to_string()),
+            Cell::from(file_stats.blank_lines.to_string()),
+            Cell::from(format_size(file_stats.file_size)),
+            Cell::from(extensions_str),
+        ]);
+        rows.push(row);
+    }
+
+    let table = Table::new(rows, &[
+        Constraint::Length(15),
+        Constraint::Length(8),
+        Constraint::Length(8),
+        Constraint::Length(8),
+        Constraint::Length(10),
+        Constraint::Length(8),
+        Constraint::Length(8),
+        Constraint::Length(10),
+        Constraint::Length(15),
+    ])
+    .header(header)
+    .block(Block::default().borders(Borders::ALL).title(" Language Details "))
+    .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+    .highlight_symbol(">> ");
+
+    f.render_stateful_widget(table, area, &mut app.table_state);
+}
+
+
+
+
+
+
+
+
+
+
 
 pub fn render_help(f: &mut ratatui::Frame, area: Rect) {
     let help_text = vec![
@@ -834,7 +981,7 @@ pub fn render_help(f: &mut ratatui::Frame, area: Rect) {
             Span::styled("Navigation:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
         ]),
         Line::from("  Tab / Shift+Tab    - Switch between tabs"),
-        Line::from("  1, 2, 3, 4, 5, 6  - Jump to specific tab"),
+        Line::from("  1, 2, 3           - Jump to specific tab"),
         Line::from("  ↑/↓ or j/k        - Scroll up/down"),
         Line::from("  Page Up/Down      - Scroll by page"),
         Line::from("  Home/End          - Go to top/bottom"),
@@ -853,18 +1000,11 @@ pub fn render_help(f: &mut ratatui::Frame, area: Rect) {
         ]),
         Line::from("  h or F1           - Toggle this help"),
         Line::from("  q or Esc          - Quit application"),
-        Line::from("  t                 - Toggle lines/files view (Stack View)"),
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("Stack View:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-        ]),
-        Line::from("  Enter/Right       - Expand/collapse directory"),
-        Line::from("  Left              - Collapse directory"),
         Line::from(""),
         Line::from(vec![
             Span::styled("Export:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
         ]),
-        Line::from("  1-5               - Select export format"),
+        Line::from("  1-4               - Select export format"),
         Line::from("  Enter             - Export to selected format"),
         Line::from("  ↑/↓ or j/k        - Navigate formats"),
         Line::from(""),
@@ -872,11 +1012,8 @@ pub fn render_help(f: &mut ratatui::Frame, area: Rect) {
             Span::styled("Tabs:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
         ]),
         Line::from("  Overview          - Summary statistics with charts"),
-        Line::from("  File Types        - Statistics by file extension"),
-        Line::from("  Individual Files  - List of all analyzed files"),
-        Line::from("  Stack View        - Directory tree with tech stack analysis"),
+        Line::from("  Languages         - Programming language breakdown with code health (press 't' to toggle)"),
         Line::from("  Export            - Export results to various formats"),
-        Line::from("  Quality Analysis  - Code quality metrics and insights"),
         Line::from(""),
         Line::from(vec![
             Span::styled("Search Modes:", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
@@ -904,6 +1041,8 @@ pub fn render_footer(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
     let mut footer_spans = vec![
         Span::styled("q", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
         Span::styled(" to quit, ", Style::default().fg(Color::White)),
+        Span::styled("Tab", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled(" to switch tabs, ", Style::default().fg(Color::White)),
         Span::styled("h", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
         Span::styled(" for help, ", Style::default().fg(Color::White)),
         Span::styled("/", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
@@ -922,27 +1061,20 @@ pub fn render_footer(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
         ];
     } else {
         match app.mode {
-            AppMode::StackView => {
-                footer_spans.extend(vec![
-                    Span::styled(", ", Style::default().fg(Color::White)),
-                    Span::styled("t", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                    Span::styled(" to toggle ", Style::default().fg(Color::White)),
-                    Span::styled(
-                        match app.display_mode {
-                            DisplayMode::Lines => "[Lines]",
-                            DisplayMode::Files => "[Files]",
-                        },
-                        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
-                    ),
-                ]);
-            }
             AppMode::Export => {
                 footer_spans.extend(vec![
                     Span::styled(", ", Style::default().fg(Color::White)),
-                    Span::styled("1-5", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled("1-4", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
                     Span::styled(" to select format, ", Style::default().fg(Color::White)),
                     Span::styled("Enter", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
                     Span::styled(" to export", Style::default().fg(Color::White)),
+                ]);
+            }
+            AppMode::Languages => {
+                footer_spans.extend(vec![
+                    Span::styled(", ", Style::default().fg(Color::White)),
+                    Span::styled("t", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled(" to toggle code health", Style::default().fg(Color::White)),
                 ]);
             }
             _ => {}
@@ -1052,13 +1184,7 @@ pub fn render_export(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
                 Span::styled(" - Interactive web report with charts", Style::default().fg(Color::Gray)),
             ]),
         ]),
-        ListItem::new(vec![
-            Line::from(vec![
-                Span::styled("5. ", Style::default().fg(Color::Yellow)),
-                Span::styled("⏰ Time Wasted Report", Style::default().fg(Color::White)),
-                Span::styled(" - Humorous analysis of time spent", Style::default().fg(Color::Gray)),
-            ]),
-        ]),
+
     ];
 
     let selected_index = match app.export_state.selected_format {
@@ -1066,7 +1192,6 @@ pub fn render_export(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
         ExportFormat::Json => 1,
         ExportFormat::Csv => 2,
         ExportFormat::Html => 3,
-        ExportFormat::TimeWasted => 4,
     };
 
     let format_list = List::new(format_items)
@@ -1140,4 +1265,35 @@ pub fn render_export(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
         .alignment(Alignment::Left)
         .block(Block::default().borders(Borders::ALL).title(" Help "));
     f.render_widget(help_block, chunks[3]);
+} 
+
+// Helper functions for realistic file size calculations
+fn calculate_largest_file_size(stats: &CodeStats) -> u64 {
+    if stats.stats_by_extension.is_empty() {
+        return 0;
+    }
+    
+    // Estimate largest file size based on extension with most lines
+    let max_lines_per_ext = stats.stats_by_extension.values()
+        .map(|(_, file_stats)| file_stats.total_lines)
+        .max()
+        .unwrap_or(0);
+    
+    // Estimate bytes per line (average ~50 bytes per line)
+    (max_lines_per_ext as u64 * 50).max(1)
+}
+
+fn calculate_smallest_file_size(stats: &CodeStats) -> u64 {
+    if stats.stats_by_extension.is_empty() {
+        return 0;
+    }
+    
+    // Estimate smallest file size based on extension with fewest lines
+    let min_lines_per_ext = stats.stats_by_extension.values()
+        .map(|(_, file_stats)| file_stats.total_lines)
+        .min()
+        .unwrap_or(0);
+    
+    // Estimate bytes per line (average ~50 bytes per line)
+    (min_lines_per_ext as u64 * 50).max(1)
 } 

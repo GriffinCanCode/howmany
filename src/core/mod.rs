@@ -10,9 +10,4 @@ pub use detector::FileDetector;
 pub use filters::FileFilter;
 pub use stats::StatsCalculator;
 
-// Re-export techstack types for easy access
-pub use stats::{
-    TechStackAnalyzer, TechStackDetector, TechStackInventory, DetectedTechnology,
-    TechCategory, ConfidenceLevel, TechStackInsights, TechStackStats,
-    DependencyGraph, DependencyMapper, FrameworkRecommendation
-}; 
+ 

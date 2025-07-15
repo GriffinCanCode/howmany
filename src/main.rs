@@ -1,8 +1,7 @@
 use howmany::{FileDetector, CodeCounter, FileFilter, Config, InteractiveDisplay, Result};
 use howmany::ui::cli::{OutputFormat, SortBy};
 use howmany::core::types::{CodeStats, FileStats};
-use howmany::core::stats::{StatsCalculator, AggregatedStats, FormattingOptions};
-use howmany::core::stats::techstack::TechStackAnalyzer;
+use howmany::core::stats::{StatsCalculator, AggregatedStats};
 use std::path::Path;
 use std::process;
 use rayon::prelude::*;
@@ -27,7 +26,7 @@ fn run(config: Config) -> Result<()> {
             config.include_hidden,
             config.get_ignore_patterns(),
             config.get_extensions(),
-            config.show_files,
+            true, // Always collect individual files for interactive mode to enable real-time analysis
         )?;
         
         let mut display = InteractiveDisplay::new();
@@ -189,16 +188,7 @@ fn analyze_code_comprehensive(
     
     // Use comprehensive stats calculator
     let stats_calculator = StatsCalculator::new();
-    let mut aggregated_stats = stats_calculator.calculate_project_stats(&basic_code_stats, &individual_files)?;
-    
-    // Optional: Add techstack analysis if enabled
-    if std::env::var("HOWMANY_ENABLE_TECHSTACK").is_ok() {
-        println!("🔍 Analyzing technology stack...");
-        if let Ok(techstack_analyzer) = TechStackAnalyzer::new().analyze_project(&path.to_string_lossy()) {
-            // Store techstack analysis in metadata for future use
-            println!("✅ Detected {} technologies", techstack_analyzer.inventory.technologies.len());
-        }
-    }
+    let aggregated_stats = stats_calculator.calculate_project_stats(&basic_code_stats, &individual_files)?;
     
     Ok((aggregated_stats, individual_files))
 }
@@ -267,7 +257,6 @@ fn output_comprehensive_results(
         OutputFormat::Json => output_json(aggregated_stats, individual_files),
         OutputFormat::Csv => output_csv(aggregated_stats, individual_files),
         OutputFormat::Html => output_html(aggregated_stats, individual_files),
-        OutputFormat::TimeWasted => output_time_wasted(aggregated_stats, individual_files),
     }
 }
 
@@ -388,69 +377,11 @@ fn output_html(
     let reporter = HtmlReporter::new();
     let output_path = Path::new("howmany-report.html");
     
-    // Convert AggregatedStats back to CodeStats for compatibility
-    let code_stats = CodeStats {
-        total_files: aggregated_stats.basic.total_files,
-        total_lines: aggregated_stats.basic.total_lines,
-        total_code_lines: aggregated_stats.basic.code_lines,
-        total_comment_lines: aggregated_stats.basic.comment_lines,
-        total_blank_lines: aggregated_stats.basic.blank_lines,
-        total_size: aggregated_stats.basic.total_size,
-        total_doc_lines: aggregated_stats.basic.doc_lines,
-        stats_by_extension: aggregated_stats.basic.stats_by_extension.iter()
-            .map(|(ext, ext_stats)| {
-                (ext.clone(), (ext_stats.file_count, FileStats {
-                    total_lines: ext_stats.total_lines,
-                    code_lines: ext_stats.code_lines,
-                    comment_lines: ext_stats.comment_lines,
-                    blank_lines: ext_stats.blank_lines,
-                    file_size: ext_stats.total_size,
-                    doc_lines: ext_stats.doc_lines,
-                }))
-            })
-            .collect(),
-    };
-    
-    reporter.generate_report(&code_stats, individual_files, output_path)?;
+    // Use comprehensive report generation with real AggregatedStats
+    reporter.generate_comprehensive_report(aggregated_stats, individual_files, output_path)?;
     println!("HTML report generated: {}", output_path.display());
     
     Ok(())
 }
 
-fn output_time_wasted(
-    aggregated_stats: &AggregatedStats,
-    individual_files: &[(String, FileStats)],
-) -> Result<()> {
-    use howmany::ui::html::HtmlReporter;
-    
-    let reporter = HtmlReporter::new();
-    let output_path = Path::new("time-wasted-report.html");
-    
-    // Convert AggregatedStats back to CodeStats for compatibility
-    let code_stats = CodeStats {
-        total_files: aggregated_stats.basic.total_files,
-        total_lines: aggregated_stats.basic.total_lines,
-        total_code_lines: aggregated_stats.basic.code_lines,
-        total_comment_lines: aggregated_stats.basic.comment_lines,
-        total_blank_lines: aggregated_stats.basic.blank_lines,
-        total_size: aggregated_stats.basic.total_size,
-        total_doc_lines: aggregated_stats.basic.doc_lines,
-        stats_by_extension: aggregated_stats.basic.stats_by_extension.iter()
-            .map(|(ext, ext_stats)| {
-                (ext.clone(), (ext_stats.file_count, FileStats {
-                    total_lines: ext_stats.total_lines,
-                    code_lines: ext_stats.code_lines,
-                    comment_lines: ext_stats.comment_lines,
-                    blank_lines: ext_stats.blank_lines,
-                    file_size: ext_stats.total_size,
-                    doc_lines: ext_stats.doc_lines,
-                }))
-            })
-            .collect(),
-    };
-    
-    reporter.generate_time_wasted_report(&code_stats, individual_files, output_path)?;
-    println!("Time wasted report generated: {}", output_path.display());
-    
-    Ok(())
-} 
+ 

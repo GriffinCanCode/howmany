@@ -57,7 +57,9 @@ impl FileUtils {
     }
     
     pub fn get_alternative_activity(&self, ext: &str, file_stats: &FileStats) -> String {
-        let total_minutes = file_stats.code_lines * 2 + file_stats.doc_lines * 3 + file_stats.comment_lines * 1;
+        let total_minutes = (file_stats.code_lines as f64 * 0.2) as usize + 
+                           (file_stats.doc_lines as f64 * 0.5) as usize + 
+                           (file_stats.comment_lines as f64 * 0.1) as usize;
         
         match ext {
             "js" | "jsx" => {

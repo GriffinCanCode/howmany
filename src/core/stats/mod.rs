@@ -5,7 +5,6 @@ pub mod ratios;
 pub mod formatting;
 pub mod aggregation;
 pub mod visualization;
-pub mod techstack;
 
 // Re-export commonly used types
 pub use basic::{BasicStats, BasicStatsCalculator};
@@ -16,12 +15,7 @@ pub use formatting::{StatFormatter, FormattingOptions, OutputFormat, SortBy};
 pub use aggregation::{StatsAggregator, AggregatedStats, StatsMetadata, AnalysisDepth};
 pub use visualization::{VisualizationGenerator, PieChartData, ChartConfig, ColorScheme};
 
-// Re-export techstack types
-pub use techstack::{
-    TechStackAnalyzer, TechStackDetector, TechStackInventory, DetectedTechnology,
-    TechCategory, ConfidenceLevel, TechStackInsights, TechStackStats, 
-    DependencyGraph, DependencyMapper, FrameworkRecommendation
-};
+
 
 use crate::core::types::{CodeStats, FileStats};
 use crate::utils::errors::Result;
@@ -69,7 +63,7 @@ impl StatsCalculator {
     pub fn calculate_project_stats(&self, code_stats: &CodeStats, individual_files: &[(String, FileStats)]) -> Result<AggregatedStats> {
         let basic_stats = self.basic_calculator.calculate_project_basic_stats(code_stats)?;
         let complexity_stats = self.complexity_calculator.calculate_project_complexity_stats(code_stats, individual_files)?;
-        let time_stats = self.time_calculator.calculate_project_time_stats(code_stats)?;
+        let time_stats = self.time_calculator.calculate_project_time_stats_with_files(code_stats, individual_files)?;
         let ratio_stats = self.ratio_calculator.calculate_project_ratio_stats(code_stats)?;
         
         Ok(self.aggregator.aggregate_project_stats(

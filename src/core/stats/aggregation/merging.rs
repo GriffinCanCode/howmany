@@ -4,105 +4,18 @@ use crate::core::stats::time::TimeStats;
 use crate::core::stats::ratios::RatioStats;
 use crate::core::types::{CodeStats, FileStats};
 use crate::utils::errors::{Result, HowManyError};
-use serde::{Deserialize, Serialize};
+use super::types::{AggregatedStats, StatsMetadata};
 use std::collections::HashMap;
 
-/// Aggregated statistics containing all types of statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AggregatedStats {
-    pub basic: BasicStats,
-    pub complexity: ComplexityStats,
-    pub time: TimeStats,
-    pub ratios: RatioStats,
-    pub metadata: StatsMetadata,
-}
-
-/// Metadata about the statistics calculation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StatsMetadata {
-    pub calculation_time_ms: u64,
-    pub version: String,
-    pub timestamp: String,
-    pub file_count_analyzed: usize,
-    pub total_bytes_analyzed: u64,
-    pub languages_detected: Vec<String>,
-    pub analysis_depth: AnalysisDepth,
-}
-
-/// Depth of analysis performed
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum AnalysisDepth {
-    Basic,      // Only basic line counting
-    Standard,   // Basic + ratios + time estimates
-    Advanced,   // Standard + complexity analysis
-    Complete,   // Advanced + all insights and quality metrics
-}
-
-/// Aggregator for combining different types of statistics
-pub struct StatsAggregator {
+/// Handles merging of different statistics types
+pub struct StatsMerger {
     version: String,
 }
 
-impl StatsAggregator {
+impl StatsMerger {
     pub fn new() -> Self {
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
-        }
-    }
-    
-    /// Aggregate statistics for a single file
-    pub fn aggregate_file_stats(
-        &self,
-        basic: BasicStats,
-        complexity: ComplexityStats,
-        time: TimeStats,
-        ratios: RatioStats,
-    ) -> AggregatedStats {
-        let metadata = StatsMetadata {
-            calculation_time_ms: 0, // Will be set by caller
-            version: self.version.clone(),
-            timestamp: chrono::Utc::now().to_rfc3339(),
-            file_count_analyzed: 1,
-            total_bytes_analyzed: basic.total_size,
-            languages_detected: vec!["unknown".to_string()], // Will be updated by caller
-            analysis_depth: AnalysisDepth::Complete,
-        };
-        
-        AggregatedStats {
-            basic,
-            complexity,
-            time,
-            ratios,
-            metadata,
-        }
-    }
-    
-    /// Aggregate statistics for a project
-    pub fn aggregate_project_stats(
-        &self,
-        basic: BasicStats,
-        complexity: ComplexityStats,
-        time: TimeStats,
-        ratios: RatioStats,
-    ) -> AggregatedStats {
-        let languages_detected: Vec<String> = basic.stats_by_extension.keys().cloned().collect();
-        
-        let metadata = StatsMetadata {
-            calculation_time_ms: 0, // Will be set by caller
-            version: self.version.clone(),
-            timestamp: chrono::Utc::now().to_rfc3339(),
-            file_count_analyzed: basic.total_files,
-            total_bytes_analyzed: basic.total_size,
-            languages_detected,
-            analysis_depth: AnalysisDepth::Complete,
-        };
-        
-        AggregatedStats {
-            basic,
-            complexity,
-            time,
-            ratios,
-            metadata,
         }
     }
     
@@ -117,7 +30,7 @@ impl StatsAggregator {
         }
         
         // Merge basic stats
-        let mut merged_basic = self.merge_basic_stats(&stats_list)?;
+        let merged_basic = self.merge_basic_stats(&stats_list)?;
         
         // Merge complexity stats
         let merged_complexity = self.merge_complexity_stats(&stats_list)?;
@@ -141,7 +54,7 @@ impl StatsAggregator {
     }
     
     /// Merge basic statistics
-    fn merge_basic_stats(&self, stats_list: &[AggregatedStats]) -> Result<BasicStats> {
+    pub fn merge_basic_stats(&self, stats_list: &[AggregatedStats]) -> Result<BasicStats> {
         let mut total_files = 0;
         let mut total_lines = 0;
         let mut code_lines = 0;
@@ -225,7 +138,7 @@ impl StatsAggregator {
     }
     
     /// Merge complexity statistics
-    fn merge_complexity_stats(&self, stats_list: &[AggregatedStats]) -> Result<ComplexityStats> {
+    pub fn merge_complexity_stats(&self, stats_list: &[AggregatedStats]) -> Result<ComplexityStats> {
         let mut total_functions = 0;
         let mut total_complexity = 0.0;
         let mut total_cognitive_complexity = 0.0;
@@ -349,37 +262,37 @@ impl StatsAggregator {
         
         // Merge quality metrics
         let mut merged_quality_metrics = crate::core::stats::complexity::QualityMetrics {
-            overall_quality_score: 0.0,
-            maintainability_score: 0.0,
-            readability_score: 0.0,
-            testability_score: 0.0,
+            code_health_score: 0.0,
+            maintainability_index: 0.0,
+            documentation_coverage: 0.0,
+            avg_complexity: 0.0,
+            function_size_health: 0.0,
+            nesting_depth_health: 0.0,
             code_duplication_ratio: 0.0,
-            comment_coverage_ratio: 0.0,
-            function_size_score: 0.0,
-            complexity_score: 0.0,
+            technical_debt_ratio: 0.0,
         };
         
         if !stats_list.is_empty() {
             for stats in stats_list {
-                merged_quality_metrics.overall_quality_score += stats.complexity.quality_metrics.overall_quality_score;
-                merged_quality_metrics.maintainability_score += stats.complexity.quality_metrics.maintainability_score;
-                merged_quality_metrics.readability_score += stats.complexity.quality_metrics.readability_score;
-                merged_quality_metrics.testability_score += stats.complexity.quality_metrics.testability_score;
+                merged_quality_metrics.code_health_score += stats.complexity.quality_metrics.code_health_score;
+                merged_quality_metrics.maintainability_index += stats.complexity.quality_metrics.maintainability_index;
+                merged_quality_metrics.documentation_coverage += stats.complexity.quality_metrics.documentation_coverage;
+                merged_quality_metrics.avg_complexity += stats.complexity.quality_metrics.avg_complexity;
+                merged_quality_metrics.function_size_health += stats.complexity.quality_metrics.function_size_health;
+                merged_quality_metrics.nesting_depth_health += stats.complexity.quality_metrics.nesting_depth_health;
                 merged_quality_metrics.code_duplication_ratio += stats.complexity.quality_metrics.code_duplication_ratio;
-                merged_quality_metrics.comment_coverage_ratio += stats.complexity.quality_metrics.comment_coverage_ratio;
-                merged_quality_metrics.function_size_score += stats.complexity.quality_metrics.function_size_score;
-                merged_quality_metrics.complexity_score += stats.complexity.quality_metrics.complexity_score;
+                merged_quality_metrics.technical_debt_ratio += stats.complexity.quality_metrics.technical_debt_ratio;
             }
             
             let stats_count = stats_list.len() as f64;
-            merged_quality_metrics.overall_quality_score /= stats_count;
-            merged_quality_metrics.maintainability_score /= stats_count;
-            merged_quality_metrics.readability_score /= stats_count;
-            merged_quality_metrics.testability_score /= stats_count;
+            merged_quality_metrics.code_health_score /= stats_count;
+            merged_quality_metrics.maintainability_index /= stats_count;
+            merged_quality_metrics.documentation_coverage /= stats_count;
+            merged_quality_metrics.avg_complexity /= stats_count;
+            merged_quality_metrics.function_size_health /= stats_count;
+            merged_quality_metrics.nesting_depth_health /= stats_count;
             merged_quality_metrics.code_duplication_ratio /= stats_count;
-            merged_quality_metrics.comment_coverage_ratio /= stats_count;
-            merged_quality_metrics.function_size_score /= stats_count;
-            merged_quality_metrics.complexity_score /= stats_count;
+            merged_quality_metrics.technical_debt_ratio /= stats_count;
         }
         
         Ok(ComplexityStats {
@@ -418,7 +331,7 @@ impl StatsAggregator {
     }
     
     /// Merge time statistics
-    fn merge_time_stats(&self, stats_list: &[AggregatedStats]) -> Result<TimeStats> {
+    pub fn merge_time_stats(&self, stats_list: &[AggregatedStats]) -> Result<TimeStats> {
         let mut total_time_minutes = 0;
         let mut code_time_minutes = 0;
         let mut doc_time_minutes = 0;
@@ -487,7 +400,7 @@ impl StatsAggregator {
     }
     
     /// Merge ratio statistics
-    fn merge_ratio_stats(&self, stats_list: &[AggregatedStats]) -> Result<RatioStats> {
+    pub fn merge_ratio_stats(&self, stats_list: &[AggregatedStats]) -> Result<RatioStats> {
         // Calculate overall ratios from merged basic stats
         let total_lines: usize = stats_list.iter().map(|s| s.basic.total_lines).sum();
         let total_code_lines: usize = stats_list.iter().map(|s| s.basic.code_lines).sum();
@@ -545,7 +458,7 @@ impl StatsAggregator {
     }
     
     /// Merge metadata
-    fn merge_metadata(&self, stats_list: &[AggregatedStats]) -> Result<StatsMetadata> {
+    pub fn merge_metadata(&self, stats_list: &[AggregatedStats]) -> Result<StatsMetadata> {
         let total_calculation_time = stats_list.iter().map(|s| s.metadata.calculation_time_ms).sum();
         let total_files = stats_list.iter().map(|s| s.metadata.file_count_analyzed).sum();
         let total_bytes = stats_list.iter().map(|s| s.metadata.total_bytes_analyzed).sum();
@@ -567,33 +480,12 @@ impl StatsAggregator {
             file_count_analyzed: total_files,
             total_bytes_analyzed: total_bytes,
             languages_detected,
-            analysis_depth: AnalysisDepth::Complete,
+            analysis_depth: super::types::AnalysisDepth::Complete,
         })
-    }
-    
-    /// Get summary statistics
-    pub fn get_summary(&self, stats: &AggregatedStats) -> HashMap<String, String> {
-        let mut summary = HashMap::new();
-        
-        summary.insert("total_files".to_string(), stats.basic.total_files.to_string());
-        summary.insert("total_lines".to_string(), stats.basic.total_lines.to_string());
-        summary.insert("code_lines".to_string(), stats.basic.code_lines.to_string());
-        summary.insert("functions".to_string(), stats.complexity.function_count.to_string());
-        summary.insert("avg_complexity".to_string(), format!("{:.1}", stats.complexity.cyclomatic_complexity));
-        summary.insert("total_time".to_string(), stats.time.total_time_formatted.clone());
-        summary.insert("quality_score".to_string(), format!("{:.1}", stats.ratios.quality_metrics.overall_quality_score));
-        summary.insert("languages".to_string(), stats.metadata.languages_detected.len().to_string());
-        
-        summary
-    }
-    
-    /// Update metadata with timing information
-    pub fn update_timing(stats: &mut AggregatedStats, start_time: std::time::Instant) {
-        stats.metadata.calculation_time_ms = start_time.elapsed().as_millis() as u64;
     }
 }
 
-impl Default for StatsAggregator {
+impl Default for StatsMerger {
     fn default() -> Self {
         Self::new()
     }

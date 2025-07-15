@@ -166,7 +166,8 @@ impl FileFilter {
     }
     
     pub fn walk_directory<P: AsRef<Path>>(&self, path: P) -> impl Iterator<Item = DirEntry> {
-        let mut builder = WalkBuilder::new(path);
+        let path_ref = path.as_ref();
+        let mut builder = WalkBuilder::new(path_ref);
         
         builder
             .git_ignore(self.respect_gitignore)
@@ -178,9 +179,26 @@ impl FileFilter {
             builder.max_depth(Some(depth));
         }
         
-        // Add custom ignore patterns
-        for pattern in &self.custom_ignores {
-            builder.add_ignore(pattern);
+        // Use override matcher for custom ignore patterns instead of add_ignore
+        if !self.custom_ignores.is_empty() {
+            use ignore::overrides::OverrideBuilder;
+            let mut override_builder = OverrideBuilder::new(path_ref);
+            
+            for pattern in &self.custom_ignores {
+                // Add patterns as ignore patterns (prefixed with !)
+                let ignore_pattern = if pattern.starts_with('!') {
+                    pattern.clone()
+                } else {
+                    format!("!{}", pattern)
+                };
+                
+                // Ignore errors from invalid patterns
+                let _ = override_builder.add(&ignore_pattern);
+            }
+            
+            if let Ok(overrides) = override_builder.build() {
+                builder.overrides(overrides);
+            }
         }
         
         builder.build().filter_map(|entry| entry.ok())

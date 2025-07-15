@@ -10,7 +10,7 @@ pub struct Config {
     #[arg(value_name = "PATH")]
     pub path: Option<PathBuf>,
     
-    /// Output format: text, json, csv, html, or time-wasted
+    /// Output format: text, json, csv, or html
     #[arg(short = 'o', long = "output", default_value = "text")]
     pub format: OutputFormat,
     
@@ -61,7 +61,6 @@ pub enum OutputFormat {
     Json,
     Csv,
     Html,
-    TimeWasted,
 }
 
 impl std::str::FromStr for OutputFormat {
@@ -73,7 +72,6 @@ impl std::str::FromStr for OutputFormat {
             "json" => Ok(OutputFormat::Json),
             "csv" => Ok(OutputFormat::Csv),
             "html" => Ok(OutputFormat::Html),
-            "time-wasted" | "time" => Ok(OutputFormat::TimeWasted),
             _ => Err(format!("Invalid output format: {}", s)),
         }
     }

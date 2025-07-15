@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::UNIX_EPOCH;
 use crate::core::types::FileStats;
 use crate::utils::errors::{HowManyError, Result};
 use serde::{Deserialize, Serialize};

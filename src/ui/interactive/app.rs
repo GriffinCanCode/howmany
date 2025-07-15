@@ -1,8 +1,8 @@
 use crate::core::types::{CodeStats, FileStats};
-use crate::core::stats::techstack::detection::{TechStackInventory, DetectedTechnology, TechStackDetector};
+
 use crossterm::event::KeyCode;
 use ratatui::widgets::{ListState, TableState};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use std::fs;
 use std::path::Path;
 use crate::ui::html::HtmlReporter;
@@ -12,33 +12,15 @@ use serde_json;
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppMode {
     Overview,
-    FileTypes,
-    IndividualFiles,
-    StackView,
+    Languages,
     Export,
-    QualityAnalysis,
     Help,
     Search,
 }
 
-#[derive(Debug, Clone)]
-pub struct DirectoryNode {
-    pub name: String,
-    pub path: String,
-    pub is_directory: bool,
-    pub file_count: usize,
-    pub line_count: usize,
-    pub code_lines: usize,
-    pub children: Vec<DirectoryNode>,
-    pub is_expanded: bool,
-    pub depth: usize,
-}
 
-#[derive(Debug, Clone)]
-pub enum DisplayMode {
-    Lines,
-    Files,
-}
+
+
 
 #[derive(Debug, Clone)]
 pub enum ExportFormat {
@@ -46,7 +28,6 @@ pub enum ExportFormat {
     Json,
     Csv,
     Html,
-    TimeWasted,
 }
 
 #[derive(Debug, Clone)]
@@ -109,20 +90,21 @@ pub struct InteractiveApp {
     pub selected_tab: usize,
     pub table_state: TableState,
     pub list_state: ListState,
-    pub tree_state: ListState,
+
     pub stats: Option<CodeStats>,
     pub individual_files: Vec<(String, FileStats)>,
-    pub directory_tree: Option<DirectoryNode>,
-    pub techstack_inventory: Option<TechStackInventory>,
+
     pub should_quit: bool,
     pub show_help: bool,
     pub animation_frame: usize,
     pub last_animation_update: Instant,
-    pub display_mode: DisplayMode,
+
     pub export_state: ExportState,
     pub search_state: SearchState,
     pub filtered_files: Vec<(String, FileStats)>,
     pub filtered_extensions: Vec<String>,
+    pub language_stats: std::collections::HashMap<String, (crate::ui::interactive::utils::LanguageInfo, usize, FileStats)>,
+    pub show_code_health: bool,
 }
 
 impl Default for InteractiveApp {
@@ -132,20 +114,21 @@ impl Default for InteractiveApp {
             selected_tab: 0,
             table_state: TableState::default(),
             list_state: ListState::default(),
-            tree_state: ListState::default(),
+
             stats: None,
             individual_files: Vec::new(),
-            directory_tree: None,
-            techstack_inventory: None,
+
             should_quit: false,
             show_help: false,
             animation_frame: 0,
             last_animation_update: Instant::now(),
-            display_mode: DisplayMode::Lines,
+
             export_state: ExportState::default(),
             search_state: SearchState::default(),
             filtered_files: Vec::new(),
             filtered_extensions: Vec::new(),
+            language_stats: std::collections::HashMap::new(),
+            show_code_health: false,
         }
     }
 }
@@ -156,109 +139,25 @@ impl InteractiveApp {
     }
 
     pub fn set_data(&mut self, stats: CodeStats, individual_files: Vec<(String, FileStats)>) {
-        self.stats = Some(stats);
+        self.stats = Some(stats.clone());
         self.individual_files = individual_files.clone();
         self.filtered_files = individual_files.clone();
-        self.directory_tree = Some(self.build_directory_tree(individual_files));
+
         self.update_filtered_extensions();
-        
-        // Analyze techstack for current directory
-        if let Ok(current_dir) = std::env::current_dir() {
-            if let Ok(detector) = TechStackDetector::new() {
-                if let Ok(inventory) = detector.detect_techstack(current_dir.to_string_lossy().as_ref()) {
-                    self.techstack_inventory = Some(inventory);
-                }
-            }
-        }
+        self.update_language_stats(&stats);
     }
+    
 
-    fn build_directory_tree(&self, individual_files: Vec<(String, FileStats)>) -> DirectoryNode {
-        let mut root = DirectoryNode {
-            name: "root".to_string(),
-            path: "".to_string(),
-            is_directory: true,
-            file_count: 0,
-            line_count: 0,
-            code_lines: 0,
-            children: Vec::new(),
-            is_expanded: true,
-            depth: 0,
-        };
 
-        // Build directory structure
-        for (file_path, file_stats) in individual_files {
-            let parts: Vec<&str> = file_path.split('/').collect();
-            self.insert_file_into_tree(&mut root, &parts, 0, &file_stats);
-        }
 
-        // Calculate aggregated stats
-        self.calculate_tree_stats(&mut root);
-        root
-    }
 
-    fn insert_file_into_tree(&self, node: &mut DirectoryNode, parts: &[&str], depth: usize, file_stats: &FileStats) {
-        if depth >= parts.len() {
-            return;
-        }
 
-        let current_part = parts[depth];
-        let is_file = depth == parts.len() - 1;
 
-        // Find or create child node
-        let child_index = node.children.iter().position(|child| child.name == current_part);
-        
-        if let Some(index) = child_index {
-            if !is_file {
-                self.insert_file_into_tree(&mut node.children[index], parts, depth + 1, file_stats);
-            }
-        } else {
-            let child_path = if node.path.is_empty() {
-                current_part.to_string()
-            } else {
-                format!("{}/{}", node.path, current_part)
-            };
 
-            let mut child = DirectoryNode {
-                name: current_part.to_string(),
-                path: child_path,
-                is_directory: !is_file,
-                file_count: if is_file { 1 } else { 0 },
-                line_count: if is_file { file_stats.total_lines } else { 0 },
-                code_lines: if is_file { file_stats.code_lines } else { 0 },
-                children: Vec::new(),
-                is_expanded: false,
-                depth: depth + 1,
-            };
 
-            if !is_file {
-                self.insert_file_into_tree(&mut child, parts, depth + 1, file_stats);
-            }
 
-            node.children.push(child);
-        }
-    }
 
-    fn calculate_tree_stats(&self, node: &mut DirectoryNode) {
-        if node.is_directory {
-            node.file_count = 0;
-            node.line_count = 0;
-            node.code_lines = 0;
-            
-            for child in &mut node.children {
-                self.calculate_tree_stats(child);
-                node.file_count += child.file_count;
-                node.line_count += child.line_count;
-                node.code_lines += child.code_lines;
-            }
-        }
-    }
 
-    pub fn toggle_display_mode(&mut self) {
-        self.display_mode = match self.display_mode {
-            DisplayMode::Lines => DisplayMode::Files,
-            DisplayMode::Files => DisplayMode::Lines,
-        };
-    }
 
     pub fn toggle_search(&mut self) {
         self.search_state.is_active = !self.search_state.is_active;
@@ -451,6 +350,10 @@ impl InteractiveApp {
         }
     }
 
+    fn update_language_stats(&mut self, stats: &CodeStats) {
+        self.language_stats = crate::ui::interactive::utils::group_extensions_by_language(&stats.stats_by_extension);
+    }
+
     pub fn cycle_search_mode(&mut self) {
         self.search_state.search_mode = match self.search_state.search_mode {
             SearchMode::Files => SearchMode::Extensions,
@@ -461,7 +364,7 @@ impl InteractiveApp {
     }
 
     pub fn handle_key_event(&mut self, key: KeyCode) {
-        // Handle search mode first
+        // Handle search mode first with high priority
         if self.search_state.is_active {
             match key {
                 KeyCode::Esc => self.toggle_search(),
@@ -490,13 +393,39 @@ impl InteractiveApp {
             return;
         }
 
+        // Handle global keys with immediate response
         match key {
-            KeyCode::Char('q') | KeyCode::Esc => self.should_quit = true,
-            KeyCode::Char('h') | KeyCode::F(1) => self.show_help = !self.show_help,
-            KeyCode::Char('/') | KeyCode::Char('s') => self.toggle_search(),
-            KeyCode::Char('t') => self.toggle_display_mode(),
-            KeyCode::Tab => self.next_tab(),
-            KeyCode::BackTab => self.prev_tab(),
+            KeyCode::Char('q') | KeyCode::Esc => {
+                self.should_quit = true;
+                return; // Immediate quit
+            },
+            KeyCode::Char('h') | KeyCode::F(1) => {
+                self.show_help = !self.show_help;
+                return; // Immediate toggle
+            },
+            KeyCode::Char('/') | KeyCode::Char('s') => {
+                self.toggle_search();
+                return; // Immediate search toggle
+            },
+            KeyCode::Tab => {
+                self.next_tab();
+                return; // Immediate tab switch
+            },
+            KeyCode::BackTab => {
+                self.prev_tab();
+                return; // Immediate tab switch
+            },
+            _ => {}
+        }
+
+        // Handle mode-specific keys
+        match key {
+            KeyCode::Char('t') => {
+                // Toggle code health in languages page
+                if self.mode == AppMode::Languages {
+                    self.show_code_health = !self.show_code_health;
+                }
+            },
             KeyCode::Char('1') => {
                 if self.mode == AppMode::Export {
                     self.select_export_format(ExportFormat::Text);
@@ -521,18 +450,9 @@ impl InteractiveApp {
             KeyCode::Char('4') => {
                 if self.mode == AppMode::Export {
                     self.select_export_format(ExportFormat::Html);
-                } else {
-                    self.switch_to_tab(3);
                 }
+                // Tab 3 (CodeHealth) no longer exists - integrated into Languages
             },
-            KeyCode::Char('5') => {
-                if self.mode == AppMode::Export {
-                    self.select_export_format(ExportFormat::TimeWasted);
-                } else {
-                    self.switch_to_tab(4);
-                }
-            },
-            KeyCode::Char('6') => self.switch_to_tab(5),
             KeyCode::Down | KeyCode::Char('j') => self.scroll_down(),
             KeyCode::Up | KeyCode::Char('k') => self.scroll_up(),
             KeyCode::PageDown => self.page_down(),
@@ -540,23 +460,25 @@ impl InteractiveApp {
             KeyCode::Home => self.scroll_to_top(),
             KeyCode::End => self.scroll_to_bottom(),
             KeyCode::Enter | KeyCode::Right => self.handle_enter_key(),
-            KeyCode::Left => self.collapse_tree_node(),
+            KeyCode::Left => {
+                // Directory tree functionality removed
+            },
             _ => {}
         }
     }
 
     fn next_tab(&mut self) {
-        self.selected_tab = (self.selected_tab + 1) % 6;
+        self.selected_tab = (self.selected_tab + 1) % 3;
         self.update_mode();
     }
 
     fn prev_tab(&mut self) {
-        self.selected_tab = if self.selected_tab == 0 { 5 } else { self.selected_tab - 1 };
+        self.selected_tab = if self.selected_tab == 0 { 2 } else { self.selected_tab - 1 };
         self.update_mode();
     }
 
     fn switch_to_tab(&mut self, tab: usize) {
-        if tab < 6 {
+        if tab < 3 {
             self.selected_tab = tab;
             self.update_mode();
         }
@@ -565,11 +487,8 @@ impl InteractiveApp {
     fn update_mode(&mut self) {
         self.mode = match self.selected_tab {
             0 => AppMode::Overview,
-            1 => AppMode::FileTypes,
-            2 => AppMode::IndividualFiles,
-            3 => AppMode::StackView,
-            4 => AppMode::Export,
-            5 => AppMode::QualityAnalysis,
+            1 => AppMode::Languages,
+            2 => AppMode::Export,
             _ => AppMode::Overview,
         };
     }
@@ -582,113 +501,29 @@ impl InteractiveApp {
         &self.filtered_extensions
     }
 
-    fn expand_collapse_tree_node(&mut self) {
-        if let AppMode::StackView = self.mode {
-            if let Some(selected) = self.tree_state.selected() {
-                if let Some(ref tree) = self.directory_tree {
-                    let flattened = self.flatten_tree_for_display(tree);
-                    if selected < flattened.len() {
-                        let node_path = flattened[selected].path.clone();
-                        if let Some(ref mut tree) = self.directory_tree {
-                            Self::toggle_node_expansion_helper(tree, &node_path);
-                        }
-                    }
-                }
-            }
-        }
-    }
 
-    fn collapse_tree_node(&mut self) {
-        if let AppMode::StackView = self.mode {
-            if let Some(selected) = self.tree_state.selected() {
-                if let Some(ref tree) = self.directory_tree {
-                    let flattened = self.flatten_tree_for_display(tree);
-                    if selected < flattened.len() {
-                        let node_path = flattened[selected].path.clone();
-                        if let Some(ref mut tree) = self.directory_tree {
-                            Self::set_node_expansion_helper(tree, &node_path, false);
-                        }
-                    }
-                }
-            }
-        }
-    }
 
-    fn toggle_node_expansion_helper(node: &mut DirectoryNode, target_path: &str) {
-        if node.path == target_path && node.is_directory {
-            node.is_expanded = !node.is_expanded;
-            return;
-        }
-        
-        for child in &mut node.children {
-            Self::toggle_node_expansion_helper(child, target_path);
-        }
-    }
 
-    fn set_node_expansion_helper(node: &mut DirectoryNode, target_path: &str, expanded: bool) {
-        if node.path == target_path && node.is_directory {
-            node.is_expanded = expanded;
-            return;
-        }
-        
-        for child in &mut node.children {
-            Self::set_node_expansion_helper(child, target_path, expanded);
-        }
-    }
 
-    pub fn flatten_tree_for_display<'a>(&self, node: &'a DirectoryNode) -> Vec<&'a DirectoryNode> {
-        let mut result = Vec::new();
-        self.flatten_tree_recursive(node, &mut result);
-        result
-    }
 
-    fn flatten_tree_recursive<'a>(&self, node: &'a DirectoryNode, result: &mut Vec<&'a DirectoryNode>) {
-        if node.name != "root" {
-            result.push(node);
-        }
-        
-        if node.is_expanded {
-            for child in &node.children {
-                self.flatten_tree_recursive(child, result);
-            }
-        }
-    }
 
     fn scroll_down(&mut self) {
         match self.mode {
-            AppMode::FileTypes => {
-                if let Some(stats) = &self.stats {
-                    let len = stats.stats_by_extension.len();
-                    if len > 0 {
-                        let selected = self.table_state.selected().unwrap_or(0);
-                        self.table_state.select(Some((selected + 1).min(len - 1)));
-                    }
-                }
-            }
-            AppMode::IndividualFiles => {
-                let len = self.individual_files.len();
+            AppMode::Languages => {
+                let len = self.language_stats.len();
                 if len > 0 {
-                    let selected = self.list_state.selected().unwrap_or(0);
-                    self.list_state.select(Some((selected + 1).min(len - 1)));
+                    let selected = self.table_state.selected().unwrap_or(0);
+                    self.table_state.select(Some((selected + 1).min(len - 1)));
                 }
             }
-            AppMode::StackView => {
-                if let Some(ref tree) = self.directory_tree {
-                    let flattened = self.flatten_tree_for_display(tree);
-                    let len = flattened.len();
-                    if len > 0 {
-                        let selected = self.tree_state.selected().unwrap_or(0);
-                        self.tree_state.select(Some((selected + 1).min(len - 1)));
-                    }
-                }
-            }
+
+
             AppMode::Export => {
                 self.export_state.selected_format = match self.export_state.selected_format {
                     ExportFormat::Text => ExportFormat::Json,
                     ExportFormat::Json => ExportFormat::Csv,
                     ExportFormat::Csv => ExportFormat::Html,
-                    ExportFormat::Html => ExportFormat::TimeWasted,
-                    ExportFormat::TimeWasted => ExportFormat::Text,
+                    ExportFormat::Html => ExportFormat::Text,
                 };
             }
             _ => {}
@@ -697,25 +532,18 @@ impl InteractiveApp {
 
     fn scroll_up(&mut self) {
         match self.mode {
-            AppMode::FileTypes => {
+            AppMode::Languages => {
                 let selected = self.table_state.selected().unwrap_or(0);
                 self.table_state.select(Some(selected.saturating_sub(1)));
             }
-            AppMode::IndividualFiles => {
-                let selected = self.list_state.selected().unwrap_or(0);
-                self.list_state.select(Some(selected.saturating_sub(1)));
-            }
-            AppMode::StackView => {
-                let selected = self.tree_state.selected().unwrap_or(0);
-                self.tree_state.select(Some(selected.saturating_sub(1)));
-            }
+
+
             AppMode::Export => {
                 self.export_state.selected_format = match self.export_state.selected_format {
-                    ExportFormat::Text => ExportFormat::TimeWasted,
+                    ExportFormat::Text => ExportFormat::Html,
                     ExportFormat::Json => ExportFormat::Text,
                     ExportFormat::Csv => ExportFormat::Json,
                     ExportFormat::Html => ExportFormat::Csv,
-                    ExportFormat::TimeWasted => ExportFormat::Html,
                 };
             }
             _ => {}
@@ -724,102 +552,62 @@ impl InteractiveApp {
 
     fn page_down(&mut self) {
         match self.mode {
-            AppMode::FileTypes => {
-                if let Some(stats) = &self.stats {
-                    let len = stats.stats_by_extension.len();
-                    if len > 0 {
-                        let selected = self.table_state.selected().unwrap_or(0);
-                        self.table_state.select(Some((selected + 10).min(len - 1)));
-                    }
-                }
-            }
-            AppMode::IndividualFiles => {
-                let len = self.individual_files.len();
+            AppMode::Languages => {
+                let len = self.language_stats.len();
                 if len > 0 {
-                    let selected = self.list_state.selected().unwrap_or(0);
-                    self.list_state.select(Some((selected + 10).min(len - 1)));
+                    let selected = self.table_state.selected().unwrap_or(0);
+                    self.table_state.select(Some((selected + 10).min(len - 1)));
                 }
             }
-            AppMode::StackView => {
-                if let Some(ref tree) = self.directory_tree {
-                    let flattened = self.flatten_tree_for_display(tree);
-                    let len = flattened.len();
-                    if len > 0 {
-                        let selected = self.tree_state.selected().unwrap_or(0);
-                        self.tree_state.select(Some((selected + 10).min(len - 1)));
-                    }
-                }
-            }
+
+
             _ => {}
         }
     }
 
     fn page_up(&mut self) {
         match self.mode {
-            AppMode::FileTypes => {
+            AppMode::Languages => {
                 let selected = self.table_state.selected().unwrap_or(0);
                 self.table_state.select(Some(selected.saturating_sub(10)));
             }
-            AppMode::IndividualFiles => {
-                let selected = self.list_state.selected().unwrap_or(0);
-                self.list_state.select(Some(selected.saturating_sub(10)));
-            }
-            AppMode::StackView => {
-                let selected = self.tree_state.selected().unwrap_or(0);
-                self.tree_state.select(Some(selected.saturating_sub(10)));
-            }
+
+
             _ => {}
         }
     }
 
     fn scroll_to_top(&mut self) {
         match self.mode {
-            AppMode::FileTypes => self.table_state.select(Some(0)),
-            AppMode::IndividualFiles => self.list_state.select(Some(0)),
-            AppMode::StackView => self.tree_state.select(Some(0)),
+            AppMode::Languages => self.table_state.select(Some(0)),
+
+
             _ => {}
         }
     }
 
     fn scroll_to_bottom(&mut self) {
         match self.mode {
-            AppMode::FileTypes => {
-                if let Some(stats) = &self.stats {
-                    let len = stats.stats_by_extension.len();
-                    if len > 0 {
-                        self.table_state.select(Some(len - 1));
-                    }
-                }
-            }
-            AppMode::IndividualFiles => {
-                let len = self.individual_files.len();
+            AppMode::Languages => {
+                let len = self.language_stats.len();
                 if len > 0 {
-                    self.list_state.select(Some(len - 1));
+                    self.table_state.select(Some(len - 1));
                 }
             }
-            AppMode::StackView => {
-                if let Some(ref tree) = self.directory_tree {
-                    let flattened = self.flatten_tree_for_display(tree);
-                    let len = flattened.len();
-                    if len > 0 {
-                        self.tree_state.select(Some(len - 1));
-                    }
-                }
-            }
+
+
             _ => {}
         }
     }
 
     pub fn update_animation(&mut self) {
-        if self.last_animation_update.elapsed() >= Duration::from_millis(100) {
-            self.animation_frame = (self.animation_frame + 1) % 8;
-            self.last_animation_update = Instant::now();
-        }
+        // This method is now called only when needed from the display loop
+        self.animation_frame = (self.animation_frame + 1) % 8;
+        self.last_animation_update = Instant::now();
     }
 
     fn handle_enter_key(&mut self) {
         match self.mode {
-            AppMode::StackView => self.expand_collapse_tree_node(),
             AppMode::Export => self.execute_export(),
             _ => {}
         }
@@ -844,7 +632,6 @@ impl InteractiveApp {
             ExportFormat::Json => self.export_json(stats, individual_files),
             ExportFormat::Csv => self.export_csv(stats, individual_files),
             ExportFormat::Html => self.export_html(stats, individual_files),
-            ExportFormat::TimeWasted => self.export_time_wasted(stats, individual_files),
         };
 
         match result {
@@ -967,16 +754,21 @@ impl InteractiveApp {
         let reporter = HtmlReporter::new();
         let output_path = Path::new(filename);
         
-        reporter.generate_report(stats, individual_files, output_path)?;
+        // Try to calculate comprehensive stats for better reporting
+        let stats_calculator = crate::core::stats::StatsCalculator::new();
+        match stats_calculator.calculate_project_stats(stats, individual_files) {
+            Ok(aggregated_stats) => {
+                // Use comprehensive report with real analysis
+                reporter.generate_comprehensive_report(&aggregated_stats, individual_files, output_path)?;
+            }
+            Err(_) => {
+                // Fallback to basic report if comprehensive analysis fails
+                reporter.generate_report(stats, individual_files, output_path)?;
+            }
+        }
+        
         Ok(filename.to_string())
     }
 
-    fn export_time_wasted(&self, stats: &CodeStats, individual_files: &[(String, FileStats)]) -> Result<String> {
-        let filename = "time-wasted-report.html";
-        let reporter = HtmlReporter::new();
-        let output_path = Path::new(filename);
-        
-        reporter.generate_time_wasted_report(stats, individual_files, output_path)?;
-        Ok(filename.to_string())
-    }
+
 } 

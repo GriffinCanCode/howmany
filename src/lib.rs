@@ -36,12 +36,7 @@ pub use core::counter::CodeCounter;
 pub use core::filters::FileFilter;
 pub use core::stats::StatsCalculator;
 
-// Re-export techstack types for easy access
-pub use core::stats::{
-    TechStackAnalyzer, TechStackDetector, TechStackInventory, DetectedTechnology,
-    TechCategory, ConfidenceLevel, TechStackInsights, TechStackStats,
-    DependencyGraph, DependencyMapper, FrameworkRecommendation
-};
+
 
 pub use ui::cli::Config;
 pub use ui::interactive::InteractiveDisplay;

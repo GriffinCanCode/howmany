@@ -15,11 +15,11 @@ impl TimeCalculator {
         Self
     }
     
-    pub fn calculate_time_wasted(&self, stats: &CodeStats) -> TimeEstimates {
-        // Rough estimates: 1 line of code = 2 minutes, 1 line of docs = 3 minutes, 1 line of comments = 1 minute
-        let code_minutes = stats.total_code_lines * 2;
-        let doc_minutes = stats.total_doc_lines * 3;
-        let comment_minutes = stats.total_comment_lines * 1;
+    pub fn calculate_time_estimates(&self, stats: &CodeStats) -> TimeEstimates {
+        // Realistic estimates: 1 line of code = 0.2 minutes, 1 line of docs = 0.5 minutes, 1 line of comments = 0.1 minutes
+        let code_minutes = (stats.total_code_lines as f64 * 0.2) as usize;
+        let doc_minutes = (stats.total_doc_lines as f64 * 0.5) as usize;
+        let comment_minutes = (stats.total_comment_lines as f64 * 0.1) as usize;
         let total_minutes = code_minutes + doc_minutes + comment_minutes;
         
         TimeEstimates {
@@ -31,7 +31,9 @@ impl TimeCalculator {
     }
     
     pub fn calculate_file_type_time(&self, file_stats: &FileStats) -> String {
-        let total_minutes = file_stats.code_lines * 2 + file_stats.doc_lines * 3 + file_stats.comment_lines * 1;
+        let total_minutes = (file_stats.code_lines as f64 * 0.2) as usize + 
+                           (file_stats.doc_lines as f64 * 0.5) as usize + 
+                           (file_stats.comment_lines as f64 * 0.1) as usize;
         self.format_time_human(total_minutes)
     }
     

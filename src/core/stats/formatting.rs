@@ -1,7 +1,7 @@
 use crate::core::stats::aggregation::AggregatedStats;
 use crate::utils::errors::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
 
 /// Formatting options for different output formats
 #[derive(Debug, Clone, Serialize, Deserialize)]

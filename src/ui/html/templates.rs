@@ -1,11 +1,14 @@
 use crate::core::types::{CodeStats, FileStats};
 use crate::core::stats::basic::BasicStats;
+use crate::core::stats::complexity::ComplexityStatsCalculator;
+use crate::core::stats::aggregation::AggregatedStats;
 use super::utils::FileUtils;
 use super::time_utils::TimeCalculator;
 
 pub struct TemplateGenerator {
     file_utils: FileUtils,
     time_calculator: TimeCalculator,
+    complexity_calculator: ComplexityStatsCalculator,
 }
 
 impl TemplateGenerator {
@@ -13,6 +16,7 @@ impl TemplateGenerator {
         Self {
             file_utils: FileUtils::new(),
             time_calculator: TimeCalculator::new(),
+            complexity_calculator: ComplexityStatsCalculator::new(),
         }
     }
     
@@ -54,6 +58,47 @@ impl TemplateGenerator {
         rows
     }
     
+    /// Generate extension rows using real complexity analysis from AggregatedStats
+    pub fn generate_extension_rows_with_real_analysis(&self, aggregated_stats: &AggregatedStats) -> String {
+        let mut rows = String::new();
+        let mut extensions: Vec<_> = aggregated_stats.basic.stats_by_extension.iter().collect();
+        extensions.sort_by(|a, b| b.1.total_lines.cmp(&a.1.total_lines));
+        
+        for (ext, ext_stats) in extensions {
+            let complexity_data = aggregated_stats.complexity.complexity_by_extension.get(ext);
+            let complexity_score = complexity_data.map(|c| c.cyclomatic_complexity).unwrap_or(0.0);
+            let function_count = complexity_data.map(|c| c.function_count).unwrap_or(0);
+            let complexity_class = self.get_complexity_class_for_score(complexity_score);
+            
+            rows.push_str(&format!(
+                r#"<tr>
+                    <td>{} {}</td>
+                    <td>{}</td>
+                    <td>{}</td>
+                    <td>{}</td>
+                    <td>{}</td>
+                    <td>{}</td>
+                    <td>{}</td>
+                    <td><span class="complexity-badge {}">{:.1}</span></td>
+                    <td>{}</td>
+                </tr>"#,
+                self.file_utils.get_file_emoji(ext),
+                ext,
+                ext_stats.file_count,
+                ext_stats.total_lines,
+                ext_stats.code_lines,
+                ext_stats.comment_lines,
+                ext_stats.doc_lines,
+                function_count,
+                complexity_class,
+                complexity_score,
+                self.file_utils.format_size(ext_stats.total_size)
+            ));
+        }
+        
+        rows
+    }
+    
     pub fn generate_individual_files_section(&self, individual_files: &[(String, FileStats)]) -> String {
         if individual_files.is_empty() {
             return String::new();
@@ -64,15 +109,65 @@ impl TemplateGenerator {
         <div class="function-details">
         "#);
         
-        // Sort files by estimated complexity
+        // Sort files by real complexity analysis
         let mut sorted_files: Vec<_> = individual_files.iter().collect();
         sorted_files.sort_by(|a, b| {
-            let complexity_a = self.estimate_file_complexity(&a.1);
-            let complexity_b = self.estimate_file_complexity(&b.1);
+            let complexity_a = self.calculate_real_file_complexity(&a.0, &a.1);
+            let complexity_b = self.calculate_real_file_complexity(&b.0, &b.1);
             complexity_b.partial_cmp(&complexity_a).unwrap_or(std::cmp::Ordering::Equal)
         });
         
         for (file_path, file_stats) in sorted_files.iter().take(50) {
+            let complexity = self.calculate_real_file_complexity(file_path, file_stats);
+            let complexity_class = self.get_complexity_class_for_score(complexity);
+            let functions = self.calculate_real_function_count(file_path, file_stats);
+            
+            section.push_str(&format!(
+                r#"<div class="function-item">
+                    <div class="function-name">{}</div>
+                    <div class="function-metrics">
+                        <span class="function-metric">Lines: {}</span>
+                        <span class="function-metric">Code: {}</span>
+                        <span class="function-metric">Functions: {}</span>
+                        <span class="function-metric complexity-badge {}">Complexity: {:.1}</span>
+                    </div>
+                </div>"#,
+                self.shorten_path(file_path),
+                file_stats.total_lines,
+                file_stats.code_lines,
+                functions,
+                complexity_class,
+                complexity
+            ));
+        }
+        
+        section.push_str("</div>");
+        section
+    }
+    
+    /// Generate optimized individual files section with performance improvements
+    pub fn generate_optimized_individual_files_section(&self, individual_files: &[(String, FileStats)]) -> String {
+        if individual_files.is_empty() {
+            return String::new();
+        }
+        
+        // Limit to top 20 files to prevent performance issues
+        let mut sorted_files: Vec<_> = individual_files.iter().collect();
+        sorted_files.sort_by(|a, b| {
+            // Use simpler sorting criteria for better performance
+            let score_a = a.1.total_lines as f64 + (a.1.code_lines as f64 * 0.5);
+            let score_b = b.1.total_lines as f64 + (b.1.code_lines as f64 * 0.5);
+            score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        
+        let mut section = String::with_capacity(8192); // Pre-allocate capacity
+        section.push_str(r#"
+        <h2>📄 Individual Files Analysis</h2>
+        <div class="function-details">
+        "#);
+        
+        for (file_path, file_stats) in sorted_files.iter().take(20) {
+            // Use estimated complexity for better performance
             let complexity = self.estimate_file_complexity(file_stats);
             let complexity_class = self.get_complexity_class_for_score(complexity);
             let functions = self.estimate_functions_for_file(file_path, file_stats);
@@ -83,7 +178,7 @@ impl TemplateGenerator {
                     <div class="function-metrics">
                         <span class="function-metric">Lines: {}</span>
                         <span class="function-metric">Code: {}</span>
-                        <span class="function-metric">Functions: ~{}</span>
+                        <span class="function-metric">Functions: {}</span>
                         <span class="function-metric complexity-badge {}">Complexity: {:.1}</span>
                     </div>
                 </div>"#,
@@ -116,6 +211,23 @@ impl TemplateGenerator {
         
         for (ext, (_, ext_stats)) in extensions {
             let complexity = self.estimate_complexity_for_extension(ext, ext_stats);
+            data.push(complexity.to_string());
+        }
+        
+        data.join(", ")
+    }
+    
+    /// Generate complexity data using real analysis from AggregatedStats
+    pub fn generate_complexity_data_with_real_analysis(&self, aggregated_stats: &AggregatedStats) -> String {
+        let mut data: Vec<String> = Vec::new();
+        let mut extensions: Vec<_> = aggregated_stats.basic.stats_by_extension.iter().collect();
+        extensions.sort_by_key(|(ext, _)| ext.as_str());
+        
+        for (ext, _) in extensions {
+            let complexity = aggregated_stats.complexity.complexity_by_extension
+                .get(ext)
+                .map(|c| c.cyclomatic_complexity)
+                .unwrap_or(0.0);
             data.push(complexity.to_string());
         }
         
@@ -168,6 +280,54 @@ impl TemplateGenerator {
         insights.join("\n")
     }
     
+    /// Generate real complexity insights using AggregatedStats
+    pub fn generate_real_complexity_insights(&self, aggregated_stats: &AggregatedStats) -> String {
+        let mut insights = Vec::new();
+        let complexity_stats = &aggregated_stats.complexity;
+        
+        // Function complexity insights
+        if complexity_stats.function_count > 0 {
+            let avg_complexity = complexity_stats.cyclomatic_complexity;
+            if avg_complexity > 15.0 {
+                insights.push("🔴 High average complexity detected. Consider refactoring complex functions.".to_string());
+            } else if avg_complexity > 10.0 {
+                insights.push("🟡 Moderate complexity. Monitor for functions that might need simplification.".to_string());
+            } else {
+                insights.push("🟢 Good complexity levels. Functions are well-structured and maintainable.".to_string());
+            }
+            
+            // Nesting depth insights
+            if complexity_stats.max_nesting_depth > 6 {
+                insights.push("📐 Deep nesting detected. Consider extracting nested logic into separate functions.".to_string());
+            } else if complexity_stats.max_nesting_depth > 4 {
+                insights.push("📏 Moderate nesting levels. Keep an eye on deeply nested code.".to_string());
+            } else {
+                insights.push("📋 Good nesting levels. Code structure is clean and readable.".to_string());
+            }
+            
+            // Function size insights
+            if complexity_stats.average_function_length > 50.0 {
+                insights.push("📏 Large average function size. Consider breaking down large functions.".to_string());
+            } else if complexity_stats.average_function_length > 30.0 {
+                insights.push("📐 Moderate function sizes. Monitor for functions that might need refactoring.".to_string());
+            } else {
+                insights.push("📋 Good function size distribution. Functions are focused and manageable.".to_string());
+            }
+        }
+        
+        // Quality metrics insights
+        let quality = &complexity_stats.quality_metrics;
+        if quality.code_health_score > 80.0 {
+            insights.push("⭐ Excellent code quality! Your codebase is well-structured and maintainable.".to_string());
+        } else if quality.code_health_score > 60.0 {
+            insights.push("👍 Good code quality. Some areas could benefit from improvement.".to_string());
+        } else {
+            insights.push("⚠️ Code quality needs attention. Consider refactoring and adding documentation.".to_string());
+        }
+        
+        insights.join("\n")
+    }
+    
     pub fn generate_quality_recommendations(&self, stats: &CodeStats) -> String {
         let mut recommendations = Vec::new();
         
@@ -199,6 +359,215 @@ impl TemplateGenerator {
         }
         
         recommendations.join("\n")
+    }
+    
+    /// Generate quality recommendations using real analysis
+    pub fn generate_real_quality_recommendations(&self, aggregated_stats: &AggregatedStats) -> String {
+        let mut recommendations = Vec::new();
+        let complexity_stats = &aggregated_stats.complexity;
+        
+        // Complexity-based recommendations
+        if complexity_stats.cyclomatic_complexity > 15.0 {
+            recommendations.push("🔧 Refactor high-complexity functions to improve maintainability.".to_string());
+        }
+        
+        if complexity_stats.max_nesting_depth > 6 {
+            recommendations.push("📐 Reduce nesting depth by extracting logic into separate functions.".to_string());
+        }
+        
+        if complexity_stats.average_function_length > 50.0 {
+            recommendations.push("✂️ Break down large functions into smaller, focused units.".to_string());
+        }
+        
+        if complexity_stats.average_parameters_per_function > 5.0 {
+            recommendations.push("📝 Consider using objects or structs to group related parameters.".to_string());
+        }
+        
+        // Quality-based recommendations
+        let quality = &complexity_stats.quality_metrics;
+        if quality.maintainability_index < 70.0 {
+            recommendations.push("🔧 Focus on improving maintainability through better structure and documentation.".to_string());
+        }
+        
+        if quality.function_size_health < 70.0 {
+            recommendations.push("📖 Improve code readability by breaking down large functions.".to_string());
+        }
+        
+        if quality.nesting_depth_health < 70.0 {
+            recommendations.push("🧪 Reduce nesting depth to improve testability and readability.".to_string());
+        }
+        
+        if quality.documentation_coverage < 10.0 {
+            recommendations.push("💬 Add more comments to explain complex logic and business rules.".to_string());
+        }
+        
+        recommendations.join("\n")
+    }
+    
+    /// Generate enhanced insights with better analysis
+    pub fn generate_enhanced_insights(&self, aggregated_stats: &AggregatedStats) -> String {
+        let mut insights = Vec::new();
+        let complexity_stats = &aggregated_stats.complexity;
+        let basic_stats = &aggregated_stats.basic;
+        let time_stats = &aggregated_stats.time;
+        
+        // Code structure insights
+        if complexity_stats.function_count > 0 {
+            let avg_complexity = complexity_stats.cyclomatic_complexity;
+            if avg_complexity > 15.0 {
+                insights.push("🔴 High complexity detected - consider refactoring for better maintainability".to_string());
+            } else if avg_complexity > 10.0 {
+                insights.push("🟡 Moderate complexity - monitor for potential simplification opportunities".to_string());
+            } else {
+                insights.push("🟢 Good complexity levels - well-structured and maintainable code".to_string());
+            }
+        }
+        
+        // Documentation insights
+        let doc_ratio = basic_stats.doc_lines as f64 / basic_stats.code_lines as f64;
+        if doc_ratio > 0.2 {
+            insights.push("📚 Excellent documentation coverage - future developers will appreciate this".to_string());
+        } else if doc_ratio > 0.1 {
+            insights.push("📖 Good documentation coverage - consider expanding for complex areas".to_string());
+        } else {
+            insights.push("📝 Limited documentation - adding docs will improve maintainability".to_string());
+        }
+        
+        // Productivity insights
+        let productivity = &time_stats.productivity_metrics;
+        if productivity.lines_per_hour > 50.0 {
+            insights.push("⚡ High productivity rate - efficient development workflow".to_string());
+        } else if productivity.lines_per_hour > 25.0 {
+            insights.push("📈 Good productivity rate - steady development progress".to_string());
+        } else {
+            insights.push("🐌 Consider optimizing development workflow for better productivity".to_string());
+        }
+        
+        // File distribution insights
+        if basic_stats.total_files > 1000 {
+            insights.push("📁 Large codebase - consider modular organization strategies".to_string());
+        } else if basic_stats.total_files > 100 {
+            insights.push("📂 Well-sized project - good balance of organization and complexity".to_string());
+        } else {
+            insights.push("📄 Compact codebase - easy to navigate and understand".to_string());
+        }
+        
+        insights.join("\n")
+    }
+    
+    /// Generate enhanced recommendations with actionable advice
+    pub fn generate_enhanced_recommendations(&self, aggregated_stats: &AggregatedStats) -> String {
+        let mut recommendations = Vec::new();
+        let complexity_stats = &aggregated_stats.complexity;
+        let basic_stats = &aggregated_stats.basic;
+        let ratios = &aggregated_stats.ratios;
+        
+        // Priority recommendations based on quality metrics
+        let quality = &complexity_stats.quality_metrics;
+        
+        if quality.code_health_score < 60.0 {
+            recommendations.push("🚨 URGENT: Code health needs immediate attention - focus on refactoring and testing".to_string());
+        } else if quality.code_health_score < 80.0 {
+            recommendations.push("⚠️ Code health could be improved - consider incremental refactoring".to_string());
+        }
+        
+        // Specific actionable recommendations
+        if complexity_stats.cyclomatic_complexity > 10.0 {
+            recommendations.push("🔧 Reduce cyclomatic complexity by extracting methods and simplifying conditionals".to_string());
+        }
+        
+        if complexity_stats.max_nesting_depth > 4 {
+            recommendations.push("📐 Reduce nesting depth using early returns and guard clauses".to_string());
+        }
+        
+        if ratios.comment_ratio < 0.1 {
+            recommendations.push("💬 Add inline comments to explain business logic and complex algorithms".to_string());
+        }
+        
+        if ratios.doc_ratio < 0.05 {
+            recommendations.push("📚 Add API documentation for public functions and classes".to_string());
+        }
+        
+        if basic_stats.average_lines_per_file > 500.0 {
+            recommendations.push("📄 Break down large files into smaller, focused modules".to_string());
+        }
+        
+        // Testing recommendations
+        let has_tests = basic_stats.stats_by_extension.keys()
+            .any(|ext| ext.contains("test") || ext.contains("spec"));
+        
+        if !has_tests {
+            recommendations.push("🧪 Add unit tests to improve code reliability and enable safe refactoring".to_string());
+        }
+        
+        recommendations.join("\n")
+    }
+    
+    /// Generate enhanced individual files section
+    pub fn generate_enhanced_individual_files_section(&self, individual_files: &[(String, FileStats)]) -> String {
+        if individual_files.is_empty() {
+            return String::new();
+        }
+        
+        let mut section = String::from(r#"
+        <div class="section">
+            <h2 class="section-title">📄 Individual Files Analysis</h2>
+            <div class="file-analysis">
+                <p>Top files by complexity and size - these may benefit from refactoring:</p>
+                <div class="file-list">
+        "#);
+        
+        // Sort files by complexity and size
+        let mut sorted_files: Vec<_> = individual_files.iter().collect();
+        sorted_files.sort_by(|a, b| {
+            let complexity_a = self.calculate_real_file_complexity(&a.0, &a.1);
+            let complexity_b = self.calculate_real_file_complexity(&b.0, &b.1);
+            complexity_b.partial_cmp(&complexity_a).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        
+        for (file_path, file_stats) in sorted_files.iter().take(20) {
+            let complexity = self.calculate_real_file_complexity(file_path, file_stats);
+            let complexity_class = self.get_complexity_class_for_score(complexity);
+            let functions = self.calculate_real_function_count(file_path, file_stats);
+            let risk_level = if complexity > 15.0 { "HIGH" } else if complexity > 10.0 { "MEDIUM" } else { "LOW" };
+            
+            section.push_str(&format!(
+                r#"<div class="file-item">
+                    <div class="file-name">{}</div>
+                    <div class="file-metrics">
+                        <span class="file-metric">Lines: {}</span>
+                        <span class="file-metric">Code: {}</span>
+                        <span class="file-metric">Functions: {}</span>
+                        <span class="file-metric complexity-badge {}">Risk: {}</span>
+                    </div>
+                </div>"#,
+                self.shorten_path(file_path),
+                file_stats.total_lines,
+                file_stats.code_lines,
+                functions,
+                complexity_class,
+                risk_level
+            ));
+        }
+        
+        section.push_str("</div></div></div>");
+        section
+    }
+    
+    /// Calculate real file complexity using complexity analysis
+    fn calculate_real_file_complexity(&self, file_path: &str, file_stats: &FileStats) -> f64 {
+        match self.complexity_calculator.calculate_complexity_stats(file_stats, file_path) {
+            Ok(complexity_stats) => complexity_stats.cyclomatic_complexity,
+            Err(_) => self.estimate_file_complexity(file_stats), // Fallback to estimation
+        }
+    }
+    
+    /// Calculate real function count using complexity analysis
+    fn calculate_real_function_count(&self, file_path: &str, file_stats: &FileStats) -> usize {
+        match self.complexity_calculator.calculate_complexity_stats(file_stats, file_path) {
+            Ok(complexity_stats) => complexity_stats.function_count,
+            Err(_) => self.estimate_functions_for_file(file_path, file_stats), // Fallback to estimation
+        }
     }
     
     fn generate_language_insights(&self, stats: &BasicStats) -> Vec<String> {
@@ -376,38 +745,5 @@ impl TemplateGenerator {
         }
     }
     
-    pub fn generate_waste_table_rows(&self, stats: &CodeStats) -> String {
-        let mut rows = String::new();
-        let mut extensions: Vec<_> = stats.stats_by_extension.iter().collect();
-        extensions.sort_by(|a, b| {
-            let a_total = a.1.1.total_lines;
-            let b_total = b.1.1.total_lines;
-            b_total.cmp(&a_total)
-        });
-        
-        for (ext, (file_count, file_stats)) in extensions.iter().take(10) {
-            let time_wasted = self.time_calculator.calculate_file_type_time(file_stats);
-            let regret_level = self.file_utils.get_regret_level(file_stats);
-            let could_have_been = self.file_utils.get_alternative_activity(ext, file_stats);
-            
-            rows.push_str(&format!(
-                r#"<tr>
-                    <td>{} .{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td><span class="waste-badge {}">{}</span></td>
-                    <td>{}</td>
-                </tr>"#,
-                self.file_utils.get_file_emoji(ext),
-                ext,
-                file_count,
-                time_wasted,
-                regret_level.1,
-                regret_level.0,
-                could_have_been
-            ));
-        }
-        
-        rows
-    }
+
 } 
