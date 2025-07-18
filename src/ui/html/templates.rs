@@ -4,6 +4,7 @@ use crate::core::stats::complexity::ComplexityStatsCalculator;
 use crate::core::stats::aggregation::AggregatedStats;
 use super::utils::FileUtils;
 use super::time_utils::TimeCalculator;
+use std::fmt::Write;
 
 pub struct TemplateGenerator {
     file_utils: FileUtils,
@@ -21,7 +22,7 @@ impl TemplateGenerator {
     }
     
     pub fn generate_extension_rows(&self, stats: &CodeStats) -> String {
-        let mut rows = String::new();
+        let mut rows = String::with_capacity(stats.stats_by_extension.len() * 200); // Pre-allocate
         let mut extensions: Vec<_> = stats.stats_by_extension.iter().collect();
         extensions.sort_by(|a, b| b.1.1.total_lines.cmp(&a.1.1.total_lines));
         
@@ -29,7 +30,7 @@ impl TemplateGenerator {
             let complexity_class = self.get_complexity_class_for_extension(ext);
             let complexity_score = self.estimate_complexity_for_extension(ext, ext_stats);
             
-            rows.push_str(&format!(
+            write!(rows, 
                 r#"<tr>
                     <td>{} {}</td>
                     <td>{}</td>
@@ -52,7 +53,7 @@ impl TemplateGenerator {
                 complexity_class,
                 complexity_score,
                 self.file_utils.format_size(ext_stats.file_size)
-            ));
+            ).unwrap_or_else(|_| eprintln!("Failed to write extension row"));
         }
         
         rows
@@ -60,7 +61,9 @@ impl TemplateGenerator {
     
     /// Generate extension rows using real complexity analysis from AggregatedStats
     pub fn generate_extension_rows_with_real_analysis(&self, aggregated_stats: &AggregatedStats) -> String {
-        let mut rows = String::new();
+        let extensions_count = aggregated_stats.basic.stats_by_extension.len();
+        let mut rows = String::with_capacity(extensions_count * 300); // Better pre-allocation
+        
         let mut extensions: Vec<_> = aggregated_stats.basic.stats_by_extension.iter().collect();
         extensions.sort_by(|a, b| b.1.total_lines.cmp(&a.1.total_lines));
         
@@ -70,18 +73,9 @@ impl TemplateGenerator {
             let function_count = complexity_data.map(|c| c.function_count).unwrap_or(0);
             let complexity_class = self.get_complexity_class_for_score(complexity_score);
             
+            // Use format! directly instead of write! for better performance in this case
             rows.push_str(&format!(
-                r#"<tr>
-                    <td>{} {}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td>{}</td>
-                    <td><span class="complexity-badge {}">{:.1}</span></td>
-                    <td>{}</td>
-                </tr>"#,
+                "<tr><td>{} {}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"complexity-badge {}\">{:.1}</span></td><td>{}</td></tr>",
                 self.file_utils.get_file_emoji(ext),
                 ext,
                 ext_stats.file_count,
@@ -160,11 +154,10 @@ impl TemplateGenerator {
             score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
         });
         
-        let mut section = String::with_capacity(8192); // Pre-allocate capacity
-        section.push_str(r#"
-        <h2>📄 Individual Files Analysis</h2>
-        <div class="function-details">
-        "#);
+        let file_count = sorted_files.len().min(20);
+        let mut section = String::with_capacity(file_count * 200 + 200); // Better pre-allocation
+        
+        section.push_str("<h2>📄 Individual Files Analysis</h2><div class=\"function-details\">");
         
         for (file_path, file_stats) in sorted_files.iter().take(20) {
             // Use estimated complexity for better performance
@@ -172,16 +165,9 @@ impl TemplateGenerator {
             let complexity_class = self.get_complexity_class_for_score(complexity);
             let functions = self.estimate_functions_for_file(file_path, file_stats);
             
+            // Build string more efficiently
             section.push_str(&format!(
-                r#"<div class="function-item">
-                    <div class="function-name">{}</div>
-                    <div class="function-metrics">
-                        <span class="function-metric">Lines: {}</span>
-                        <span class="function-metric">Code: {}</span>
-                        <span class="function-metric">Functions: {}</span>
-                        <span class="function-metric complexity-badge {}">Complexity: {:.1}</span>
-                    </div>
-                </div>"#,
+                "<div class=\"function-item\"><div class=\"function-name\">{}</div><div class=\"function-metrics\"><span class=\"function-metric\">Lines: {}</span><span class=\"function-metric\">Code: {}</span><span class=\"function-metric\">Functions: {}</span><span class=\"function-metric complexity-badge {}\">Complexity: {:.1}</span></div></div>",
                 self.shorten_path(file_path),
                 file_stats.total_lines,
                 file_stats.code_lines,

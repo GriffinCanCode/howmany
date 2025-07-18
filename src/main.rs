@@ -1,10 +1,11 @@
-use howmany::{FileDetector, CodeCounter, FileFilter, Config, InteractiveDisplay, Result};
+use howmany::{FileDetector, FileFilter, Config, InteractiveDisplay, Result};
 use howmany::ui::cli::{OutputFormat, SortBy};
 use howmany::core::types::{CodeStats, FileStats};
 use howmany::core::stats::{StatsCalculator, AggregatedStats};
+use howmany::core::counter::CachedCodeCounter;
+use howmany::utils::metrics::MetricsCollector;
 use std::path::Path;
 use std::process;
-use rayon::prelude::*;
 
 fn main() {
     let config = Config::parse_args();
@@ -144,44 +145,39 @@ fn analyze_code_comprehensive(
         return Ok((empty_stats, Vec::new()));
     }
     
-    let counter = CodeCounter::new();
+    let mut counter = CachedCodeCounter::new();
+    let mut metrics = MetricsCollector::new();
     
-    // Process files in parallel for better performance
-    let file_stats: Vec<(String, FileStats)> = file_paths
-        .par_iter()
-        .filter_map(|file_path| {
-            match counter.count_file(file_path) {
-                Ok(stats) => {
-                    let extension = file_path
-                        .extension()
-                        .and_then(|ext| ext.to_str())
-                        .unwrap_or("no_ext")
-                        .to_string();
-                    Some((extension, stats))
-                }
-                Err(e) => {
-                    if show_files {
-                        eprintln!("Warning: Failed to process {}: {}", file_path.display(), e);
-                    }
-                    None
+    println!("Processing {} files...", file_paths.len());
+    
+    // Process files sequentially to enable caching
+    let mut file_stats = Vec::new();
+    let mut individual_files = Vec::new();
+    
+    for file_path in &file_paths {
+        match counter.count_file(file_path) {
+            Ok(stats) => {
+                // Record metrics
+                metrics.record_file_processed(stats.total_lines, stats.file_size);
+                
+                let extension = file_path
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .unwrap_or("no_ext")
+                    .to_string();
+                file_stats.push((extension, stats.clone()));
+                
+                if show_files {
+                    individual_files.push((file_path.to_string_lossy().to_string(), stats));
                 }
             }
-        })
-        .collect();
-    
-    let individual_files: Vec<(String, FileStats)> = if show_files {
-        file_paths
-            .par_iter()
-            .filter_map(|file_path| {
-                match counter.count_file(file_path) {
-                    Ok(stats) => Some((file_path.to_string_lossy().to_string(), stats)),
-                    Err(_) => None,
+            Err(e) => {
+                if show_files {
+                    eprintln!("Warning: Failed to process {}: {}", file_path.display(), e);
                 }
-            })
-            .collect()
-    } else {
-        Vec::new()
-    };
+            }
+        }
+    }
     
     // Create basic aggregated stats
     let basic_code_stats = counter.aggregate_stats(file_stats);
@@ -189,6 +185,29 @@ fn analyze_code_comprehensive(
     // Use comprehensive stats calculator
     let stats_calculator = StatsCalculator::new();
     let aggregated_stats = stats_calculator.calculate_project_stats(&basic_code_stats, &individual_files)?;
+    
+    // Save cache and cleanup
+    counter.cleanup_cache();
+    if let Err(e) = counter.save_cache() {
+        eprintln!("Warning: Failed to save cache: {}", e);
+    }
+    
+    // Show performance metrics
+    let final_metrics = metrics.finish();
+    let (cache_hits, cache_misses) = counter.cache_stats();
+    
+    if final_metrics.files_processed > 0 {
+        println!("📊 Performance Summary:");
+        println!("   • Files processed: {}", final_metrics.files_processed);
+        println!("   • Processing time: {:.2}s", final_metrics.total_duration.as_secs_f64());
+        
+        if cache_hits + cache_misses > 0 {
+            println!("   • Cache hit rate: {:.1}%", counter.cache_hit_rate() * 100.0);
+            println!("   • Cache hits: {}", cache_hits);
+            println!("   • Cache misses: {}", cache_misses);
+            println!("   • Cache size: {} entries", counter.cache_size());
+        }
+    }
     
     Ok((aggregated_stats, individual_files))
 }

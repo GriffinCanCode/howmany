@@ -5,6 +5,7 @@ pub mod core {
     pub mod counter;
     pub mod filters;
     pub mod stats;
+    pub mod patterns;
 }
 
 // User interface modules
@@ -35,8 +36,7 @@ pub use core::detector::FileDetector;
 pub use core::counter::CodeCounter;
 pub use core::filters::FileFilter;
 pub use core::stats::StatsCalculator;
-
-
+pub use core::patterns::PatternMatcher;
 
 pub use ui::cli::Config;
 pub use ui::interactive::InteractiveDisplay;

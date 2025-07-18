@@ -153,7 +153,7 @@ mod tests {
     
     #[test]
     fn test_cache_insert_and_get() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_project").unwrap();
         let file_path = project.create_file("test.rs", "fn main() {}").unwrap();
         
         let mut cache = FileCache::new();
@@ -175,7 +175,7 @@ mod tests {
     
     #[test]
     fn test_cache_miss_on_modified_file() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_project").unwrap();
         let file_path = project.create_file("test.rs", "fn main() {}").unwrap();
         
         let mut cache = FileCache::new();
@@ -201,7 +201,7 @@ mod tests {
     
     #[test]
     fn test_cache_cleanup() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_project").unwrap();
         let file_path = project.create_file("test.rs", "fn main() {}").unwrap();
         
         let mut cache = FileCache::new();

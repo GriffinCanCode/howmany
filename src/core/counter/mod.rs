@@ -705,6 +705,91 @@ impl CodeCounter {
     }
 } 
 
+/// A wrapper around CodeCounter that adds caching functionality
+pub struct CachedCodeCounter {
+    counter: CodeCounter,
+    cache: crate::utils::cache::FileCache,
+    cache_hits: usize,
+    cache_misses: usize,
+}
+
+impl CachedCodeCounter {
+    pub fn new() -> Self {
+        let cache = crate::utils::cache::FileCache::load()
+            .unwrap_or_else(|_| crate::utils::cache::FileCache::new());
+        
+        Self {
+            counter: CodeCounter::new(),
+            cache,
+            cache_hits: 0,
+            cache_misses: 0,
+        }
+    }
+    
+    pub fn count_file(&mut self, path: &Path) -> Result<FileStats> {
+        // Check if file is in cache
+        if let Some(cached_stats) = self.cache.get(path) {
+            self.cache_hits += 1;
+            return Ok(cached_stats.clone());
+        }
+        
+        // Count file using the underlying counter
+        self.cache_misses += 1;
+        let file_stats = self.counter.count_file(path)?;
+        
+        // Cache the result
+        let _ = self.cache.insert(path.to_path_buf(), file_stats.clone());
+        
+        Ok(file_stats)
+    }
+    
+    pub fn save_cache(&self) -> Result<()> {
+        self.cache.save()
+    }
+    
+    pub fn cleanup_cache(&mut self) {
+        self.cache.cleanup_missing_files();
+    }
+    
+    pub fn cache_size(&self) -> usize {
+        self.cache.size()
+    }
+    
+    pub fn clear_cache(&mut self) {
+        self.cache.clear();
+    }
+    
+    pub fn cache_stats(&self) -> (usize, usize) {
+        (self.cache_hits, self.cache_misses)
+    }
+    
+    pub fn cache_hit_rate(&self) -> f64 {
+        let total = self.cache_hits + self.cache_misses;
+        if total > 0 {
+            self.cache_hits as f64 / total as f64
+        } else {
+            0.0
+        }
+    }
+    
+    // Delegate other methods to the underlying counter
+    pub fn aggregate_stats(&self, file_stats: Vec<(String, FileStats)>) -> CodeStats {
+        self.counter.aggregate_stats(file_stats)
+    }
+    
+    pub fn calculate_file_stats(&self, path: &Path) -> Result<AggregatedStats> {
+        self.counter.calculate_file_stats(path)
+    }
+    
+    pub fn calculate_project_stats(&self, code_stats: &CodeStats, individual_files: &[(String, FileStats)]) -> Result<AggregatedStats> {
+        self.counter.calculate_project_stats(code_stats, individual_files)
+    }
+    
+    pub fn stats_calculator(&self) -> &StatsCalculator {
+        self.counter.stats_calculator()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -712,7 +797,7 @@ mod tests {
     
     #[test]
     fn test_rust_file_counting() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_rust").unwrap();
         let file_path = project.create_rust_file("test.rs", 2, 3).unwrap();
         
         let counter = CodeCounter::new();
@@ -727,7 +812,7 @@ mod tests {
     
     #[test]
     fn test_python_file_counting() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_python").unwrap();
         let file_path = project.create_python_file("test.py", 2).unwrap();
         
         let counter = CodeCounter::new();
@@ -741,7 +826,7 @@ mod tests {
     
     #[test]
     fn test_javascript_file_counting() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_javascript").unwrap();
         let file_path = project.create_javascript_file("test.js", 2).unwrap();
         
         let counter = CodeCounter::new();
@@ -755,7 +840,7 @@ mod tests {
     
     #[test]
     fn test_markdown_file_counting() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_markdown").unwrap();
         let content = r#"# Title
 
 This is documentation content.
@@ -783,7 +868,7 @@ More documentation.
     
     #[test]
     fn test_empty_file() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_empty").unwrap();
         let file_path = project.create_file("empty.rs", "").unwrap();
         
         let counter = CodeCounter::new();
@@ -798,7 +883,7 @@ More documentation.
     
     #[test]
     fn test_only_blank_lines() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_blank").unwrap();
         let file_path = project.create_file("blank.rs", "\n\n\n\n").unwrap();
         
         let counter = CodeCounter::new();
@@ -947,7 +1032,7 @@ More documentation.
     
     #[test]
     fn test_mixed_comment_types() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_mixed").unwrap();
         let content = r#"
 // Single line comment
 /* Multi-line comment
@@ -971,7 +1056,7 @@ fn main() {
     
     #[test]
     fn test_multiline_strings_vs_comments() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_multiline").unwrap();
         let content = r#"
 def test_function():
     """This is a docstring
@@ -994,7 +1079,7 @@ def test_function():
     
     #[test]
     fn test_file_extension_detection() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_extensions").unwrap();
         
         // Test various file extensions
         let files = vec![
@@ -1041,7 +1126,7 @@ def test_function():
     
     #[test]
     fn test_binary_file_handling() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_binary").unwrap();
         
         // Create a binary-like file
         let binary_content = vec![0u8, 1, 2, 3, 255, 254, 253];
@@ -1065,7 +1150,7 @@ def test_function():
     
     #[test]
     fn test_very_long_lines() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_long_lines").unwrap();
         
         // Create a file with very long lines
         let long_line = "// ".to_string() + &"x".repeat(10000);
@@ -1082,7 +1167,7 @@ def test_function():
     
     #[test]
     fn test_nested_comments() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_nested").unwrap();
         let content = r#"
 /* Outer comment
    /* Nested comment */
@@ -1128,7 +1213,7 @@ fn main() {
     
     #[test]
     fn test_code_vs_comment_detection() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_detection").unwrap();
         let content = r#"
 fn main() {
     let url = "https://example.com"; // Not a comment marker in string
@@ -1151,7 +1236,7 @@ fn main() {
     
     #[test]
     fn test_calculate_file_stats_comprehensive() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_comprehensive").unwrap();
         let file_path = project.create_rust_file("comprehensive.rs", 20, 10).unwrap();
         
         let counter = CodeCounter::new();
@@ -1171,7 +1256,7 @@ fn main() {
     
     #[test]
     fn test_calculate_project_stats_comprehensive() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_project_stats").unwrap();
         
         // Create multiple files
         project.create_rust_file("main.rs", 15, 8).unwrap();
@@ -1338,7 +1423,7 @@ fn main() {
     
     #[test]
     fn test_performance_with_large_file() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_performance").unwrap();
         
         // Create a large file
         let mut large_content = String::new();

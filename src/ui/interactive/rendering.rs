@@ -395,7 +395,7 @@ fn create_aggregated_stats_from_basic(stats: &CodeStats) -> crate::core::stats::
     // Create metadata
     let metadata = StatsMetadata {
         calculation_time_ms: 0,
-        version: "0.3.0".to_string(),
+                    version: "0.3.1".to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
         file_count_analyzed: stats.total_files,
         total_bytes_analyzed: stats.total_size,

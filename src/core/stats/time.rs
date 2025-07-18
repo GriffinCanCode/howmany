@@ -589,7 +589,7 @@ mod tests {
 
     #[test]
     fn test_time_stats_with_real_project() {
-        let project = TestProject::new().unwrap();
+        let project = TestProject::new("test_project").unwrap();
         
         // Create a realistic project structure
         project.create_rust_file("src/main.rs", 20, 10).unwrap();

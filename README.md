@@ -260,4 +260,4 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ## Version
 
-Current version: 0.3.0 
+Current version: 0.3.1 
