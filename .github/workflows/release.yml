@@ -1,0 +1,221 @@
+name: Release and Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v0.3.3)'
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          release_name: Release ${{ steps.get_version.outputs.version }}
+          draft: false
+          prerelease: false
+          body: |
+            ## Changes in ${{ steps.get_version.outputs.version }}
+            
+            - See [CHANGELOG.md](https://github.com/GriffinCanCode/howmany/blob/main/CHANGELOG.md) for detailed changes
+            
+            ## Installation
+            
+            ### Homebrew (macOS/Linux)
+            ```bash
+            brew tap GriffinCanCode/howmany
+            brew install howmany
+            ```
+            
+            ### Cargo
+            ```bash
+            cargo install howmany
+            ```
+            
+            ### From Source
+            ```bash
+            git clone https://github.com/GriffinCanCode/howmany.git
+            cd howmany/howmany-core
+            cargo install --path .
+            ```
+
+  build-and-test:
+    name: Build and Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests
+        run: cargo test --verbose
+
+      - name: Build release
+        run: cargo build --release --verbose
+
+      - name: Upload binary (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./target/release/howmany
+          asset_name: howmany-linux-x86_64
+          asset_content_type: application/octet-stream
+
+      - name: Upload binary (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./target/release/howmany
+          asset_name: howmany-macos-x86_64
+          asset_content_type: application/octet-stream
+
+      - name: Upload binary (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./target/release/howmany.exe
+          asset_name: howmany-windows-x86_64.exe
+          asset_content_type: application/octet-stream
+
+    needs: create-release
+
+  publish-cargo:
+    name: Publish to Cargo
+    runs-on: ubuntu-latest
+    needs: [create-release, build-and-test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Login to crates.io
+        run: cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish to crates.io
+        run: cargo publish --allow-dirty
+
+  update-homebrew-formula:
+    name: Update Homebrew Formula
+    runs-on: ubuntu-latest
+    needs: [create-release, build-and-test]
+    steps:
+      - name: Checkout homebrew-howmany
+        uses: actions/checkout@v4
+        with:
+          repository: GriffinCanCode/homebrew-howmany
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Get release tarball SHA256
+        id: get_sha
+        run: |
+          VERSION="${{ needs.create-release.outputs.version }}"
+          URL="https://github.com/GriffinCanCode/howmany/archive/refs/tags/${VERSION}.tar.gz"
+          SHA256=$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+
+      - name: Update formula
+        run: |
+          cd homebrew-tap
+          sed -i 's|url ".*"|url "${{ steps.get_sha.outputs.url }}"|' Formula/howmany.rb
+          sed -i 's|sha256 ".*"|sha256 "${{ steps.get_sha.outputs.sha256 }}"|' Formula/howmany.rb
+          
+          # Update version in tests if present
+          sed -i 's|--version.*"|--version|' Formula/howmany.rb
+
+      - name: Commit and push changes
+        run: |
+          cd homebrew-tap
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add Formula/howmany.rb
+          git commit -m "Update howmany to ${{ steps.get_sha.outputs.version }}" || exit 0
+          git push
+
+  notify-success:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [create-release, build-and-test, publish-cargo, update-homebrew-formula]
+    if: success()
+    steps:
+      - name: Success notification
+        run: |
+          echo "🎉 Release ${{ needs.create-release.outputs.version }} completed successfully!"
+          echo "✅ GitHub release created"
+          echo "✅ Binaries built and uploaded"
+          echo "✅ Published to crates.io"
+          echo "✅ Homebrew formula updated" 
