@@ -11,6 +11,8 @@ HowMany is a command-line tool that analyzes codebases to provide comprehensive 
 - **GitHub Actions**: Automated analysis in CI/CD pipelines
 - **VS Code Extension**: Real-time analysis directly in your editor
 
+![HowMany CLI](resources/cli.png)
+
 ## Features
 
 - **Line Counting**: Accurate counting of code lines, comments, documentation, and blank lines
@@ -114,6 +116,8 @@ For detailed configuration options and advanced usage, see the [HowMany GitHub A
 ## VS Code Integration
 
 HowMany has a dedicated VS Code extension that brings code analysis directly into your editor:
+
+![HowMany VS Code Extension](resources/vscode.png)
 
 ### HowMany VS Code Extension
 
