@@ -471,14 +471,4 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ## Version
 
-Current version: 0.3.2
-
-## Changelog
-
-### v0.3.2 (Latest)
-- Enhanced interactive mode with search functionality
-- Improved complexity analysis with quality metrics
-- Added comprehensive HTML reports with charts
-- Performance optimizations with intelligent caching
-- Extended language support (25+ languages)
-- Better error handling and progress indicators 
+Current version: 0.3.5
