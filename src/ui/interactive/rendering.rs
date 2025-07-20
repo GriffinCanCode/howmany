@@ -1184,6 +1184,13 @@ pub fn render_export(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
                 Span::styled(" - Interactive web report with charts", Style::default().fg(Color::Gray)),
             ]),
         ]),
+        ListItem::new(vec![
+            Line::from(vec![
+                Span::styled("5. ", Style::default().fg(Color::Yellow)),
+                Span::styled("🔍 SARIF Report", Style::default().fg(Color::White)),
+                Span::styled(" - Static Analysis Results Interchange Format", Style::default().fg(Color::Gray)),
+            ]),
+        ]),
 
     ];
 
@@ -1192,6 +1199,7 @@ pub fn render_export(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
         ExportFormat::Json => 1,
         ExportFormat::Csv => 2,
         ExportFormat::Html => 3,
+        ExportFormat::Sarif => 4,
     };
 
     let format_list = List::new(format_items)

@@ -276,6 +276,7 @@ fn output_comprehensive_results(
         OutputFormat::Json => output_json(aggregated_stats, individual_files),
         OutputFormat::Csv => output_csv(aggregated_stats, individual_files),
         OutputFormat::Html => output_html(aggregated_stats, individual_files),
+        OutputFormat::Sarif => output_sarif(aggregated_stats, individual_files),
     }
 }
 
@@ -399,6 +400,22 @@ fn output_html(
     // Use comprehensive report generation with real AggregatedStats
     reporter.generate_comprehensive_report(aggregated_stats, individual_files, output_path)?;
     println!("HTML report generated: {}", output_path.display());
+    
+    Ok(())
+}
+
+fn output_sarif(
+    aggregated_stats: &AggregatedStats,
+    individual_files: &[(String, FileStats)],
+) -> Result<()> {
+    use howmany::ui::sarif::SarifReporter;
+    
+    let reporter = SarifReporter::new();
+    let output_path = Path::new("howmany-report.sarif");
+    
+    // Use comprehensive report generation with AggregatedStats
+    reporter.generate_comprehensive_report(aggregated_stats, individual_files, output_path)?;
+    println!("SARIF report generated: {}", output_path.display());
     
     Ok(())
 }

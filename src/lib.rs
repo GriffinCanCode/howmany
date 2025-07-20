@@ -13,6 +13,7 @@ pub mod ui {
     pub mod cli;
     pub mod interactive;
     pub mod html;
+    pub mod sarif;
 }
 
 // Utility modules
@@ -39,6 +40,7 @@ pub use core::patterns::PatternMatcher;
 pub use ui::cli::Config;
 pub use ui::interactive::InteractiveDisplay;
 pub use ui::html::HtmlReporter;
+pub use ui::sarif::SarifReporter;
 pub use utils::errors::{HowManyError, Result};
 pub use utils::config::HowManyConfig;
 pub use utils::progress::ProgressReporter;

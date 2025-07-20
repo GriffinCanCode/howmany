@@ -28,6 +28,7 @@ pub enum ExportFormat {
     Json,
     Csv,
     Html,
+    Sarif,
 }
 
 #[derive(Debug, Clone)]
@@ -453,6 +454,11 @@ impl InteractiveApp {
                 }
                 // Tab 3 (CodeHealth) no longer exists - integrated into Languages
             },
+            KeyCode::Char('5') => {
+                if self.mode == AppMode::Export {
+                    self.select_export_format(ExportFormat::Sarif);
+                }
+            },
             KeyCode::Down | KeyCode::Char('j') => self.scroll_down(),
             KeyCode::Up | KeyCode::Char('k') => self.scroll_up(),
             KeyCode::PageDown => self.page_down(),
@@ -523,7 +529,8 @@ impl InteractiveApp {
                     ExportFormat::Text => ExportFormat::Json,
                     ExportFormat::Json => ExportFormat::Csv,
                     ExportFormat::Csv => ExportFormat::Html,
-                    ExportFormat::Html => ExportFormat::Text,
+                    ExportFormat::Html => ExportFormat::Sarif,
+                    ExportFormat::Sarif => ExportFormat::Text,
                 };
             }
             _ => {}
@@ -540,10 +547,11 @@ impl InteractiveApp {
 
             AppMode::Export => {
                 self.export_state.selected_format = match self.export_state.selected_format {
-                    ExportFormat::Text => ExportFormat::Html,
+                    ExportFormat::Text => ExportFormat::Sarif,
                     ExportFormat::Json => ExportFormat::Text,
                     ExportFormat::Csv => ExportFormat::Json,
                     ExportFormat::Html => ExportFormat::Csv,
+                    ExportFormat::Sarif => ExportFormat::Html,
                 };
             }
             _ => {}
@@ -632,6 +640,7 @@ impl InteractiveApp {
             ExportFormat::Json => self.export_json(stats, individual_files),
             ExportFormat::Csv => self.export_csv(stats, individual_files),
             ExportFormat::Html => self.export_html(stats, individual_files),
+            ExportFormat::Sarif => self.export_sarif(stats, individual_files),
         };
 
         match result {
@@ -766,6 +775,16 @@ impl InteractiveApp {
                 reporter.generate_report(stats, individual_files, output_path)?;
             }
         }
+        
+        Ok(filename.to_string())
+    }
+
+    fn export_sarif(&self, stats: &CodeStats, individual_files: &[(String, FileStats)]) -> Result<String> {
+        let filename = "howmany-report.sarif";
+        let reporter = crate::ui::sarif::SarifReporter::new();
+        let output_path = Path::new(filename);
+        
+        reporter.generate_report(stats, individual_files, output_path)?;
         
         Ok(filename.to_string())
     }
