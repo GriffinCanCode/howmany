@@ -11,6 +11,11 @@ on:
         required: true
         type: string
 
+# Prevent concurrent release workflows
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   CARGO_TERM_COLOR: always
 
