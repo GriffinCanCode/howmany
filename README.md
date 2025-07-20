@@ -6,6 +6,11 @@ A fast, intelligent code analysis tool for counting lines of code and analyzing 
 
 HowMany is a command-line tool that analyzes codebases to provide comprehensive statistics about files, lines of code, complexity, and development time estimates. It automatically detects user-created code files while filtering out dependencies, build artifacts, and generated files.
 
+**Available integrations:**
+- **CLI Tool**: Direct command-line usage with interactive mode
+- **GitHub Actions**: Automated analysis in CI/CD pipelines
+- **VS Code Extension**: Real-time analysis directly in your editor
+
 ## Features
 
 - **Line Counting**: Accurate counting of code lines, comments, documentation, and blank lines
@@ -105,6 +110,32 @@ jobs:
 - **Zero Configuration**: Works out of the box with sensible defaults
 
 For detailed configuration options and advanced usage, see the [HowMany GitHub Action documentation](https://github.com/GriffinCanCode/howmany-actions).
+
+## VS Code Integration
+
+HowMany has a dedicated VS Code extension that brings code analysis directly into your editor:
+
+### HowMany VS Code Extension
+
+```bash
+# Install from VS Code Marketplace
+code --install-extension GriffinCanCode.howmany
+```
+
+**Features:**
+- **Smart Status Bar**: Live metrics display with quality color-coding
+- **Interactive Reports**: Detailed analysis with complexity metrics and quality scores
+- **Command Integration**: Full command palette and context menu support
+- **Export Options**: Generate reports in JSON, HTML, and CSV formats
+- **Real-time Analysis**: Instant feedback without leaving your editor
+
+**Quick Start:**
+1. Install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=GriffinCanCode.howmany)
+2. Install HowMany CLI (using any method above)
+3. Open a project and click the HowMany status bar item
+4. View detailed reports and quality metrics
+
+For more information, visit the [HowMany VS Code Extension repository](https://github.com/GriffinCanCode/howmany-vscode).
 
 ## Usage
 
