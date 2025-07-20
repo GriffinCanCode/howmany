@@ -1,6 +1,6 @@
 [package]
 name = "howmany"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 authors = ["Griffin <griffin@griffin-code.com>"]
 description = "A blazingly fast, intelligent code analysis tool with parallel processing, caching, and beautiful visualizations"

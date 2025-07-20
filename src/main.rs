@@ -28,6 +28,7 @@ fn run(config: Config) -> Result<()> {
             config.get_ignore_patterns(),
             config.get_extensions(),
             true, // Always collect individual files for interactive mode to enable real-time analysis
+            &config.format,
         )?;
         
         let mut display = InteractiveDisplay::new();
@@ -47,6 +48,7 @@ fn run(config: Config) -> Result<()> {
             config.include_hidden,
             config.get_ignore_patterns(),
             config.get_extensions(),
+            &config.format,
         );
     }
     
@@ -58,6 +60,7 @@ fn run(config: Config) -> Result<()> {
         config.get_ignore_patterns(),
         config.get_extensions(),
         config.show_files,
+        &config.format,
     )?;
     
     output_comprehensive_results(
@@ -78,8 +81,14 @@ fn analyze_code_comprehensive(
     ignore_patterns: Vec<String>,
     extensions: Vec<String>,
     show_files: bool,
+    output_format: &OutputFormat,
 ) -> Result<(AggregatedStats, Vec<(String, FileStats)>)> {
-    println!("Analyzing directory: {}", path.display());
+    // Only print messages for text output format
+    let should_print = matches!(output_format, OutputFormat::Text);
+    
+    if should_print {
+        println!("Analyzing directory: {}", path.display());
+    }
     
     let detector = FileDetector::new();
     let mut filter = FileFilter::new()
@@ -95,7 +104,9 @@ fn analyze_code_comprehensive(
         filter = filter.with_custom_ignores(ignore_patterns);
     }
     
-    println!("Scanning for user-created code files...");
+    if should_print {
+        println!("Scanning for user-created code files...");
+    }
     
     // Collect all file paths first
     let file_paths: Vec<_> = filter.walk_directory(path)
@@ -128,7 +139,9 @@ fn analyze_code_comprehensive(
         .collect();
     
     if file_paths.is_empty() {
-        println!("No files found matching the criteria.");
+        if should_print {
+            println!("No files found matching the criteria.");
+        }
         let empty_stats = StatsCalculator::new().calculate_project_stats(
             &CodeStats {
                 total_files: 0,
@@ -148,7 +161,9 @@ fn analyze_code_comprehensive(
     let mut counter = CachedCodeCounter::new();
     let mut metrics = MetricsCollector::new();
     
-    println!("Processing {} files...", file_paths.len());
+    if should_print {
+        println!("Processing {} files...", file_paths.len());
+    }
     
     // Process files sequentially to enable caching
     let mut file_stats = Vec::new();
@@ -172,7 +187,7 @@ fn analyze_code_comprehensive(
                 }
             }
             Err(e) => {
-                if show_files {
+                if show_files && should_print {
                     eprintln!("Warning: Failed to process {}: {}", file_path.display(), e);
                 }
             }
@@ -189,14 +204,16 @@ fn analyze_code_comprehensive(
     // Save cache and cleanup
     counter.cleanup_cache();
     if let Err(e) = counter.save_cache() {
-        eprintln!("Warning: Failed to save cache: {}", e);
+        if should_print {
+            eprintln!("Warning: Failed to save cache: {}", e);
+        }
     }
     
-    // Show performance metrics
+    // Show performance metrics only for text output
     let final_metrics = metrics.finish();
     let (cache_hits, cache_misses) = counter.cache_stats();
     
-    if final_metrics.files_processed > 0 {
+    if final_metrics.files_processed > 0 && should_print {
         println!("📊 Performance Summary:");
         println!("   • Files processed: {}", final_metrics.files_processed);
         println!("   • Processing time: {:.2}s", final_metrics.total_duration.as_secs_f64());
@@ -218,7 +235,10 @@ fn list_files(
     include_hidden: bool,
     ignore_patterns: Vec<String>,
     extensions: Vec<String>,
+    output_format: &OutputFormat,
 ) -> Result<()> {
+    let should_print = matches!(output_format, OutputFormat::Text);
+    
     let detector = FileDetector::new();
     let mut filter = FileFilter::new()
         .respect_hidden(!include_hidden)
@@ -233,7 +253,9 @@ fn list_files(
         filter = filter.with_custom_ignores(ignore_patterns);
     }
     
-    println!("Files that would be counted:");
+    if should_print {
+        println!("Files that would be counted:");
+    }
     
     for entry in filter.walk_directory(path) {
         let entry_path = entry.path();

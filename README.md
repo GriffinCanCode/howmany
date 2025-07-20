@@ -20,6 +20,12 @@ HowMany is a command-line tool that analyzes codebases to provide comprehensive 
 
 ## Installation
 
+### Homebrew (macOS/Linux)
+
+```bash
+brew install howmany
+```
+
 ### From crates.io (Recommended)
 
 ```bash
@@ -41,6 +47,64 @@ cargo build --release
 ```
 
 This will build the project and create a symlink in `/usr/local/bin/howmany` for system-wide access.
+
+## GitHub Actions Integration
+
+HowMany can be integrated directly into your GitHub workflows using the official GitHub Action:
+
+### Quick Start
+
+```yaml
+name: Code Analysis
+on: [push, pull_request]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: GriffinCanCode/howmany-actions@v1
+        with:
+          path: '.'
+          create-pr-comment: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Quality Gate Example
+
+```yaml
+name: Quality Gate
+on: [pull_request]
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Quality Gate Check
+        uses: GriffinCanCode/howmany-actions@v1
+        with:
+          fail-on-quality-gate: true
+          quality-threshold: 80
+          maintainability-threshold: 70
+          documentation-threshold: 25
+          create-pr-comment: true
+```
+
+### Features
+
+- **Automated Analysis**: Runs HowMany analysis on every push/PR
+- **Quality Gates**: Fail builds based on configurable quality thresholds
+- **PR Comments**: Automatic pull request comments with detailed results
+- **Multiple Formats**: JSON, HTML, and SARIF output support
+- **SARIF Integration**: Native GitHub Code Scanning support
+- **Zero Configuration**: Works out of the box with sensible defaults
+
+For detailed configuration options and advanced usage, see the [HowMany GitHub Action documentation](https://github.com/GriffinCanCode/howmany-actions).
 
 ## Usage
 
