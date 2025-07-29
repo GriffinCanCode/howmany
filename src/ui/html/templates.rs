@@ -391,7 +391,6 @@ impl TemplateGenerator {
         let mut insights = Vec::new();
         let complexity_stats = &aggregated_stats.complexity;
         let basic_stats = &aggregated_stats.basic;
-        let time_stats = &aggregated_stats.time;
         
         // Code structure insights
         if complexity_stats.function_count > 0 {
@@ -415,20 +414,10 @@ impl TemplateGenerator {
             insights.push("📝 Limited documentation - adding docs will improve maintainability".to_string());
         }
         
-        // Productivity insights
-        let productivity = &time_stats.productivity_metrics;
-        if productivity.lines_per_hour > 50.0 {
-            insights.push("⚡ High productivity rate - efficient development workflow".to_string());
-        } else if productivity.lines_per_hour > 25.0 {
-            insights.push("📈 Good productivity rate - steady development progress".to_string());
-        } else {
-            insights.push("🐌 Consider optimizing development workflow for better productivity".to_string());
-        }
-        
-        // File distribution insights
-        if basic_stats.total_files > 1000 {
+        // Size insights
+        if basic_stats.total_lines > 10000 {
             insights.push("📁 Large codebase - consider modular organization strategies".to_string());
-        } else if basic_stats.total_files > 100 {
+        } else if basic_stats.total_lines > 1000 {
             insights.push("📂 Well-sized project - good balance of organization and complexity".to_string());
         } else {
             insights.push("📄 Compact codebase - easy to navigate and understand".to_string());

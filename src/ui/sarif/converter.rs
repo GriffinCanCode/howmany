@@ -287,16 +287,16 @@ impl SarifConverter {
             ));
         }
 
-        // Development time insights
+        // Quality assessment insights
         results.push(self.create_result(
             "HM402",
-            "Development Time Analysis",
-            &format!("Estimated development time: {} (Code: {}, Docs: {})", 
-                aggregated_stats.time.total_time_formatted,
-                aggregated_stats.time.code_time_formatted,
-                aggregated_stats.time.doc_time_formatted),
+            "Quality Assessment Insights",
+            &format!("Overall code quality: {:.1}/100 (Maintainability: {:.1}/100, Code Health: {:.1}/100)", 
+                aggregated_stats.ratios.quality_metrics.overall_quality_score,
+                aggregated_stats.complexity.quality_metrics.maintainability_index,
+                aggregated_stats.complexity.quality_metrics.code_health_score),
             "note",
-            "project://time-analysis",
+            "project://quality-insights",
             None,
         ));
 
@@ -507,7 +507,7 @@ impl SarifConverter {
             self.create_rule("HM202", "Poor Code Health", "Identifies overall code health issues"),
             self.create_rule("HM301", "Large Project", "Warns about projects that may benefit from modularization"),
             self.create_rule("HM401", "Technical Debt Alert", "Highlights significant technical debt indicators"),
-            self.create_rule("HM402", "Development Time Analysis", "Provides development time estimates and insights"),
+            self.create_rule("HM402", "Quality Assessment Insights", "Provides overall code quality insights"),
         ]
     }
 
@@ -552,7 +552,7 @@ impl SarifConverter {
             "HM202" => "Poor code health affects long-term project sustainability. Review coding standards and consider refactoring efforts.".to_string(),
             "HM301" => "Large projects benefit from modular architecture. Consider organizing code into logical modules or packages.".to_string(),
             "HM401" => "Technical debt accumulation can slow development. Prioritize refactoring efforts to improve code quality.".to_string(),
-            "HM402" => "Development time analysis helps with project planning and resource allocation.".to_string(),
+            "HM402" => "Quality assessment insights provide an overall view of code quality metrics.".to_string(),
             _ => format!("Rule {} provides code quality insights from HowMany analysis.", rule_id),
         }
     }

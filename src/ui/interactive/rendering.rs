@@ -169,7 +169,6 @@ fn create_aggregated_stats_from_basic(stats: &CodeStats) -> crate::core::stats::
     use crate::core::stats::aggregation::AggregatedStats;
     use crate::core::stats::basic::BasicStats;
     use crate::core::stats::complexity::{ComplexityStats, ComplexityDistribution, StructureDistribution, QualityMetrics};
-    use crate::core::stats::time::TimeStats;
     use crate::core::stats::ratios::RatioStats;
     use crate::core::stats::aggregation::StatsMetadata;
     use std::collections::HashMap;
@@ -180,17 +179,31 @@ fn create_aggregated_stats_from_basic(stats: &CodeStats) -> crate::core::stats::
         total_lines: stats.total_lines,
         code_lines: stats.total_code_lines,
         comment_lines: stats.total_comment_lines,
-        doc_lines: stats.total_doc_lines,
         blank_lines: stats.total_blank_lines,
+        doc_lines: stats.total_doc_lines,
         total_size: stats.total_size,
         average_file_size: if stats.total_files > 0 { stats.total_size as f64 / stats.total_files as f64 } else { 0.0 },
         average_lines_per_file: if stats.total_files > 0 { stats.total_lines as f64 / stats.total_files as f64 } else { 0.0 },
-        largest_file_size: calculate_largest_file_size(stats),
-        smallest_file_size: calculate_smallest_file_size(stats),
-        stats_by_extension: convert_to_extension_stats(&stats.stats_by_extension),
+        largest_file_size: stats.stats_by_extension.values().map(|(_, file_stats)| file_stats.file_size).max().unwrap_or(0),
+        smallest_file_size: stats.stats_by_extension.values().map(|(_, file_stats)| file_stats.file_size).min().unwrap_or(0),
+        stats_by_extension: stats.stats_by_extension.iter()
+            .map(|(ext, (count, file_stats))| {
+                (ext.clone(), crate::core::stats::basic::ExtensionStats {
+                    file_count: *count,
+                    total_lines: file_stats.total_lines,
+                    code_lines: file_stats.code_lines,
+                    comment_lines: file_stats.comment_lines,
+                    blank_lines: file_stats.blank_lines,
+                    doc_lines: file_stats.doc_lines,
+                    total_size: file_stats.file_size,
+                    average_lines_per_file: if *count > 0 { file_stats.total_lines as f64 / *count as f64 } else { 0.0 },
+                    average_size_per_file: if *count > 0 { file_stats.file_size as f64 / *count as f64 } else { 0.0 },
+                })
+            })
+            .collect(),
     };
     
-    // Create placeholder complexity stats (these would normally come from the complexity calculator)
+    // Create placeholder complexity stats
     let complexity_stats = ComplexityStats {
         function_count: 0,
         class_count: 0,
@@ -203,13 +216,13 @@ fn create_aggregated_stats_from_basic(stats: &CodeStats) -> crate::core::stats::
         cyclomatic_complexity: 0.0,
         cognitive_complexity: 0.0,
         maintainability_index: 85.0,
-        average_function_length: 15.0,
+        average_function_length: 0.0,
         max_function_length: 0,
         min_function_length: 0,
         max_nesting_depth: 0,
         average_nesting_depth: 0.0,
         methods_per_class: 0.0,
-        average_parameters_per_function: 2.5,
+        average_parameters_per_function: 0.0,
         max_parameters_per_function: 0,
         complexity_by_extension: HashMap::new(),
         complexity_distribution: ComplexityDistribution {
@@ -229,99 +242,16 @@ fn create_aggregated_stats_from_basic(stats: &CodeStats) -> crate::core::stats::
         },
         function_complexity_details: Vec::new(),
         quality_metrics: QualityMetrics {
-            code_health_score: if stats.total_lines > 0 {
-                let comment_ratio = stats.total_comment_lines as f64 / stats.total_lines as f64;
-                let code_ratio = stats.total_code_lines as f64 / stats.total_lines as f64;
-                ((comment_ratio * 30.0) + (code_ratio * 50.0) + 20.0).min(100.0)
-            } else { 0.0 },
-            maintainability_index: if stats.total_code_lines > 0 {
-                let doc_ratio = (stats.total_doc_lines + stats.total_comment_lines) as f64 / stats.total_code_lines as f64;
-                (doc_ratio * 100.0).min(100.0)
-            } else { 0.0 },
-            documentation_coverage: if stats.total_code_lines > 0 {
-                let doc_lines = stats.total_doc_lines + stats.total_comment_lines;
-                (doc_lines as f64 / stats.total_code_lines as f64 * 100.0).min(100.0)
-            } else { 0.0 },
-            avg_complexity: if stats.total_files > 0 {
-                // Estimate average complexity based on file structure
-                let avg_lines_per_file = stats.total_lines as f64 / stats.total_files as f64;
-                (avg_lines_per_file / 20.0).min(10.0) // Rough estimate
-            } else { 0.0 },
-            function_size_health: if stats.total_files > 0 {
-                let avg_lines_per_file = stats.total_lines as f64 / stats.total_files as f64;
-                // Smaller files generally indicate better function sizes
-                (100.0 - (avg_lines_per_file / 10.0)).max(0.0).min(100.0)
-            } else { 0.0 },
-            nesting_depth_health: if stats.total_files > 0 {
-                // Estimate nesting health based on file structure
-                let avg_lines_per_file = stats.total_lines as f64 / stats.total_files as f64;
-                (100.0 - (avg_lines_per_file / 15.0)).max(0.0).min(100.0)
-            } else { 0.0 },
-            code_duplication_ratio: 5.0, // Conservative estimate
-            technical_debt_ratio: if stats.total_files > 0 {
-                // Estimate technical debt based on various factors
-                let avg_lines_per_file = stats.total_lines as f64 / stats.total_files as f64;
-                let large_file_penalty: f64 = if avg_lines_per_file > 100.0 { 20.0 } else { 0.0 };
-                let low_comment_penalty: f64 = if stats.total_code_lines > 0 && (stats.total_comment_lines as f64 / stats.total_code_lines as f64) < 0.1 { 15.0 } else { 0.0 };
-                (large_file_penalty + low_comment_penalty).min(100.0)
-            } else { 0.0 },
+            code_health_score: 85.0,
+            maintainability_index: 85.0,
+            documentation_coverage: 80.0,
+            avg_complexity: 0.0,
+            function_size_health: 90.0,
+            nesting_depth_health: 95.0,
+            code_duplication_ratio: 5.0,
+            technical_debt_ratio: 10.0,
         },
     };
-    
-    // Create realistic time stats using actual calculations
-    let time_calculator = crate::core::stats::time::TimeStatsCalculator::new();
-    let time_stats = time_calculator.calculate_project_time_stats(stats).unwrap_or_else(|_| {
-        // Fallback to basic calculation if advanced calculation fails
-        let code_minutes = (stats.total_code_lines as f64 * 0.2) as usize; // 0.2 minutes per line of code (realistic for modern dev)
-        let doc_minutes = (stats.total_doc_lines as f64 * 0.5) as usize; // 0.5 minutes per line of docs
-        let comment_minutes = (stats.total_comment_lines as f64 * 0.1) as usize; // 0.1 minutes per line of comments
-        let total_minutes = code_minutes + doc_minutes + comment_minutes;
-        
-        let total_hours = total_minutes as f64 / 60.0;
-        let productivity_metrics = crate::core::stats::time::ProductivityMetrics {
-            lines_per_hour: if total_hours > 0.0 { stats.total_lines as f64 / total_hours } else { 0.0 },
-            code_lines_per_hour: if total_hours > 0.0 { stats.total_code_lines as f64 / total_hours } else { 0.0 },
-            files_per_hour: if total_hours > 0.0 { stats.total_files as f64 / total_hours } else { 0.0 },
-            estimated_development_days: total_hours / 8.0, // 8 hours per day
-            estimated_development_hours: total_hours,
-        };
-        
-        // Simple time formatting function
-        let format_time = |minutes: usize| -> String {
-            if minutes < 60 {
-                format!("{}min", minutes)
-            } else if minutes < 1440 { // less than 24 hours
-                let hours = minutes / 60;
-                let mins = minutes % 60;
-                if mins > 0 {
-                    format!("{}h {}min", hours, mins)
-                } else {
-                    format!("{}h", hours)
-                }
-            } else {
-                let days = minutes / 1440;
-                let hours = (minutes % 1440) / 60;
-                if hours > 0 {
-                    format!("{} days {}h", days, hours)
-                } else {
-                    format!("{} days", days)
-                }
-            }
-        };
-        
-        TimeStats {
-            total_time_minutes: total_minutes,
-            code_time_minutes: code_minutes,
-            doc_time_minutes: doc_minutes,
-            comment_time_minutes: comment_minutes,
-            total_time_formatted: format_time(total_minutes),
-            code_time_formatted: format_time(code_minutes),
-            doc_time_formatted: format_time(doc_minutes),
-            comment_time_formatted: format_time(comment_minutes),
-            time_by_extension: HashMap::new(),
-            productivity_metrics,
-        }
-    });
     
     // Create placeholder ratio stats
     let ratio_stats = RatioStats {
@@ -335,78 +265,31 @@ fn create_aggregated_stats_from_basic(stats: &CodeStats) -> crate::core::stats::
         language_distribution: HashMap::new(),
         file_distribution: HashMap::new(),
         size_distribution: HashMap::new(),
-        quality_metrics: {
-            let doc_score = if stats.total_code_lines > 0 {
-                ((stats.total_doc_lines + stats.total_comment_lines) as f64 / stats.total_code_lines as f64 * 100.0).min(100.0)
-            } else { 0.0 };
-            
-            let maintainability_score = if stats.total_lines > 0 {
-                let comment_ratio = stats.total_comment_lines as f64 / stats.total_lines as f64;
-                let code_ratio = stats.total_code_lines as f64 / stats.total_lines as f64;
-                ((comment_ratio * 30.0) + (code_ratio * 50.0) + 20.0).min(100.0)
-            } else { 0.0 };
-            
-            let readability_score = if stats.total_lines > 0 {
-                let comment_ratio = stats.total_comment_lines as f64 / stats.total_lines as f64;
-                let blank_ratio = stats.total_blank_lines as f64 / stats.total_lines as f64;
-                
-                // Comment contribution (0-70 points)
-                let comment_score = if comment_ratio >= 0.15 {
-                    70.0
-                } else {
-                    (comment_ratio / 0.15) * 70.0
-                };
-                
-                // Blank lines contribution (0-30 points) - ideal is 15%
-                let blank_score = if blank_ratio <= 0.15 {
-                    (blank_ratio / 0.15) * 30.0
-                } else {
-                    let penalty = (blank_ratio - 0.15) * 60.0;
-                    (30.0 - penalty).max(0.0)
-                };
-                
-                (comment_score + blank_score).min(100.0)
-            } else { 0.0 };
-            
-            let consistency_score = if stats.stats_by_extension.len() > 0 {
-                // Calculate consistency based on how evenly distributed the code is
-                let avg_lines_per_ext = stats.total_lines as f64 / stats.stats_by_extension.len() as f64;
-                let variance = stats.stats_by_extension.values()
-                    .map(|(_, file_stats)| {
-                        let diff = file_stats.total_lines as f64 - avg_lines_per_ext;
-                        diff * diff
-                    })
-                    .sum::<f64>() / stats.stats_by_extension.len() as f64;
-                (100.0 - (variance.sqrt() / avg_lines_per_ext * 100.0)).max(0.0).min(100.0)
-            } else { 0.0 };
-            
-            let overall_score = (doc_score + maintainability_score + readability_score + consistency_score) / 4.0;
-            
-            crate::core::stats::ratios::QualityMetrics {
-                documentation_score: doc_score,
-                maintainability_score: maintainability_score,
-                readability_score: readability_score,
-                consistency_score: consistency_score,
-                overall_quality_score: overall_score,
-            }
+        quality_metrics: crate::core::stats::ratios::QualityMetrics {
+            overall_quality_score: 85.0,
+            documentation_score: if stats.total_code_lines > 0 { 
+                (stats.total_doc_lines as f64 / stats.total_code_lines as f64 * 100.0).min(100.0)
+            } else { 0.0 },
+            maintainability_score: 85.0,
+            readability_score: 80.0,
+            consistency_score: 75.0,
         },
     };
     
     // Create metadata
     let metadata = StatsMetadata {
         calculation_time_ms: 0,
-                    version: "0.3.2".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
         file_count_analyzed: stats.total_files,
         total_bytes_analyzed: stats.total_size,
         languages_detected: stats.stats_by_extension.keys().cloned().collect(),
-        analysis_depth: crate::core::stats::aggregation::AnalysisDepth::Advanced,
+        analysis_depth: crate::core::stats::aggregation::AnalysisDepth::Basic,
     };
     
     AggregatedStats {
         basic: basic_stats,
         complexity: complexity_stats,
-        time: time_stats,
         ratios: ratio_stats,
         metadata,
     }

@@ -112,14 +112,6 @@ impl InteractiveDisplay {
             println!("🏗️  Max Nesting Depth: {}", aggregated_stats.complexity.max_nesting_depth);
         }
         
-        // Time estimates
-        println!();
-        println!("{}", "⏱️  TIME ESTIMATES".bright_green());
-        println!("{}", "─".repeat(80));
-        println!("🕐 Total Development Time: {}", aggregated_stats.time.total_time_formatted.bright_blue());
-        println!("💻 Code Writing Time: {}", aggregated_stats.time.code_time_formatted.bright_green());
-        println!("📝 Documentation Time: {}", aggregated_stats.time.doc_time_formatted.bright_cyan());
-        
         // Quality metrics
         println!();
         println!("{}", "🏆 QUALITY METRICS".bright_green());

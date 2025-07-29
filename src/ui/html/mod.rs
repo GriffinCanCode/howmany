@@ -1,8 +1,7 @@
-mod reporter;
-mod standard_report;
-mod time_utils;
-mod insights;
-mod templates;
-mod utils;
+pub mod reporter;
+pub mod standard_report;
+pub mod insights;
+pub mod templates;
+pub mod utils;
 
 pub use reporter::HtmlReporter; 

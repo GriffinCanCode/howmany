@@ -50,10 +50,23 @@ impl QualityCalculator {
         if functions.is_empty() {
             let mut score = 85.0; // Start with good baseline
             
-            // Penalize very large files
-            if file_stats.total_lines > 1000 {
-                score -= ((file_stats.total_lines - 1000) as f64 / 100.0).min(30.0);
-            }
+            // Apply progressive file length penalty
+            let file_length_penalty = if file_stats.total_lines > 500 {
+                if file_stats.total_lines > 2000 {
+                    // Very large files: significant penalty
+                    ((file_stats.total_lines - 500) as f64 / 100.0).min(40.0)
+                } else if file_stats.total_lines > 1000 {
+                    // Large files: moderate penalty
+                    ((file_stats.total_lines - 500) as f64 / 150.0).min(25.0)
+                } else {
+                    // Medium files: small penalty
+                    ((file_stats.total_lines - 500) as f64 / 200.0).min(15.0)
+                }
+            } else {
+                0.0
+            };
+            
+            score -= file_length_penalty;
             
             // Reward good documentation
             let doc_ratio = (file_stats.comment_lines + file_stats.doc_lines) as f64 / file_stats.code_lines.max(1) as f64;
@@ -88,7 +101,25 @@ impl QualityCalculator {
             total_score += length_score + cyclomatic_score + cognitive_score + param_score;
         }
         
-        (total_score / functions.len() as f64).min(100.0).max(0.0)
+        let base_score = (total_score / functions.len() as f64).min(100.0).max(0.0);
+        
+        // Apply file length penalty - files over 500 lines are considered less maintainable
+        let file_length_penalty = if file_stats.total_lines > 500 {
+            if file_stats.total_lines > 2000 {
+                // Very large files: significant penalty
+                ((file_stats.total_lines - 500) as f64 / 100.0).min(40.0)
+            } else if file_stats.total_lines > 1000 {
+                // Large files: moderate penalty
+                ((file_stats.total_lines - 500) as f64 / 150.0).min(25.0)
+            } else {
+                // Medium files: small penalty
+                ((file_stats.total_lines - 500) as f64 / 200.0).min(15.0)
+            }
+        } else {
+            0.0
+        };
+        
+        (base_score - file_length_penalty).max(0.0)
     }
     
     /// Calculate readability score

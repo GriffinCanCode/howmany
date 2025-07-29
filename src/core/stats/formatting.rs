@@ -142,20 +142,6 @@ impl StatFormatter {
             output.push_str(&format!("Max Nesting: {}\n", stats.complexity.max_nesting_depth));
         }
         
-        // Time stats
-        if !options.compact_mode {
-            output.push('\n');
-            if options.use_emojis {
-                output.push_str("⏱️  TIME ESTIMATES\n");
-            } else {
-                output.push_str("TIME ESTIMATES\n");
-            }
-            output.push_str(&"─".repeat(30));
-            output.push('\n');
-            output.push_str(&format!("Total Time: {}\n", stats.time.total_time_formatted));
-            output.push_str(&format!("Development Days: {:.1}\n", stats.time.productivity_metrics.estimated_development_days));
-        }
-        
         // Quality scores
         if !options.compact_mode {
             output.push('\n');
@@ -198,12 +184,8 @@ impl StatFormatter {
                 .map(|c| c.cyclomatic_complexity)
                 .unwrap_or(0.0);
             
-            let time = stats.time.time_by_extension.get(ext)
-                .map(|t| t.total_time_minutes)
-                .unwrap_or(0);
-            
             output.push_str(&format!(
-                "{},{},{},{},{},{},{},{},{},{:.1},{}\n",
+                "{},{},{},{},{},{},{},{},{:.1},{}\n",
                 ext,
                 ext_stats.file_count,
                 ext_stats.total_lines,
@@ -215,8 +197,7 @@ impl StatFormatter {
                 stats.complexity.complexity_by_extension.get(ext)
                     .map(|c| c.function_count)
                     .unwrap_or(0),
-                complexity,
-                time
+                complexity
             ));
         }
         

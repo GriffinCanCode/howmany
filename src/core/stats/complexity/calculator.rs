@@ -223,7 +223,30 @@ impl ComplexityCalculator {
             let cognitive_score = (30.0 - avg_cognitive * 2.0).max(0.0);
             let param_score = (20.0 - avg_params * 3.0).max(0.0);
             
-            (length_score + complexity_score + cognitive_score + param_score).min(100.0).max(0.0)
+            let base_score = (length_score + complexity_score + cognitive_score + param_score).min(100.0).max(0.0);
+            
+            // Apply file length penalty based on project file size distribution
+            let large_files_count = individual_files.iter()
+                .filter(|(_, stats)| stats.total_lines > 500)
+                .count();
+            let very_large_files_count = individual_files.iter()
+                .filter(|(_, stats)| stats.total_lines > 1000)
+                .count();
+            let extremely_large_files_count = individual_files.iter()
+                .filter(|(_, stats)| stats.total_lines > 2000)
+                .count();
+            
+            let total_files = individual_files.len().max(1);
+            let large_file_ratio = large_files_count as f64 / total_files as f64;
+            let very_large_file_ratio = very_large_files_count as f64 / total_files as f64;
+            let extremely_large_file_ratio = extremely_large_files_count as f64 / total_files as f64;
+            
+            // Progressive penalty based on proportion of large files
+            let file_size_penalty = (large_file_ratio * 10.0) + 
+                                   (very_large_file_ratio * 15.0) + 
+                                   (extremely_large_file_ratio * 20.0);
+            
+            (base_score - file_size_penalty.min(35.0)).max(0.0)
         } else {
             100.0
         };
@@ -308,7 +331,7 @@ impl ComplexityCalculator {
     }
 
     /// Calculate maintainability index (simplified version)
-    fn calculate_maintainability_index(&self, functions: &[FunctionInfo], _file_stats: &FileStats) -> f64 {
+    fn calculate_maintainability_index(&self, functions: &[FunctionInfo], file_stats: &FileStats) -> f64 {
         if functions.is_empty() {
             return 100.0; // Perfect score for empty files
         }
@@ -330,7 +353,18 @@ impl ComplexityCalculator {
             total_score += length_score + cyclomatic_score + cognitive_score + param_score;
         }
         
-        (total_score / functions.len() as f64).min(100.0).max(0.0)
+        let base_score = (total_score / functions.len() as f64).min(100.0).max(0.0);
+        
+        // Apply file length penalty - files over 500 lines are considered less maintainable
+        let file_length_penalty = if file_stats.total_lines > 500 {
+            // Progressive penalty: 0.5 points per 100 lines over 500, capped at 25 points
+            let excess_lines = file_stats.total_lines - 500;
+            ((excess_lines as f64 / 100.0) * 0.5).min(25.0)
+        } else {
+            0.0
+        };
+        
+        (base_score - file_length_penalty).max(0.0)
     }
 
     /// Get complexity level description

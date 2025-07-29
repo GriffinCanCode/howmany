@@ -1,6 +1,5 @@
 use crate::core::stats::basic::BasicStats;
 use crate::core::stats::complexity::ComplexityStats;
-use crate::core::stats::time::TimeStats;
 use crate::core::stats::ratios::RatioStats;
 use crate::core::types::{CodeStats, FileStats};
 use crate::utils::errors::{Result, HowManyError};
@@ -35,9 +34,6 @@ impl StatsMerger {
         // Merge complexity stats
         let merged_complexity = self.merge_complexity_stats(&stats_list)?;
         
-        // Merge time stats
-        let merged_time = self.merge_time_stats(&stats_list)?;
-        
         // Merge ratio stats
         let merged_ratios = self.merge_ratio_stats(&stats_list)?;
         
@@ -47,7 +43,6 @@ impl StatsMerger {
         Ok(AggregatedStats {
             basic: merged_basic,
             complexity: merged_complexity,
-            time: merged_time,
             ratios: merged_ratios,
             metadata: merged_metadata,
         })
@@ -327,75 +322,6 @@ impl StatsMerger {
             },
             function_complexity_details: Vec::new(),
             quality_metrics: merged_quality_metrics,
-        })
-    }
-    
-    /// Merge time statistics
-    pub fn merge_time_stats(&self, stats_list: &[AggregatedStats]) -> Result<TimeStats> {
-        let mut total_time_minutes = 0;
-        let mut code_time_minutes = 0;
-        let mut doc_time_minutes = 0;
-        let mut comment_time_minutes = 0;
-        let mut merged_time_by_extension = HashMap::new();
-        
-        for stats in stats_list {
-            total_time_minutes += stats.time.total_time_minutes;
-            code_time_minutes += stats.time.code_time_minutes;
-            doc_time_minutes += stats.time.doc_time_minutes;
-            comment_time_minutes += stats.time.comment_time_minutes;
-            
-            // Merge extension time stats
-            for (ext, ext_time) in &stats.time.time_by_extension {
-                let entry = merged_time_by_extension.entry(ext.clone()).or_insert_with(|| {
-                    crate::core::stats::time::ExtensionTimeStats {
-                        total_time_minutes: 0,
-                        code_time_minutes: 0,
-                        doc_time_minutes: 0,
-                        comment_time_minutes: 0,
-                        formatted_time: String::new(),
-                        average_time_per_file: 0.0,
-                    }
-                });
-                
-                entry.total_time_minutes += ext_time.total_time_minutes;
-                entry.code_time_minutes += ext_time.code_time_minutes;
-                entry.doc_time_minutes += ext_time.doc_time_minutes;
-                entry.comment_time_minutes += ext_time.comment_time_minutes;
-            }
-        }
-        
-        // Recalculate formatted times and averages
-        let time_calculator = crate::core::stats::time::TimeStatsCalculator::new();
-        for ext_time in merged_time_by_extension.values_mut() {
-            ext_time.formatted_time = time_calculator.format_time_human(ext_time.total_time_minutes);
-            // Note: average_time_per_file would need file count from basic stats to calculate properly
-        }
-        
-        // Calculate productivity metrics
-        let total_files: usize = stats_list.iter().map(|s| s.basic.total_files).sum();
-        let total_lines: usize = stats_list.iter().map(|s| s.basic.total_lines).sum();
-        let total_code_lines: usize = stats_list.iter().map(|s| s.basic.code_lines).sum();
-        
-        let total_hours = total_time_minutes as f64 / 60.0;
-        let productivity_metrics = crate::core::stats::time::ProductivityMetrics {
-            lines_per_hour: if total_hours > 0.0 { total_lines as f64 / total_hours } else { 0.0 },
-            code_lines_per_hour: if total_hours > 0.0 { total_code_lines as f64 / total_hours } else { 0.0 },
-            files_per_hour: if total_hours > 0.0 { total_files as f64 / total_hours } else { 0.0 },
-            estimated_development_hours: total_hours,
-            estimated_development_days: total_hours / 8.0,
-        };
-        
-        Ok(TimeStats {
-            total_time_minutes,
-            code_time_minutes,
-            doc_time_minutes,
-            comment_time_minutes,
-            total_time_formatted: time_calculator.format_time_human(total_time_minutes),
-            code_time_formatted: time_calculator.format_time_human(code_time_minutes),
-            doc_time_formatted: time_calculator.format_time_human(doc_time_minutes),
-            comment_time_formatted: time_calculator.format_time_human(comment_time_minutes),
-            time_by_extension: merged_time_by_extension,
-            productivity_metrics,
         })
     }
     

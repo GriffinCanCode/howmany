@@ -1,6 +1,5 @@
 pub mod basic;
 pub mod complexity;
-pub mod time;
 pub mod ratios;
 pub mod formatting;
 pub mod aggregation;
@@ -9,7 +8,6 @@ pub mod visualization;
 // Re-export commonly used types
 pub use basic::{BasicStats, BasicStatsCalculator};
 pub use complexity::{ComplexityStats, ComplexityStatsCalculator};
-pub use time::{TimeStats, TimeStatsCalculator};
 pub use ratios::{RatioStats, RatioStatsCalculator};
 pub use formatting::{StatFormatter, FormattingOptions, OutputFormat, SortBy};
 pub use aggregation::{StatsAggregator, AggregatedStats, StatsMetadata, AnalysisDepth};
@@ -24,7 +22,6 @@ use crate::utils::errors::Result;
 pub struct StatsCalculator {
     basic_calculator: BasicStatsCalculator,
     complexity_calculator: ComplexityStatsCalculator,
-    time_calculator: TimeStatsCalculator,
     ratio_calculator: RatioStatsCalculator,
     formatter: StatFormatter,
     aggregator: StatsAggregator,
@@ -36,7 +33,6 @@ impl StatsCalculator {
         Self {
             basic_calculator: BasicStatsCalculator::new(),
             complexity_calculator: ComplexityStatsCalculator::new(),
-            time_calculator: TimeStatsCalculator::new(),
             ratio_calculator: RatioStatsCalculator::new(),
             formatter: StatFormatter::new(),
             aggregator: StatsAggregator::new(),
@@ -48,13 +44,11 @@ impl StatsCalculator {
     pub fn calculate_file_stats(&self, file_stats: &FileStats, file_path: &str) -> Result<AggregatedStats> {
         let basic_stats = self.basic_calculator.calculate_basic_stats(file_stats)?;
         let complexity_stats = self.complexity_calculator.calculate_complexity_stats(file_stats, file_path)?;
-        let time_stats = self.time_calculator.calculate_time_stats(file_stats)?;
         let ratio_stats = self.ratio_calculator.calculate_ratio_stats(file_stats)?;
         
         Ok(self.aggregator.aggregate_file_stats(
             basic_stats,
             complexity_stats,
-            time_stats,
             ratio_stats,
         ))
     }
@@ -63,13 +57,11 @@ impl StatsCalculator {
     pub fn calculate_project_stats(&self, code_stats: &CodeStats, individual_files: &[(String, FileStats)]) -> Result<AggregatedStats> {
         let basic_stats = self.basic_calculator.calculate_project_basic_stats(code_stats)?;
         let complexity_stats = self.complexity_calculator.calculate_project_complexity_stats(code_stats, individual_files)?;
-        let time_stats = self.time_calculator.calculate_project_time_stats_with_files(code_stats, individual_files)?;
         let ratio_stats = self.ratio_calculator.calculate_project_ratio_stats(code_stats)?;
         
         Ok(self.aggregator.aggregate_project_stats(
             basic_stats,
             complexity_stats,
-            time_stats,
             ratio_stats,
         ))
     }
@@ -172,11 +164,6 @@ impl StatsCalculator {
     /// Get the complexity calculator for direct access
     pub fn complexity_calculator(&self) -> &ComplexityStatsCalculator {
         &self.complexity_calculator
-    }
-    
-    /// Get the time calculator for direct access
-    pub fn time_calculator(&self) -> &TimeStatsCalculator {
-        &self.time_calculator
     }
     
     /// Get the ratio calculator for direct access

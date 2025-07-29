@@ -1585,7 +1585,7 @@ impl StandardReportGenerator {
             aggregated_stats.complexity.function_count,
             aggregated_stats.complexity.cyclomatic_complexity,
             aggregated_stats.complexity.quality_metrics.code_health_score,
-            aggregated_stats.time.total_time_formatted,
+            "N/A", // Placeholder for removed time parameter
             
             // Quality metrics
             self.get_quality_class(aggregated_stats.complexity.quality_metrics.code_health_score),

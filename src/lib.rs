@@ -14,6 +14,7 @@ pub mod ui {
     pub mod interactive;
     pub mod html;
     pub mod sarif;
+    pub mod filters;
 }
 
 // Utility modules

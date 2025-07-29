@@ -1,6 +1,5 @@
 use crate::core::stats::basic::BasicStats;
 use crate::core::stats::complexity::ComplexityStats;
-use crate::core::stats::time::TimeStats;
 use crate::core::stats::ratios::RatioStats;
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +8,6 @@ use serde::{Deserialize, Serialize};
 pub struct AggregatedStats {
     pub basic: BasicStats,
     pub complexity: ComplexityStats,
-    pub time: TimeStats,
     pub ratios: RatioStats,
     pub metadata: StatsMetadata,
 }
@@ -30,7 +28,7 @@ pub struct StatsMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AnalysisDepth {
     Basic,      // Only basic line counting
-    Standard,   // Basic + ratios + time estimates
+    Standard,   // Basic + ratios
     Advanced,   // Standard + complexity analysis
     Complete,   // Advanced + all insights and quality metrics
 } 

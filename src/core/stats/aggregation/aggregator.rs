@@ -1,6 +1,5 @@
 use crate::core::stats::basic::BasicStats;
 use crate::core::stats::complexity::ComplexityStats;
-use crate::core::stats::time::TimeStats;
 use crate::core::stats::ratios::RatioStats;
 use crate::utils::errors::Result;
 use super::types::{AggregatedStats, StatsMetadata, AnalysisDepth};
@@ -26,7 +25,6 @@ impl StatsAggregator {
         &self,
         basic: BasicStats,
         complexity: ComplexityStats,
-        time: TimeStats,
         ratios: RatioStats,
     ) -> AggregatedStats {
         let metadata = StatsMetadata {
@@ -42,7 +40,6 @@ impl StatsAggregator {
         AggregatedStats {
             basic,
             complexity,
-            time,
             ratios,
             metadata,
         }
@@ -53,7 +50,6 @@ impl StatsAggregator {
         &self,
         basic: BasicStats,
         complexity: ComplexityStats,
-        time: TimeStats,
         ratios: RatioStats,
     ) -> AggregatedStats {
         let languages_detected: Vec<String> = basic.stats_by_extension.keys().cloned().collect();
@@ -71,7 +67,6 @@ impl StatsAggregator {
         AggregatedStats {
             basic,
             complexity,
-            time,
             ratios,
             metadata,
         }
@@ -91,7 +86,6 @@ impl StatsAggregator {
         summary.insert("code_lines".to_string(), stats.basic.code_lines.to_string());
         summary.insert("functions".to_string(), stats.complexity.function_count.to_string());
         summary.insert("avg_complexity".to_string(), format!("{:.1}", stats.complexity.cyclomatic_complexity));
-        summary.insert("total_time".to_string(), stats.time.total_time_formatted.clone());
         summary.insert("quality_score".to_string(), format!("{:.1}", stats.ratios.quality_metrics.overall_quality_score));
         summary.insert("languages".to_string(), stats.metadata.languages_detected.len().to_string());
         
