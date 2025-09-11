@@ -4,6 +4,7 @@ use howmany::ui::filters::{FilterOptions, FileFilter as FileStatsFilter, Filtere
 use howmany::core::types::{CodeStats, FileStats};
 use howmany::core::stats::{StatsCalculator, AggregatedStats};
 use howmany::core::counter::CachedCodeCounter;
+use howmany::core::detector::{SherlockResult, SherlockSummary};
 use howmany::utils::metrics::MetricsCollector;
 use std::path::Path;
 use std::process;
@@ -120,7 +121,27 @@ fn analyze_code_comprehensive(
         println!("Analyzing directory: {}", path.display());
     }
     
-    let detector = FileDetector::new();
+    // Get language detection from SherlockIO first
+    if should_print {
+        println!("Detecting languages with SherlockIO...");
+    }
+    let sherlock_result = FileDetector::new().detect_languages(path).unwrap_or_else(|e| {
+        if should_print {
+            eprintln!("Warning: SherlockIO detection failed ({}), falling back to extension-based detection", e);
+        }
+        // Create empty result as fallback
+        SherlockResult {
+            languages: vec![],
+            summary: SherlockSummary {
+                languages_detected: 0,
+                total_bytes: 0,
+                total_files: 0,
+            },
+            unknown_files: vec![],
+        }
+    });
+    
+    let detector = FileDetector::new().with_sherlock_result(sherlock_result.clone());
     let mut filter = FileFilter::new()
         .respect_hidden(!include_hidden)
         .respect_gitignore(true);

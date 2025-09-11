@@ -32,7 +32,7 @@ pub mod testing;
 
 // Re-export commonly used types for convenience
 pub use core::types::{CodeStats, FileStats};
-pub use core::detector::FileDetector;
+pub use core::detector::{FileDetector, SherlockResult, SherlockLanguage, SherlockSummary};
 pub use core::counter::CodeCounter;
 pub use core::filters::FileFilter;
 pub use core::stats::StatsCalculator;

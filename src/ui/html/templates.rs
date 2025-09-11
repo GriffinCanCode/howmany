@@ -8,13 +8,20 @@ use std::fmt::Write;
 
 pub struct TemplateGenerator {
     file_utils: FileUtils,
+    sherlock_result: Option<crate::core::detector::SherlockResult>,
 }
 
 impl TemplateGenerator {
     pub fn new() -> Self {
         Self {
             file_utils: FileUtils::new(),
+            sherlock_result: None,
         }
+    }
+    
+    pub fn with_sherlock_result(mut self, sherlock_result: crate::core::detector::SherlockResult) -> Self {
+        self.sherlock_result = Some(sherlock_result);
+        self
     }
     
     pub fn generate_extension_rows(&self, stats: &CodeStats) -> String {
@@ -691,22 +698,36 @@ impl TemplateGenerator {
         }
     }
     
-    fn get_language_name(&self, ext: &str) -> &'static str {
+    fn get_language_name(&self, ext: &str) -> String {
+        // Try to get language name from SherlockIO data if available
+        if let Some(sherlock_result) = &self.sherlock_result {
+            for language in &sherlock_result.languages {
+                for file in &language.files {
+                    if let Some(file_ext) = std::path::Path::new(file).extension() {
+                        if file_ext.to_string_lossy().to_lowercase() == ext.to_lowercase() {
+                            return language.name.clone();
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Fallback to hardcoded mapping
         match ext {
-            "rs" => "Rust",
-            "py" => "Python",
-            "js" => "JavaScript",
-            "ts" => "TypeScript",
-            "java" => "Java",
-            "cpp" | "cc" | "cxx" => "C++",
-            "c" => "C",
-            "go" => "Go",
-            "rb" => "Ruby",
-            "php" => "PHP",
-            "cs" => "C#",
-            "swift" => "Swift",
-            "kt" => "Kotlin",
-            _ => "Unknown",
+            "rs" => "Rust".to_string(),
+            "py" => "Python".to_string(),
+            "js" => "JavaScript".to_string(),
+            "ts" => "TypeScript".to_string(),
+            "java" => "Java".to_string(),
+            "cpp" | "cc" | "cxx" => "C++".to_string(),
+            "c" => "C".to_string(),
+            "go" => "Go".to_string(),
+            "rb" => "Ruby".to_string(),
+            "php" => "PHP".to_string(),
+            "cs" => "C#".to_string(),
+            "swift" => "Swift".to_string(),
+            "kt" => "Kotlin".to_string(),
+            _ => "Unknown".to_string(),
         }
     }
     

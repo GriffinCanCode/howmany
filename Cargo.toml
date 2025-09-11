@@ -1,6 +1,6 @@
 [package]
 name = "howmany"
-version = "2.0.0"
+version = "2.1.0"
 edition = "2021"
 authors = ["Griffin <griffin@griffin-code.com>"]
 description = "A blazingly fast, intelligent code analysis tool with parallel processing, caching, and beautiful visualizations"
@@ -42,6 +42,7 @@ owo-colors = "4.0"
 tokio = { version = "1.0", features = ["full"] }
 serde-sarif = "0.8"
 atty = "0.2"
+sherlock-io = "1.2.0"
 
 [dev-dependencies]
 tempfile = "3.8"

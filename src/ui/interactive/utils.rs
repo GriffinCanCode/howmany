@@ -76,8 +76,65 @@ pub struct LanguageInfo {
     pub extensions: Vec<String>,
 }
 
-/// Map file extension to programming language
+/// Map file extension to programming language using SherlockIO data when available
 pub fn get_language_from_extension(ext: &str) -> LanguageInfo {
+    get_language_from_extension_with_sherlock(ext, None)
+}
+
+/// Map file extension to programming language with optional SherlockIO data
+pub fn get_language_from_extension_with_sherlock(ext: &str, sherlock_result: Option<&crate::core::detector::SherlockResult>) -> LanguageInfo {
+    // First try to get info from SherlockIO if available
+    if let Some(sherlock) = sherlock_result {
+        for language in &sherlock.languages {
+            for file in &language.files {
+                if let Some(file_ext) = std::path::Path::new(file).extension() {
+                    if file_ext.to_string_lossy().to_lowercase() == ext.to_lowercase() {
+                        return LanguageInfo {
+                            name: language.name.clone(),
+                            icon: get_language_icon(&language.name),
+                            color: language.color.clone(),
+                            extensions: vec![ext.to_string()],
+                        };
+                    }
+                }
+            }
+        }
+    }
+    
+    // Fallback to hardcoded mapping
+    get_language_from_extension_fallback(ext)
+}
+
+/// Get language icon based on language name
+fn get_language_icon(language_name: &str) -> String {
+    match language_name.to_lowercase().as_str() {
+        "rust" => "🦀".to_string(),
+        "python" => "🐍".to_string(),
+        "javascript" => "📜".to_string(),
+        "typescript" => "📘".to_string(),
+        "java" => "☕".to_string(),
+        "c++" => "⚡".to_string(),
+        "c" => "🔧".to_string(),
+        "go" => "🐹".to_string(),
+        "ruby" => "💎".to_string(),
+        "php" => "🐘".to_string(),
+        "c#" => "🔷".to_string(),
+        "swift" => "🍎".to_string(),
+        "kotlin" => "🎯".to_string(),
+        "html" => "🌐".to_string(),
+        "css" => "🎨".to_string(),
+        "sass" | "scss" => "🎨".to_string(),
+        "json" => "📋".to_string(),
+        "yaml" => "⚙️".to_string(),
+        "toml" => "🔧".to_string(),
+        "markdown" => "📝".to_string(),
+        "shell" => "🐚".to_string(),
+        _ => "📄".to_string(),
+    }
+}
+
+/// Fallback language detection for when SherlockIO data is not available
+fn get_language_from_extension_fallback(ext: &str) -> LanguageInfo {
     match ext {
         "rs" => LanguageInfo {
             name: "Rust".to_string(),

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(name = "howmany")]
 #[command(about = "Count files and lines of code in your projects")]
-#[command(version = "2.0.0")]
+#[command(version = "2.1.0")]
 pub struct Config {
     /// Directory to analyze (defaults to current directory)
     #[arg(value_name = "PATH")]
