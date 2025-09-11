@@ -16,7 +16,7 @@ HowMany is a command-line tool that analyzes codebases to provide comprehensive 
 ## Features
 
 - **Line Counting**: Accurate counting of code lines, comments, documentation, and blank lines
-- **Language Detection**: Supports 25+ programming languages and file types
+- **Enhanced Language Detection**: Powered by [SherlockIO](https://github.com/GriffinCanCode/SherlockIO) with 98%+ accuracy across 100+ programming languages and file types
 - **Complexity Analysis**: Calculates cyclomatic complexity, cognitive complexity, and maintainability metrics
 - **Quality Metrics**: Evaluates code health, documentation coverage, and maintainability scores
 - **Time Estimates**: Provides development time estimates based on code volume and complexity
@@ -210,7 +210,7 @@ howmany --sort size
 
 ## Supported Languages
 
-HowMany automatically detects and analyzes these languages:
+HowMany automatically detects and analyzes these languages using [SherlockIO](https://github.com/GriffinCanCode/SherlockIO), our fast and accurate language detection tool that intelligently filters out dependencies, build artifacts, and cache files:
 
 ### Programming Languages
 **Systems & Performance:**
@@ -471,4 +471,4 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ## Version
 
-Current version: 2.0.0
+Current version: 2.1.0
