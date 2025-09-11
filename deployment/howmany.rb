@@ -2,7 +2,7 @@ class Howmany < Formula
   desc "Fast, intelligent code analysis tool with parallel processing and visualizations"
   homepage "https://github.com/GriffinCanCode/howmany"
   url "https://github.com/GriffinCanCode/howmany/archive/refs/tags/v2.1.0.tar.gz"
-  sha256 "7af42a9ea6aa74a2c42c697ddb04992ff46c58610e7bafa3d30f27461e945753"
+  sha256 "0ce358682f1b32b6a042a9558a1e7f10407bde82e6c6ae30391e97a300caac6a"
   license "Griffin-1.0"
   head "https://github.com/GriffinCanCode/howmany.git", branch: "main"
 
