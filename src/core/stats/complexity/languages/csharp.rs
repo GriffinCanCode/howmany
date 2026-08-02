@@ -276,10 +276,8 @@ impl CSharpAnalyzer {
             StructureType::Struct
         } else if line.contains("enum") {
             StructureType::Enum
-        } else if line.contains("record") {
-            StructureType::Class // Records are a special type of class in C#
         } else {
-            StructureType::Class
+            StructureType::Class // Where `record` lands too, being a kind of class
         }
     }
 

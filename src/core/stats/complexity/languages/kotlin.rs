@@ -247,10 +247,8 @@ impl KotlinAnalyzer {
             StructureType::Interface
         } else if line.contains("enum") {
             StructureType::Enum
-        } else if line.contains("object") || line.contains("sealed") {
-            StructureType::Class
         } else {
-            StructureType::Class
+            StructureType::Class // Where `object` and `sealed` land too
         }
     }
 

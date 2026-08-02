@@ -228,10 +228,8 @@ impl SwiftAnalyzer {
             StructureType::Interface
         } else if line.contains("enum") {
             StructureType::Enum
-        } else if line.contains("extension") {
-            StructureType::Class // Extensions extend existing types
         } else {
-            StructureType::Class
+            StructureType::Class // Where `extension` lands too, as it extends a type
         }
     }
 
@@ -240,13 +238,9 @@ impl SwiftAnalyzer {
         if line.contains("public") || line.contains("open") {
             Visibility::Public
         } else if line.contains("private") {
-            Visibility::Private
-        } else if line.contains("fileprivate") {
-            Visibility::Private
-        } else if line.contains("internal") {
-            Visibility::Internal
+            Visibility::Private // `fileprivate` contains this, and is private too
         } else {
-            Visibility::Internal // Default in Swift
+            Visibility::Internal // Swift's default, and what `internal` asks for
         }
     }
 

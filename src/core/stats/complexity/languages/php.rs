@@ -28,11 +28,9 @@ impl PhpAnalyzer {
             let after_function = &trimmed[start + 9..];
 
             // Handle method declarations with visibility
-            let function_part = if after_function.starts_with("&") {
-                &after_function[1..] // Skip reference return
-            } else {
-                after_function
-            };
+            let function_part = after_function
+                .strip_prefix('&') // Skip reference return
+                .unwrap_or(after_function);
 
             if let Some(paren_pos) = function_part.find('(') {
                 let func_name = function_part[..paren_pos].trim();

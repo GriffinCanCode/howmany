@@ -233,10 +233,8 @@ impl CppAnalyzer {
     fn get_structure_type(&self, line: &str) -> StructureType {
         if line.contains("class ") {
             StructureType::Class
-        } else if line.contains("struct ") {
-            StructureType::Struct
-        } else if line.contains("union ") {
-            StructureType::Struct // Treat union as struct variant
+        } else if line.contains("struct ") || line.contains("union ") {
+            StructureType::Struct // A union is treated as a struct variant
         } else if line.contains("enum ") {
             StructureType::Enum
         } else {

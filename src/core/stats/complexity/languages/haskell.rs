@@ -201,8 +201,8 @@ impl HaskellAnalyzer {
     ) -> usize {
         let mut complexity = 1; // Base complexity
 
-        for i in start_line..=end_line.min(lines.len().saturating_sub(1)) {
-            complexity += self.count_complexity_keywords(&lines[i]);
+        for line in lines.iter().take(end_line + 1).skip(start_line) {
+            complexity += self.count_complexity_keywords(line);
         }
 
         complexity
@@ -253,10 +253,8 @@ impl HaskellAnalyzer {
             StructureType::Module
         } else if trimmed.contains("data ") {
             StructureType::Class
-        } else if trimmed.contains("newtype ") {
-            StructureType::Struct
         } else if trimmed.contains("type ") {
-            StructureType::Struct
+            StructureType::Struct // `newtype` contains this, and is one too
         } else if trimmed.contains("class ") {
             StructureType::Interface
         } else {
@@ -393,9 +391,7 @@ impl HaskellAnalyzer {
     ) -> usize {
         let mut count = 0;
 
-        for i in start_line..=end_line.min(lines.len().saturating_sub(1)) {
-            let line = &lines[i];
-
+        for line in lines.iter().take(end_line + 1).skip(start_line) {
             // Count constructor fields in data declarations
             if line.contains("data ") {
                 // Simple heuristic: count type annotations in constructor

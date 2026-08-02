@@ -179,8 +179,8 @@ impl ClojureAnalyzer {
     ) -> usize {
         let mut complexity = 1; // Base complexity
 
-        for i in start_line..=end_line.min(lines.len().saturating_sub(1)) {
-            complexity += self.count_complexity_keywords(&lines[i]);
+        for line in lines.iter().take(end_line + 1).skip(start_line) {
+            complexity += self.count_complexity_keywords(line);
         }
 
         complexity
@@ -232,10 +232,8 @@ impl ClojureAnalyzer {
             StructureType::Module
         } else if trimmed.contains("(defprotocol ") {
             StructureType::Interface
-        } else if trimmed.contains("(defrecord ") || trimmed.contains("(deftype ") {
-            StructureType::Class
         } else {
-            StructureType::Class // Default
+            StructureType::Class // Default, and where defrecord and deftype land
         }
     }
 }
@@ -357,9 +355,7 @@ impl ClojureAnalyzer {
     ) -> usize {
         let mut count = 0;
 
-        for i in start_line..=end_line.min(lines.len().saturating_sub(1)) {
-            let line = &lines[i];
-
+        for line in lines.iter().take(end_line + 1).skip(start_line) {
             // Count field declarations in defrecord/deftype
             if line.contains("defrecord") || line.contains("deftype") {
                 // Look for field vector [field1 field2 ...]

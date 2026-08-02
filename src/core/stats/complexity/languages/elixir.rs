@@ -139,8 +139,8 @@ impl ElixirAnalyzer {
     ) -> usize {
         let mut complexity = 1; // Base complexity
 
-        for i in start_line..=end_line.min(lines.len().saturating_sub(1)) {
-            complexity += self.count_complexity_keywords(&lines[i]);
+        for line in lines.iter().take(end_line + 1).skip(start_line) {
+            complexity += self.count_complexity_keywords(line);
         }
 
         complexity
@@ -184,10 +184,8 @@ impl ElixirAnalyzer {
     fn determine_visibility(&self, line: &str) -> Visibility {
         if line.trim().contains("defp ") {
             Visibility::Private
-        } else if line.trim().contains("def ") {
-            Visibility::Public
         } else {
-            Visibility::Public // Default for Elixir
+            Visibility::Public // Elixir's default, and what `def ` asks for
         }
     }
 
@@ -384,8 +382,7 @@ impl ElixirAnalyzer {
     ) -> usize {
         let mut count = 0;
 
-        for i in start_line..=end_line.min(lines.len().saturating_sub(1)) {
-            let line = &lines[i];
+        for line in lines.iter().take(end_line + 1).skip(start_line) {
             // Count defstruct fields
             if line.trim().contains("defstruct ") {
                 if let Some(start) = line.find("[") {

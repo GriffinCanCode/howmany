@@ -328,10 +328,8 @@ impl DartAnalyzer {
             StructureType::Interface // Mixins are similar to interfaces
         } else if line.contains("enum") {
             StructureType::Enum
-        } else if line.contains("extension") {
-            StructureType::Class // Extensions extend existing types
         } else {
-            StructureType::Class
+            StructureType::Class // Where `extension` lands too, as it extends a type
         }
     }
 

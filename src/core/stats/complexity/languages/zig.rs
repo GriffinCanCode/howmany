@@ -127,8 +127,8 @@ impl ZigAnalyzer {
     ) -> usize {
         let mut complexity = 1; // Base complexity
 
-        for i in start_line..=end_line.min(lines.len().saturating_sub(1)) {
-            complexity += self.count_complexity_keywords(&lines[i]);
+        for line in lines.iter().take(end_line + 1).skip(start_line) {
+            complexity += self.count_complexity_keywords(line);
         }
 
         complexity
@@ -173,10 +173,11 @@ impl ZigAnalyzer {
     fn determine_structure_type(&self, line: &str) -> StructureType {
         let trimmed = line.trim();
 
-        if trimmed.contains("= struct") || trimmed.contains("= packed struct") {
-            StructureType::Struct
-        } else if trimmed.contains("= union") {
-            StructureType::Struct // Use Struct instead of Union
+        if trimmed.contains("= struct")
+            || trimmed.contains("= packed struct")
+            || trimmed.contains("= union")
+        {
+            StructureType::Struct // A union is reported as a struct
         } else if trimmed.contains("= enum") {
             StructureType::Enum
         } else {
@@ -307,8 +308,7 @@ impl ZigAnalyzer {
     ) -> usize {
         let mut count = 0;
 
-        for i in start_line..=end_line.min(lines.len().saturating_sub(1)) {
-            let line = &lines[i];
+        for line in lines.iter().take(end_line + 1).skip(start_line) {
             let trimmed = line.trim();
 
             // Count field declarations in structs

@@ -136,8 +136,8 @@ impl LuaAnalyzer {
     ) -> usize {
         let mut complexity = 1; // Base complexity
 
-        for i in start_line..=end_line.min(lines.len().saturating_sub(1)) {
-            complexity += self.count_complexity_keywords(&lines[i]);
+        for line in lines.iter().take(end_line + 1).skip(start_line) {
+            complexity += self.count_complexity_keywords(line);
         }
 
         complexity
@@ -200,10 +200,8 @@ impl LuaAnalyzer {
 
         if trimmed.contains("module(") {
             StructureType::Module
-        } else if trimmed.contains("= {}") || trimmed.contains("={}") {
-            StructureType::Class // Lua tables used as objects
         } else {
-            StructureType::Class // Default
+            StructureType::Class // Default, and where tables used as objects land
         }
     }
 }
@@ -323,8 +321,7 @@ impl LuaAnalyzer {
     ) -> usize {
         let mut count = 0;
 
-        for i in start_line..=end_line.min(lines.len().saturating_sub(1)) {
-            let line = &lines[i];
+        for line in lines.iter().take(end_line + 1).skip(start_line) {
             let trimmed = line.trim();
 
             // Count field assignments in tables
