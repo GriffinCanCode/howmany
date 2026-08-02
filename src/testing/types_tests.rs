@@ -2,7 +2,7 @@ use crate::core::types::{CodeStats, FileStats};
 use std::collections::BTreeMap;
 
 #[cfg(test)]
-mod types_tests {
+mod types {
     use super::*;
 
     // ============================================================================

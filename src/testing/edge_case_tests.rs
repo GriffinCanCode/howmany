@@ -133,7 +133,7 @@ fn embedded_nul_bytes_do_not_truncate_the_count() {
 #[test]
 fn a_very_long_single_line_is_counted_once() {
     let mut bytes = b"let s = \"".to_vec();
-    bytes.extend(std::iter::repeat(b'x').take(2 * 1024 * 1024));
+    bytes.extend(std::iter::repeat_n(b'x', 2 * 1024 * 1024));
     bytes.extend(b"\";\n");
 
     let stats = count("long.rs", &bytes);

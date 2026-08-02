@@ -127,11 +127,14 @@ fn ratios_and_scores_stay_inside_their_ranges() {
     );
 }
 
+/// A named degenerate project shape, paired with the way it is built.
+type DegenerateCase = (&'static str, Box<dyn Fn(&TestProject)>);
+
 /// Division by zero is the failure mode of every derived statistic, so each
 /// degenerate shape gets its own check.
 #[test]
 fn degenerate_projects_produce_finite_statistics() {
-    let cases: Vec<(&str, Box<dyn Fn(&TestProject)>)> = vec![
+    let cases: Vec<DegenerateCase> = vec![
         ("empty project", Box::new(|_: &TestProject| {})),
         (
             "one empty file",

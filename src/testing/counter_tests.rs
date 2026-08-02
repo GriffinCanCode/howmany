@@ -4,7 +4,7 @@ use crate::testing::test_utils::TestProject;
 use std::collections::BTreeMap;
 
 #[cfg(test)]
-mod counter_tests {
+mod counter {
     use super::*;
 
     /// A fresh counter must already know every language it claims to support.
@@ -1040,10 +1040,8 @@ fn main() {
         // Create multiple files
         let files = (0..10)
             .map(|i| {
-                let content = format!(
-                    "// File {}\nfn main_{i}() {{\n    println!(\"Hello {i}\");\n}}\n",
-                    i = i
-                );
+                let content =
+                    format!("// File {i}\nfn main_{i}() {{\n    println!(\"Hello {i}\");\n}}\n");
                 project
                     .create_file(&format!("file_{}.rs", i), &content)
                     .unwrap()

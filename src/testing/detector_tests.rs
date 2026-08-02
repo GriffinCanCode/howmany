@@ -4,7 +4,7 @@ use crate::testing::test_utils::TestProject;
 use std::path::Path;
 
 #[cfg(test)]
-mod detector_tests {
+mod detection {
     use super::*;
 
     /// A detector built with no root judges paths whole, which is only correct

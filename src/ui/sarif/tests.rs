@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+mod conversion {
     use crate::core::types::{CodeStats, FileStats};
     use crate::ui::sarif::{SarifConverter, SarifReporter};
     use serde_sarif::sarif::Sarif;

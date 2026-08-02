@@ -162,9 +162,11 @@ fn default_configuration_is_usable_as_is() {
 
 #[test]
 fn configuration_survives_a_toml_round_trip() {
-    let mut config = HowManyConfig::default();
-    config.default_max_depth = Some(7);
-    config.custom_ignore_patterns = vec!["scratch/".to_string()];
+    let mut config = HowManyConfig {
+        default_max_depth: Some(7),
+        custom_ignore_patterns: vec!["scratch/".to_string()],
+        ..Default::default()
+    };
     config.performance.max_threads = Some(3);
 
     let text = toml::to_string(&config).unwrap();
