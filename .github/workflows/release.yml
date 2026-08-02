@@ -38,8 +38,12 @@ jobs:
             echo "::error::HOMEBREW_TAP_TOKEN is unset. Add a token with write access to GriffinCanCode/homebrew-howmany, then re-run."
             exit 1
           fi
-          if ! PUSH=$(gh api repos/GriffinCanCode/homebrew-howmany --jq .permissions.push 2>&1); then
-            echo "::error::HOMEBREW_TAP_TOKEN cannot reach GriffinCanCode/homebrew-howmany ($PUSH). It has expired or lost access; rotate it, then re-run."
+          # gh writes the error body and a one-line summary to stderr; the
+          # summary is the last line and the only part fit for an annotation,
+          # which cannot span newlines.
+          if ! PUSH=$(gh api repos/GriffinCanCode/homebrew-howmany --jq .permissions.push 2>tap-err); then
+            REASON=$(grep -m1 '^gh: ' tap-err || tr '\n' ' ' <tap-err)
+            echo "::error::HOMEBREW_TAP_TOKEN cannot reach GriffinCanCode/homebrew-howmany -- ${REASON:-unknown error}. It has expired or lost access; rotate it, then re-run."
             exit 1
           fi
           if [ "$PUSH" != "true" ]; then
@@ -81,21 +85,21 @@ jobs:
           prerelease: false
           body: |
             ## Changes in ${{ steps.get_version.outputs.version }}
-            
+
             - See [CHANGELOG.md](https://github.com/GriffinCanCode/howmany/blob/main/CHANGELOG.md) for detailed changes
-            
+
             ## Installation
-            
+
             ### Homebrew (macOS/Linux)
             ```bash
             brew install GriffinCanCode/howmany/howmany
             ```
-            
+
             ### Cargo
             ```bash
             cargo install howmany
             ```
-            
+
             ### From Source
             ```bash
             git clone https://github.com/GriffinCanCode/howmany.git
@@ -241,4 +245,4 @@ jobs:
           echo "✅ GitHub release created"
           echo "✅ Binaries built and uploaded"
           echo "✅ Published to crates.io"
-          echo "✅ Homebrew formula updated" 
+          echo "✅ Homebrew formula updated"
