@@ -1,7 +1,7 @@
+use super::quality::QualityCalculator;
+use super::types::{ExtensionRatios, QualityThresholds, RatioStats};
 use crate::core::types::{CodeStats, FileStats};
 use crate::utils::errors::Result;
-use super::types::{RatioStats, ExtensionRatios, QualityThresholds};
-use super::quality::QualityCalculator;
 use std::collections::HashMap;
 
 /// Helper function to round a floating-point value to 2 decimal places
@@ -24,58 +24,63 @@ impl RatioStatsCalculator {
             quality_calculator,
         }
     }
-    
+
     pub fn with_thresholds(thresholds: QualityThresholds) -> Self {
         let quality_calculator = QualityCalculator::new(thresholds.clone());
-        Self { 
+        Self {
             thresholds,
             quality_calculator,
         }
     }
-    
+
     /// Calculate ratio statistics for a single file
     pub fn calculate_ratio_stats(&self, file_stats: &FileStats) -> Result<RatioStats> {
         let total_lines = file_stats.total_lines as f64;
-        
+
         // Calculate ratios as 0-1 values (not percentages) for quality calculations
-        let code_ratio = if total_lines > 0.0 { 
+        let code_ratio = if total_lines > 0.0 {
             round_to_2_decimals(file_stats.code_lines as f64 / total_lines)
-        } else { 
-            0.0 
+        } else {
+            0.0
         };
-        let comment_ratio = if total_lines > 0.0 { 
+        let comment_ratio = if total_lines > 0.0 {
             round_to_2_decimals(file_stats.comment_lines as f64 / total_lines)
-        } else { 
-            0.0 
+        } else {
+            0.0
         };
-        let doc_ratio = if total_lines > 0.0 { 
+        let doc_ratio = if total_lines > 0.0 {
             round_to_2_decimals(file_stats.doc_lines as f64 / total_lines)
-        } else { 
-            0.0 
+        } else {
+            0.0
         };
-        let blank_ratio = if total_lines > 0.0 { 
+        let blank_ratio = if total_lines > 0.0 {
             round_to_2_decimals(file_stats.blank_lines as f64 / total_lines)
-        } else { 
-            0.0 
+        } else {
+            0.0
         };
-        
+
         let comment_to_code_ratio = if file_stats.code_lines > 0 {
             round_to_2_decimals(file_stats.comment_lines as f64 / file_stats.code_lines as f64)
         } else {
             0.0
         };
-        
+
         let doc_to_code_ratio = if file_stats.code_lines > 0 {
             round_to_2_decimals(file_stats.doc_lines as f64 / file_stats.code_lines as f64)
         } else {
             0.0
         };
-        
+
         let quality_metrics = self.quality_calculator.calculate_quality_metrics(
-            code_ratio, comment_ratio, doc_ratio, blank_ratio,
-            comment_to_code_ratio, doc_to_code_ratio, &HashMap::new()
+            code_ratio,
+            comment_ratio,
+            doc_ratio,
+            blank_ratio,
+            comment_to_code_ratio,
+            doc_to_code_ratio,
+            &HashMap::new(),
         );
-        
+
         Ok(RatioStats {
             code_ratio,
             comment_ratio,
@@ -90,74 +95,80 @@ impl RatioStatsCalculator {
             quality_metrics,
         })
     }
-    
+
     /// Calculate ratio statistics for a project
     pub fn calculate_project_ratio_stats(&self, code_stats: &CodeStats) -> Result<RatioStats> {
         let total_lines = code_stats.total_lines as f64;
-        
+
         // Calculate ratios as 0-1 values (not percentages) for quality calculations
-        let code_ratio = if total_lines > 0.0 { 
+        let code_ratio = if total_lines > 0.0 {
             round_to_2_decimals(code_stats.total_code_lines as f64 / total_lines)
-        } else { 
-            0.0 
+        } else {
+            0.0
         };
-        let comment_ratio = if total_lines > 0.0 { 
+        let comment_ratio = if total_lines > 0.0 {
             round_to_2_decimals(code_stats.total_comment_lines as f64 / total_lines)
-        } else { 
-            0.0 
+        } else {
+            0.0
         };
-        let doc_ratio = if total_lines > 0.0 { 
+        let doc_ratio = if total_lines > 0.0 {
             round_to_2_decimals(code_stats.total_doc_lines as f64 / total_lines)
-        } else { 
-            0.0 
+        } else {
+            0.0
         };
-        let blank_ratio = if total_lines > 0.0 { 
+        let blank_ratio = if total_lines > 0.0 {
             round_to_2_decimals(code_stats.total_blank_lines as f64 / total_lines)
-        } else { 
-            0.0 
+        } else {
+            0.0
         };
-        
+
         let comment_to_code_ratio = if code_stats.total_code_lines > 0 {
-            round_to_2_decimals(code_stats.total_comment_lines as f64 / code_stats.total_code_lines as f64)
+            round_to_2_decimals(
+                code_stats.total_comment_lines as f64 / code_stats.total_code_lines as f64,
+            )
         } else {
             0.0
         };
-        
+
         let doc_to_code_ratio = if code_stats.total_code_lines > 0 {
-            round_to_2_decimals(code_stats.total_doc_lines as f64 / code_stats.total_code_lines as f64)
+            round_to_2_decimals(
+                code_stats.total_doc_lines as f64 / code_stats.total_code_lines as f64,
+            )
         } else {
             0.0
         };
-        
+
         // Calculate per-extension ratios
         let mut ratios_by_extension = HashMap::new();
-        
+
         for (ext, (file_count, file_stats)) in &code_stats.stats_by_extension {
             let ext_total_lines = file_stats.total_lines as f64;
-            
+
             let ext_ratios = ExtensionRatios {
-                code_ratio: if ext_total_lines > 0.0 { 
+                code_ratio: if ext_total_lines > 0.0 {
                     round_to_2_decimals(file_stats.code_lines as f64 / ext_total_lines)
-                } else { 
-                    0.0 
+                } else {
+                    0.0
                 },
-                comment_ratio: if ext_total_lines > 0.0 { 
+                comment_ratio: if ext_total_lines > 0.0 {
                     round_to_2_decimals(file_stats.comment_lines as f64 / ext_total_lines)
-                } else { 
-                    0.0 
+                } else {
+                    0.0
                 },
-                doc_ratio: if ext_total_lines > 0.0 { 
+                doc_ratio: if ext_total_lines > 0.0 {
                     round_to_2_decimals(file_stats.doc_lines as f64 / ext_total_lines)
-                } else { 
-                    0.0 
+                } else {
+                    0.0
                 },
-                blank_ratio: if ext_total_lines > 0.0 { 
+                blank_ratio: if ext_total_lines > 0.0 {
                     round_to_2_decimals(file_stats.blank_lines as f64 / ext_total_lines)
-                } else { 
-                    0.0 
+                } else {
+                    0.0
                 },
                 comment_to_code_ratio: if file_stats.code_lines > 0 {
-                    round_to_2_decimals(file_stats.comment_lines as f64 / file_stats.code_lines as f64)
+                    round_to_2_decimals(
+                        file_stats.comment_lines as f64 / file_stats.code_lines as f64,
+                    )
                 } else {
                     0.0
                 },
@@ -166,23 +177,36 @@ impl RatioStatsCalculator {
                 } else {
                     0.0
                 },
-                lines_per_file: if *file_count > 0 { ext_total_lines / *file_count as f64 } else { 0.0 },
-                size_per_file: if *file_count > 0 { file_stats.file_size as f64 / *file_count as f64 } else { 0.0 },
+                lines_per_file: if *file_count > 0 {
+                    ext_total_lines / *file_count as f64
+                } else {
+                    0.0
+                },
+                size_per_file: if *file_count > 0 {
+                    file_stats.file_size as f64 / *file_count as f64
+                } else {
+                    0.0
+                },
             };
-            
+
             ratios_by_extension.insert(ext.clone(), ext_ratios);
         }
-        
+
         // Calculate distributions
         let language_distribution = self.calculate_language_distribution(code_stats);
         let file_distribution = self.calculate_file_distribution(code_stats);
         let size_distribution = self.calculate_size_distribution(code_stats);
-        
+
         let quality_metrics = self.quality_calculator.calculate_quality_metrics(
-            code_ratio, comment_ratio, doc_ratio, blank_ratio,
-            comment_to_code_ratio, doc_to_code_ratio, &ratios_by_extension
+            code_ratio,
+            comment_ratio,
+            doc_ratio,
+            blank_ratio,
+            comment_to_code_ratio,
+            doc_to_code_ratio,
+            &ratios_by_extension,
         );
-        
+
         Ok(RatioStats {
             code_ratio,
             comment_ratio,
@@ -197,68 +221,71 @@ impl RatioStatsCalculator {
             quality_metrics,
         })
     }
-    
+
     /// Calculate language distribution by lines
     fn calculate_language_distribution(&self, code_stats: &CodeStats) -> HashMap<String, f64> {
         let mut distribution = HashMap::new();
         let total_lines = code_stats.total_lines as f64;
-        
+
         if total_lines > 0.0 {
             for (ext, (_, file_stats)) in &code_stats.stats_by_extension {
-                let percentage = ((file_stats.total_lines as f64 / total_lines) * 100.0 * 100.0).round() / 100.0;
+                let percentage =
+                    ((file_stats.total_lines as f64 / total_lines) * 100.0 * 100.0).round() / 100.0;
                 distribution.insert(ext.clone(), percentage);
             }
         }
-        
+
         distribution
     }
-    
+
     /// Calculate file distribution by count
     fn calculate_file_distribution(&self, code_stats: &CodeStats) -> HashMap<String, f64> {
         let mut distribution = HashMap::new();
         let total_files = code_stats.total_files as f64;
-        
+
         if total_files > 0.0 {
             for (ext, (file_count, _)) in &code_stats.stats_by_extension {
-                let percentage = ((*file_count as f64 / total_files) * 100.0 * 100.0).round() / 100.0;
+                let percentage =
+                    ((*file_count as f64 / total_files) * 100.0 * 100.0).round() / 100.0;
                 distribution.insert(ext.clone(), percentage);
             }
         }
-        
+
         distribution
     }
-    
+
     /// Calculate size distribution
     fn calculate_size_distribution(&self, code_stats: &CodeStats) -> HashMap<String, f64> {
         let mut distribution = HashMap::new();
         let total_size = code_stats.total_size as f64;
-        
+
         if total_size > 0.0 {
             for (ext, (_, file_stats)) in &code_stats.stats_by_extension {
-                let percentage = ((file_stats.file_size as f64 / total_size) * 100.0 * 100.0).round() / 100.0;
+                let percentage =
+                    ((file_stats.file_size as f64 / total_size) * 100.0 * 100.0).round() / 100.0;
                 distribution.insert(ext.clone(), percentage);
             }
         }
-        
+
         distribution
     }
-    
+
     /// Get thresholds for customization
     pub fn get_thresholds(&self) -> &QualityThresholds {
         &self.thresholds
     }
-    
+
     /// Update thresholds
     pub fn set_thresholds(&mut self, thresholds: QualityThresholds) {
         self.thresholds = thresholds.clone();
         self.quality_calculator = QualityCalculator::new(thresholds);
     }
-    
+
     /// Get quality level description
     pub fn get_quality_level(&self, score: f64) -> String {
         self.quality_calculator.get_quality_level(score)
     }
-    
+
     /// Get quality level CSS class
     pub fn get_quality_class(&self, score: f64) -> String {
         self.quality_calculator.get_quality_class(score)
@@ -269,7 +296,7 @@ impl Default for RatioStatsCalculator {
     fn default() -> Self {
         Self::new()
     }
-} 
+}
 
 #[cfg(test)]
 mod tests {
@@ -319,15 +346,15 @@ mod tests {
         assert_eq!(result.blank_ratio, 0.1); // 10/100
         assert!((result.comment_to_code_ratio - 0.33).abs() < 0.01); // 20/60 rounded to 2 decimal places
         assert!((result.doc_to_code_ratio - 0.17).abs() < 0.01); // 10/60 rounded to 2 decimal places
-        
+
         // Check that ratios_by_extension is empty for single file
         assert!(result.ratios_by_extension.is_empty());
-        
+
         // Check that distributions are empty for single file
         assert!(result.language_distribution.is_empty());
         assert!(result.file_distribution.is_empty());
         assert!(result.size_distribution.is_empty());
-        
+
         // Check quality metrics are calculated
         assert!(result.quality_metrics.overall_quality_score > 0.0);
         assert!(result.quality_metrics.documentation_score > 0.0);
@@ -356,7 +383,7 @@ mod tests {
         assert_eq!(result.blank_ratio, 0.0);
         assert_eq!(result.comment_to_code_ratio, 0.0);
         assert_eq!(result.doc_to_code_ratio, 0.0);
-        
+
         // Quality metrics should handle zero values gracefully
         assert!(result.quality_metrics.overall_quality_score >= 0.0);
         assert!(result.quality_metrics.documentation_score >= 0.0);
@@ -368,24 +395,36 @@ mod tests {
     #[test]
     fn test_calculate_project_ratio_stats() {
         let calculator = RatioStatsCalculator::new();
-        
+
         let mut stats_by_extension = HashMap::new();
-        stats_by_extension.insert("rs".to_string(), (2, FileStats {
-            total_lines: 200,
-            code_lines: 140,
-            comment_lines: 40,
-            doc_lines: 20,
-            blank_lines: 20,
-            file_size: 4000,
-        }));
-        stats_by_extension.insert("py".to_string(), (1, FileStats {
-            total_lines: 100,
-            code_lines: 70,
-            comment_lines: 20,
-            doc_lines: 5,
-            blank_lines: 10,
-            file_size: 2000,
-        }));
+        stats_by_extension.insert(
+            "rs".to_string(),
+            (
+                2,
+                FileStats {
+                    total_lines: 200,
+                    code_lines: 140,
+                    comment_lines: 40,
+                    doc_lines: 20,
+                    blank_lines: 20,
+                    file_size: 4000,
+                },
+            ),
+        );
+        stats_by_extension.insert(
+            "py".to_string(),
+            (
+                1,
+                FileStats {
+                    total_lines: 100,
+                    code_lines: 70,
+                    comment_lines: 20,
+                    doc_lines: 5,
+                    blank_lines: 10,
+                    file_size: 2000,
+                },
+            ),
+        );
 
         let code_stats = CodeStats {
             total_files: 3,
@@ -398,7 +437,9 @@ mod tests {
             stats_by_extension,
         };
 
-        let result = calculator.calculate_project_ratio_stats(&code_stats).unwrap();
+        let result = calculator
+            .calculate_project_ratio_stats(&code_stats)
+            .unwrap();
 
         assert_eq!(result.code_ratio, 0.7); // 210/300
         assert_eq!(result.comment_ratio, 0.2); // 60/300
@@ -409,7 +450,7 @@ mod tests {
 
         // Check extension ratios
         assert_eq!(result.ratios_by_extension.len(), 2);
-        
+
         let rust_ratios = &result.ratios_by_extension["rs"];
         assert_eq!(rust_ratios.code_ratio, 0.7); // 140/200
         assert_eq!(rust_ratios.comment_ratio, 0.2); // 40/200
@@ -460,7 +501,9 @@ mod tests {
             stats_by_extension: HashMap::new(),
         };
 
-        let result = calculator.calculate_project_ratio_stats(&code_stats).unwrap();
+        let result = calculator
+            .calculate_project_ratio_stats(&code_stats)
+            .unwrap();
 
         assert_eq!(result.code_ratio, 0.0);
         assert_eq!(result.comment_ratio, 0.0);
@@ -468,7 +511,7 @@ mod tests {
         assert_eq!(result.blank_ratio, 0.0);
         assert_eq!(result.comment_to_code_ratio, 0.0);
         assert_eq!(result.doc_to_code_ratio, 0.0);
-        
+
         assert!(result.ratios_by_extension.is_empty());
         assert!(result.language_distribution.is_empty());
         assert!(result.file_distribution.is_empty());
@@ -478,16 +521,22 @@ mod tests {
     #[test]
     fn test_calculate_project_ratio_stats_single_extension() {
         let calculator = RatioStatsCalculator::new();
-        
+
         let mut stats_by_extension = HashMap::new();
-        stats_by_extension.insert("js".to_string(), (3, FileStats {
-            total_lines: 300,
-            code_lines: 200,
-            comment_lines: 60,
-            doc_lines: 20,
-            blank_lines: 40,
-            file_size: 6000,
-        }));
+        stats_by_extension.insert(
+            "js".to_string(),
+            (
+                3,
+                FileStats {
+                    total_lines: 300,
+                    code_lines: 200,
+                    comment_lines: 60,
+                    doc_lines: 20,
+                    blank_lines: 40,
+                    file_size: 6000,
+                },
+            ),
+        );
 
         let code_stats = CodeStats {
             total_files: 3,
@@ -500,7 +549,9 @@ mod tests {
             stats_by_extension,
         };
 
-        let result = calculator.calculate_project_ratio_stats(&code_stats).unwrap();
+        let result = calculator
+            .calculate_project_ratio_stats(&code_stats)
+            .unwrap();
 
         assert!((result.code_ratio - 0.67).abs() < 0.01); // 200/300 rounded
         assert_eq!(result.comment_ratio, 0.2); // 60/300
@@ -670,7 +721,9 @@ mod tests {
             file_size: 2000,
         };
 
-        let result = calculator.calculate_ratio_stats(&comments_only_stats).unwrap();
+        let result = calculator
+            .calculate_ratio_stats(&comments_only_stats)
+            .unwrap();
         assert_eq!(result.code_ratio, 0.0);
         assert_eq!(result.comment_ratio, 1.0);
         assert_eq!(result.doc_ratio, 0.0);
@@ -682,7 +735,7 @@ mod tests {
     #[test]
     fn test_ratio_stats_with_real_project() {
         let project = TestProject::new("test_project").unwrap();
-        
+
         // Create a realistic project structure
         project.create_rust_file("src/main.rs", 15, 8).unwrap();
         project.create_rust_file("src/lib.rs", 25, 12).unwrap();
@@ -690,33 +743,51 @@ mod tests {
         project.create_javascript_file("app.js", 18).unwrap();
 
         let calculator = RatioStatsCalculator::new();
-        
+
         // Simulate realistic project stats
         let mut stats_by_extension = HashMap::new();
-        stats_by_extension.insert("rs".to_string(), (2, FileStats {
-            total_lines: 200,
-            code_lines: 120,
-            comment_lines: 50,
-            doc_lines: 20,
-            blank_lines: 30,
-            file_size: 4000,
-        }));
-        stats_by_extension.insert("py".to_string(), (1, FileStats {
-            total_lines: 100,
-            code_lines: 75,
-            comment_lines: 15,
-            doc_lines: 5,
-            blank_lines: 10,
-            file_size: 2000,
-        }));
-        stats_by_extension.insert("js".to_string(), (1, FileStats {
-            total_lines: 120,
-            code_lines: 85,
-            comment_lines: 20,
-            doc_lines: 10,
-            blank_lines: 15,
-            file_size: 2400,
-        }));
+        stats_by_extension.insert(
+            "rs".to_string(),
+            (
+                2,
+                FileStats {
+                    total_lines: 200,
+                    code_lines: 120,
+                    comment_lines: 50,
+                    doc_lines: 20,
+                    blank_lines: 30,
+                    file_size: 4000,
+                },
+            ),
+        );
+        stats_by_extension.insert(
+            "py".to_string(),
+            (
+                1,
+                FileStats {
+                    total_lines: 100,
+                    code_lines: 75,
+                    comment_lines: 15,
+                    doc_lines: 5,
+                    blank_lines: 10,
+                    file_size: 2000,
+                },
+            ),
+        );
+        stats_by_extension.insert(
+            "js".to_string(),
+            (
+                1,
+                FileStats {
+                    total_lines: 120,
+                    code_lines: 85,
+                    comment_lines: 20,
+                    doc_lines: 10,
+                    blank_lines: 15,
+                    file_size: 2400,
+                },
+            ),
+        );
 
         let code_stats = CodeStats {
             total_files: 4,
@@ -729,7 +800,9 @@ mod tests {
             stats_by_extension,
         };
 
-        let result = calculator.calculate_project_ratio_stats(&code_stats).unwrap();
+        let result = calculator
+            .calculate_project_ratio_stats(&code_stats)
+            .unwrap();
 
         // Check overall ratios
         assert!((result.code_ratio - 0.67).abs() < 0.01); // 280/420 rounded
@@ -767,4 +840,4 @@ mod tests {
         assert_eq!(thresholds.ideal_comment_to_code, 0.20);
         assert_eq!(thresholds.ideal_doc_to_code, 0.15);
     }
-} 
+}

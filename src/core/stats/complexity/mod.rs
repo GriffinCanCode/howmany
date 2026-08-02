@@ -5,11 +5,11 @@ use crate::utils::errors::Result;
 pub use types::*;
 
 // Internal modules
-mod types;
 mod analyzer;
-mod quality;
 mod calculator;
 mod languages;
+mod quality;
+mod types;
 
 // Main interface - this is the public API that other modules will use
 pub struct ComplexityStatsCalculator {
@@ -22,22 +22,32 @@ impl ComplexityStatsCalculator {
             calculator: calculator::ComplexityCalculator::new(),
         }
     }
-    
+
     /// Calculate complexity statistics for a single file
-    pub fn calculate_complexity_stats(&self, file_stats: &FileStats, file_path: &str) -> Result<ComplexityStats> {
-        self.calculator.calculate_complexity_stats(file_stats, file_path)
+    pub fn calculate_complexity_stats(
+        &self,
+        file_stats: &FileStats,
+        file_path: &str,
+    ) -> Result<ComplexityStats> {
+        self.calculator
+            .calculate_complexity_stats(file_stats, file_path)
     }
-    
+
     /// Calculate complexity statistics for a project
-    pub fn calculate_project_complexity_stats(&self, code_stats: &CodeStats, individual_files: &[(String, FileStats)]) -> Result<ComplexityStats> {
-        self.calculator.calculate_project_complexity_stats(code_stats, individual_files)
+    pub fn calculate_project_complexity_stats(
+        &self,
+        code_stats: &CodeStats,
+        individual_files: &[(String, FileStats)],
+    ) -> Result<ComplexityStats> {
+        self.calculator
+            .calculate_project_complexity_stats(code_stats, individual_files)
     }
-    
+
     /// Get complexity level description
     pub fn get_complexity_level(&self, complexity: f64) -> String {
         self.calculator.get_complexity_level(complexity)
     }
-    
+
     /// Get complexity level CSS class
     pub fn get_complexity_class(&self, complexity: f64) -> String {
         self.calculator.get_complexity_class(complexity)
@@ -48,4 +58,4 @@ impl Default for ComplexityStatsCalculator {
     fn default() -> Self {
         Self::new()
     }
-} 
+}

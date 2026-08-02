@@ -2,7 +2,6 @@
 // Main implementation is in src/core/stats/complexity.rs
 // This module contains only the type definitions to avoid circular dependencies
 
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -38,14 +37,14 @@ pub struct ComplexityStats {
 /// Code health metrics for practical developer insights
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QualityMetrics {
-    pub code_health_score: f64,        // Overall code health (0-100)
-    pub maintainability_index: f64,    // Industry-standard maintainability index (0-100)
-    pub documentation_coverage: f64,   // Percentage of code with documentation (0-100)
-    pub avg_complexity: f64,           // Average cyclomatic complexity per function
-    pub function_size_health: f64,     // Health score based on function sizes (0-100)
-    pub nesting_depth_health: f64,     // Health score based on nesting depth (0-100)
-    pub code_duplication_ratio: f64,   // Estimated code duplication percentage (0-100)
-    pub technical_debt_ratio: f64,     // Estimated technical debt ratio (0-100)
+    pub code_health_score: f64,      // Overall code health (0-100)
+    pub maintainability_index: f64,  // Industry-standard maintainability index (0-100)
+    pub documentation_coverage: f64, // Percentage of code with documentation (0-100)
+    pub avg_complexity: f64,         // Average cyclomatic complexity per function
+    pub function_size_health: f64,   // Health score based on function sizes (0-100)
+    pub nesting_depth_health: f64,   // Health score based on nesting depth (0-100)
+    pub code_duplication_ratio: f64, // Estimated code duplication percentage (0-100)
+    pub technical_debt_ratio: f64,   // Estimated technical debt ratio (0-100)
 }
 
 /// Detailed complexity information for individual functions
@@ -73,11 +72,11 @@ pub struct FunctionComplexityDetail {
 /// Complexity level classification
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ComplexityLevel {
-    VeryLow,    // 1-5
-    Low,        // 6-10
-    Medium,     // 11-20
-    High,       // 21-50
-    VeryHigh,   // 51+
+    VeryLow,  // 1-5
+    Low,      // 6-10
+    Medium,   // 11-20
+    High,     // 21-50
+    VeryHigh, // 51+
 }
 
 /// Distribution of different structure types
@@ -177,4 +176,4 @@ pub enum Visibility {
     Protected,
     Internal,
     Unknown,
-} 
+}

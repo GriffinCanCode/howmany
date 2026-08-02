@@ -1,9 +1,9 @@
-use crate::core::types::{CodeStats, FileStats};
 use crate::core::stats::aggregation::AggregatedStats;
+use crate::core::types::{CodeStats, FileStats};
 
+use super::templates::TemplateGenerator;
 use crate::core::stats::StatsCalculator;
 use crate::utils::errors::Result;
-use super::templates::TemplateGenerator;
 
 pub struct StandardReportGenerator {
     template_generator: TemplateGenerator,
@@ -17,12 +17,19 @@ impl StandardReportGenerator {
             stats_calculator: StatsCalculator::new(),
         }
     }
-    
-    pub fn create_html_content(&self, stats: &CodeStats, individual_files: &[(String, FileStats)]) -> Result<String> {
+
+    pub fn create_html_content(
+        &self,
+        stats: &CodeStats,
+        individual_files: &[(String, FileStats)],
+    ) -> Result<String> {
         // Calculate real aggregated stats for better accuracy
-        let aggregated_stats = self.stats_calculator.calculate_project_stats(stats, individual_files)?;
-        
-        let html = format!(r#"
+        let aggregated_stats = self
+            .stats_calculator
+            .calculate_project_stats(stats, individual_files)?;
+
+        let html = format!(
+            r#"
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -487,55 +494,134 @@ impl StandardReportGenerator {
             aggregated_stats.complexity.cognitive_complexity,
             aggregated_stats.complexity.maintainability_index,
             aggregated_stats.complexity.average_parameters_per_function,
-            
             // Quality metrics with real values and dynamic classes
-            self.get_quality_class(aggregated_stats.complexity.quality_metrics.code_health_score),
-            aggregated_stats.complexity.quality_metrics.code_health_score,
-            self.get_progress_class(aggregated_stats.complexity.quality_metrics.code_health_score),
-            aggregated_stats.complexity.quality_metrics.code_health_score,
-            
-            self.get_quality_class(aggregated_stats.complexity.quality_metrics.maintainability_index),
-            aggregated_stats.complexity.quality_metrics.maintainability_index,
-            self.get_progress_class(aggregated_stats.complexity.quality_metrics.maintainability_index),
-            aggregated_stats.complexity.quality_metrics.maintainability_index,
-            
-            self.get_quality_class(aggregated_stats.complexity.quality_metrics.function_size_health),
-            aggregated_stats.complexity.quality_metrics.function_size_health,
-            self.get_progress_class(aggregated_stats.complexity.quality_metrics.function_size_health),
-            aggregated_stats.complexity.quality_metrics.function_size_health,
-            
-            self.get_quality_class(aggregated_stats.complexity.quality_metrics.nesting_depth_health),
-            aggregated_stats.complexity.quality_metrics.nesting_depth_health,
-            self.get_progress_class(aggregated_stats.complexity.quality_metrics.nesting_depth_health),
-            aggregated_stats.complexity.quality_metrics.nesting_depth_health,
-            
+            self.get_quality_class(
+                aggregated_stats
+                    .complexity
+                    .quality_metrics
+                    .code_health_score
+            ),
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .code_health_score,
+            self.get_progress_class(
+                aggregated_stats
+                    .complexity
+                    .quality_metrics
+                    .code_health_score
+            ),
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .code_health_score,
+            self.get_quality_class(
+                aggregated_stats
+                    .complexity
+                    .quality_metrics
+                    .maintainability_index
+            ),
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .maintainability_index,
+            self.get_progress_class(
+                aggregated_stats
+                    .complexity
+                    .quality_metrics
+                    .maintainability_index
+            ),
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .maintainability_index,
+            self.get_quality_class(
+                aggregated_stats
+                    .complexity
+                    .quality_metrics
+                    .function_size_health
+            ),
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .function_size_health,
+            self.get_progress_class(
+                aggregated_stats
+                    .complexity
+                    .quality_metrics
+                    .function_size_health
+            ),
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .function_size_health,
+            self.get_quality_class(
+                aggregated_stats
+                    .complexity
+                    .quality_metrics
+                    .nesting_depth_health
+            ),
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .nesting_depth_health,
+            self.get_progress_class(
+                aggregated_stats
+                    .complexity
+                    .quality_metrics
+                    .nesting_depth_health
+            ),
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .nesting_depth_health,
             // Tables and insights
-            self.template_generator.generate_extension_rows_with_real_analysis(&aggregated_stats),
-            self.template_generator.generate_real_complexity_insights(&aggregated_stats)
+            self.template_generator
+                .generate_extension_rows_with_real_analysis(&aggregated_stats),
+            self.template_generator
+                .generate_real_complexity_insights(&aggregated_stats)
                 .replace("\n", "</div><div class=\"insight-item\">"),
-            self.template_generator.generate_optimized_individual_files_section(individual_files),
-            
+            self.template_generator
+                .generate_optimized_individual_files_section(individual_files),
             // Chart data
             aggregated_stats.basic.code_lines,
             aggregated_stats.basic.comment_lines,
             aggregated_stats.basic.doc_lines,
             aggregated_stats.basic.blank_lines,
-            
             // Complexity distribution data
-            aggregated_stats.complexity.complexity_distribution.very_low_complexity,
-            aggregated_stats.complexity.complexity_distribution.low_complexity,
-            aggregated_stats.complexity.complexity_distribution.medium_complexity,
-            aggregated_stats.complexity.complexity_distribution.high_complexity,
-            aggregated_stats.complexity.complexity_distribution.very_high_complexity,
-            
+            aggregated_stats
+                .complexity
+                .complexity_distribution
+                .very_low_complexity,
+            aggregated_stats
+                .complexity
+                .complexity_distribution
+                .low_complexity,
+            aggregated_stats
+                .complexity
+                .complexity_distribution
+                .medium_complexity,
+            aggregated_stats
+                .complexity
+                .complexity_distribution
+                .high_complexity,
+            aggregated_stats
+                .complexity
+                .complexity_distribution
+                .very_high_complexity,
             self.template_generator.generate_complexity_labels(stats),
-            self.template_generator.generate_complexity_data_with_real_analysis(&aggregated_stats)
+            self.template_generator
+                .generate_complexity_data_with_real_analysis(&aggregated_stats)
         );
-        
+
         Ok(html)
     }
-    
-    pub fn create_comprehensive_html_content(&self, aggregated_stats: &AggregatedStats, individual_files: &[(String, FileStats)]) -> Result<String> {
+
+    pub fn create_comprehensive_html_content(
+        &self,
+        aggregated_stats: &AggregatedStats,
+        individual_files: &[(String, FileStats)],
+    ) -> Result<String> {
         let html = format!(
             r#"<!DOCTYPE html>
 <html lang="en">
@@ -1584,61 +1670,104 @@ impl StandardReportGenerator {
             aggregated_stats.basic.code_lines,
             aggregated_stats.complexity.function_count,
             aggregated_stats.complexity.cyclomatic_complexity,
-            aggregated_stats.complexity.quality_metrics.code_health_score,
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .code_health_score,
             "N/A", // Placeholder for removed time parameter
-            
             // Quality metrics
-            self.get_quality_class(aggregated_stats.complexity.quality_metrics.code_health_score),
-            aggregated_stats.complexity.quality_metrics.code_health_score,
-            self.get_progress_class(aggregated_stats.complexity.quality_metrics.code_health_score),
-            aggregated_stats.complexity.quality_metrics.code_health_score,
-            
-            self.get_quality_class(aggregated_stats.complexity.quality_metrics.maintainability_index),
-            aggregated_stats.complexity.quality_metrics.maintainability_index,
-            self.get_progress_class(aggregated_stats.complexity.quality_metrics.maintainability_index),
-            aggregated_stats.complexity.quality_metrics.maintainability_index,
-            
+            self.get_quality_class(
+                aggregated_stats
+                    .complexity
+                    .quality_metrics
+                    .code_health_score
+            ),
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .code_health_score,
+            self.get_progress_class(
+                aggregated_stats
+                    .complexity
+                    .quality_metrics
+                    .code_health_score
+            ),
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .code_health_score,
+            self.get_quality_class(
+                aggregated_stats
+                    .complexity
+                    .quality_metrics
+                    .maintainability_index
+            ),
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .maintainability_index,
+            self.get_progress_class(
+                aggregated_stats
+                    .complexity
+                    .quality_metrics
+                    .maintainability_index
+            ),
+            aggregated_stats
+                .complexity
+                .quality_metrics
+                .maintainability_index,
             self.get_quality_class(aggregated_stats.ratios.quality_metrics.readability_score),
             aggregated_stats.ratios.quality_metrics.readability_score,
             self.get_progress_class(aggregated_stats.ratios.quality_metrics.readability_score),
             aggregated_stats.ratios.quality_metrics.readability_score,
-            
             self.get_quality_class(aggregated_stats.ratios.quality_metrics.documentation_score),
             aggregated_stats.ratios.quality_metrics.documentation_score,
             self.get_progress_class(aggregated_stats.ratios.quality_metrics.documentation_score),
             aggregated_stats.ratios.quality_metrics.documentation_score,
-            
             // Insights and recommendations
-            self.template_generator.generate_enhanced_insights(aggregated_stats),
-            self.template_generator.generate_enhanced_recommendations(aggregated_stats),
-            
+            self.template_generator
+                .generate_enhanced_insights(aggregated_stats),
+            self.template_generator
+                .generate_enhanced_recommendations(aggregated_stats),
             // File analysis table
-            self.template_generator.generate_extension_rows_with_real_analysis(aggregated_stats),
-            
+            self.template_generator
+                .generate_extension_rows_with_real_analysis(aggregated_stats),
             // Individual files section - convert to modern grid format
             self.generate_modern_individual_files_section(individual_files),
-            
             // Footer
             aggregated_stats.metadata.version,
             aggregated_stats.metadata.calculation_time_ms,
-            
             // Chart data
             aggregated_stats.basic.code_lines,
             aggregated_stats.basic.comment_lines,
             aggregated_stats.basic.doc_lines,
             aggregated_stats.basic.blank_lines,
-            
             // Complexity distribution data
-            aggregated_stats.complexity.complexity_distribution.very_low_complexity,
-            aggregated_stats.complexity.complexity_distribution.low_complexity,
-            aggregated_stats.complexity.complexity_distribution.medium_complexity,
-            aggregated_stats.complexity.complexity_distribution.high_complexity,
-            aggregated_stats.complexity.complexity_distribution.very_high_complexity
+            aggregated_stats
+                .complexity
+                .complexity_distribution
+                .very_low_complexity,
+            aggregated_stats
+                .complexity
+                .complexity_distribution
+                .low_complexity,
+            aggregated_stats
+                .complexity
+                .complexity_distribution
+                .medium_complexity,
+            aggregated_stats
+                .complexity
+                .complexity_distribution
+                .high_complexity,
+            aggregated_stats
+                .complexity
+                .complexity_distribution
+                .very_high_complexity
         );
-        
+
         Ok(html)
     }
-    
+
     /// Get CSS class for quality score
     fn get_quality_class(&self, score: f64) -> &'static str {
         if score >= 80.0 {
@@ -1649,7 +1778,7 @@ impl StandardReportGenerator {
             "score-poor"
         }
     }
-    
+
     /// Get CSS class for progress bar
     fn get_progress_class(&self, score: f64) -> &'static str {
         if score >= 80.0 {
@@ -1660,36 +1789,46 @@ impl StandardReportGenerator {
             "progress-poor"
         }
     }
-    
-    fn generate_modern_individual_files_section(&self, individual_files: &[(String, FileStats)]) -> String {
+
+    fn generate_modern_individual_files_section(
+        &self,
+        individual_files: &[(String, FileStats)],
+    ) -> String {
         if individual_files.is_empty() {
             return r#"<div class="file-item">
                 <div class="file-name">No individual files to display</div>
                 <div class="file-metrics">
                     <span class="file-metric">Analysis complete</span>
                 </div>
-            </div>"#.to_string();
+            </div>"#
+                .to_string();
         }
-        
+
         let mut section = String::with_capacity(individual_files.len() * 300);
-        
+
         // Sort files by a combination of size and complexity for better insights
         let mut sorted_files: Vec<_> = individual_files.iter().collect();
         sorted_files.sort_by(|a, b| {
             let score_a = (a.1.total_lines as f64 * 0.6) + (a.1.code_lines as f64 * 0.4);
             let score_b = (b.1.total_lines as f64 * 0.6) + (b.1.code_lines as f64 * 0.4);
-            score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+            score_b
+                .partial_cmp(&score_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
-        
+
         // Show top 15 files to keep the report manageable
         for (file_path, file_stats) in sorted_files.iter().take(15) {
             let complexity_estimate = self.estimate_file_complexity_score(file_stats);
-            let complexity_class = if complexity_estimate > 7.0 { "complexity-high" } 
-                                  else if complexity_estimate > 4.0 { "complexity-medium" } 
-                                  else { "complexity-low" };
-            
+            let complexity_class = if complexity_estimate > 7.0 {
+                "complexity-high"
+            } else if complexity_estimate > 4.0 {
+                "complexity-medium"
+            } else {
+                "complexity-low"
+            };
+
             let file_name = self.shorten_file_path(file_path);
-            
+
             section.push_str(&format!(
                 r#"<div class="file-item">
                     <div class="file-name">{}</div>
@@ -1705,55 +1844,63 @@ impl StandardReportGenerator {
                 file_stats.code_lines,
                 file_stats.comment_lines,
                 complexity_class,
-                if complexity_estimate > 7.0 { "HIGH" } 
-                else if complexity_estimate > 4.0 { "MEDIUM" } 
-                else { "LOW" }
+                if complexity_estimate > 7.0 {
+                    "HIGH"
+                } else if complexity_estimate > 4.0 {
+                    "MEDIUM"
+                } else {
+                    "LOW"
+                }
             ));
         }
-        
+
         section
     }
-    
+
     fn estimate_file_complexity_score(&self, file_stats: &FileStats) -> f64 {
         let mut complexity: f64 = 1.0;
-        
+
         // Size-based complexity
         if file_stats.total_lines > 500 {
             complexity += 3.0;
         } else if file_stats.total_lines > 200 {
             complexity += 1.5;
         }
-        
+
         // Code density
         let code_ratio = if file_stats.total_lines > 0 {
             file_stats.code_lines as f64 / file_stats.total_lines as f64
-        } else { 0.0 };
-        
+        } else {
+            0.0
+        };
+
         if code_ratio > 0.8 {
             complexity += 2.0;
         } else if code_ratio > 0.6 {
             complexity += 1.0;
         }
-        
+
         // Comment ratio (lower comments = higher complexity)
         let comment_ratio = if file_stats.total_lines > 0 {
             file_stats.comment_lines as f64 / file_stats.total_lines as f64
-        } else { 0.0 };
-        
+        } else {
+            0.0
+        };
+
         if comment_ratio < 0.05 {
             complexity += 1.5;
         } else if comment_ratio < 0.1 {
             complexity += 0.5;
         }
-        
+
         complexity.min(10.0)
     }
-    
+
     fn shorten_file_path(&self, path: &str) -> String {
         if path.len() <= 50 {
             return path.to_string();
         }
-        
+
         let parts: Vec<&str> = path.split('/').collect();
         if parts.len() > 2 {
             format!(".../{}/{}", parts[parts.len() - 2], parts[parts.len() - 1])
@@ -1762,4 +1909,4 @@ impl StandardReportGenerator {
             format!("{}...", truncated)
         }
     }
-} 
+}

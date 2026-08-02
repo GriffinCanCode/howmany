@@ -1,6 +1,8 @@
 use crate::core::types::{CodeStats, FileStats};
 use crate::ui::interactive::app::InteractiveApp;
-use crate::ui::interactive::rendering::{render_footer, render_header, render_main_content, render_help, render_welcome};
+use crate::ui::interactive::rendering::{
+    render_footer, render_header, render_help, render_main_content, render_welcome,
+};
 use anyhow::Result;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyEventKind},
@@ -49,23 +51,33 @@ impl ModernInteractiveDisplay {
     }
 
     pub fn show_scanning_progress(&mut self, path: &str) -> Result<ProgressBar> {
-        println!("{}", format!("📁 Analyzing directory: {}", path).bright_yellow());
-        println!("{}", "🔍 Scanning for user-created code files...".bright_blue());
+        println!(
+            "{}",
+            format!("📁 Analyzing directory: {}", path).bright_yellow()
+        );
+        println!(
+            "{}",
+            "🔍 Scanning for user-created code files...".bright_blue()
+        );
         println!();
-        
+
         let pb = ProgressBar::new_spinner();
         pb.set_style(
             ProgressStyle::default_spinner()
                 .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
                 .template("{spinner:.cyan} {msg}")
-                .unwrap()
+                .unwrap(),
         );
         pb.set_message("Scanning files...");
         pb.enable_steady_tick(Duration::from_millis(100));
         Ok(pb)
     }
 
-    pub fn run_interactive_mode(&mut self, stats: CodeStats, individual_files: Vec<(String, FileStats)>) -> Result<()> {
+    pub fn run_interactive_mode(
+        &mut self,
+        stats: CodeStats,
+        individual_files: Vec<(String, FileStats)>,
+    ) -> Result<()> {
         self.app.set_data(stats, individual_files);
 
         // Use tokio runtime for async event handling
@@ -95,13 +107,13 @@ impl ModernInteractiveDisplay {
                         }
                     }
                 }
-                
+
                 // Update animation at regular intervals
                 _ = animation_interval.tick() => {
                     self.app.update_animation();
                     redraw_needed = true;
                 }
-                
+
                 // Background task: Process any heavy computations
                 _ = tokio::time::sleep(Duration::from_millis(100)) => {
                     // Background processing completed
@@ -113,7 +125,7 @@ impl ModernInteractiveDisplay {
                 self.render_frame()?;
                 redraw_needed = false;
                 _frame_count += 1;
-                
+
                 // Optional: FPS monitoring (can be removed in production)
                 if last_fps_check.elapsed() >= Duration::from_secs(1) {
                     // Reset counters for next second
@@ -147,15 +159,14 @@ impl ModernInteractiveDisplay {
                 }
             }
             Ok(false) // No redraw needed
-        }).await;
+        })
+        .await;
 
         match event_timeout {
             Ok(result) => result,
             Err(_) => Ok(false), // Timeout, no events
         }
     }
-
-
 
     fn render_frame(&mut self) -> Result<()> {
         let app = &mut self.app;
@@ -170,13 +181,13 @@ impl ModernInteractiveDisplay {
                 .split(f.area());
 
             render_header(f, chunks[0], app);
-            
+
             if app.show_help {
                 render_help(f, chunks[1]);
             } else {
                 render_main_content(f, chunks[1], app);
             }
-            
+
             render_footer(f, chunks[2], app);
         })?;
 
@@ -194,4 +205,4 @@ impl Drop for ModernInteractiveDisplay {
         );
         let _ = self.terminal.show_cursor();
     }
-} 
+}

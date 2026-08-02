@@ -41,7 +41,7 @@ impl BasicStatsCalculator {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Calculate basic statistics for a single file
     pub fn calculate_basic_stats(&self, file_stats: &FileStats) -> Result<BasicStats> {
         Ok(BasicStats {
@@ -59,12 +59,12 @@ impl BasicStatsCalculator {
             stats_by_extension: HashMap::new(),
         })
     }
-    
+
     /// Calculate basic statistics for a project
     pub fn calculate_project_basic_stats(&self, code_stats: &CodeStats) -> Result<BasicStats> {
         let mut stats_by_extension = HashMap::new();
         let mut file_sizes = Vec::new();
-        
+
         for (ext, (file_count, file_stats)) in &code_stats.stats_by_extension {
             let ext_stats = ExtensionStats {
                 file_count: *file_count,
@@ -85,9 +85,9 @@ impl BasicStatsCalculator {
                     0.0
                 },
             };
-            
+
             stats_by_extension.insert(ext.clone(), ext_stats);
-            
+
             // Estimate individual file sizes for min/max calculation
             // This is an approximation since we don't have individual file sizes
             let estimated_avg_size = if *file_count > 0 {
@@ -95,15 +95,15 @@ impl BasicStatsCalculator {
             } else {
                 0
             };
-            
+
             for _ in 0..*file_count {
                 file_sizes.push(estimated_avg_size);
             }
         }
-        
+
         let largest_file_size = file_sizes.iter().max().copied().unwrap_or(0);
         let smallest_file_size = file_sizes.iter().min().copied().unwrap_or(0);
-        
+
         Ok(BasicStats {
             total_files: code_stats.total_files,
             total_lines: code_stats.total_lines,
@@ -127,56 +127,68 @@ impl BasicStatsCalculator {
             stats_by_extension,
         })
     }
-    
+
     /// Get the most common file extension
-    pub fn get_most_common_extension<'a>(&self, stats: &'a BasicStats) -> Option<(String, &'a ExtensionStats)> {
-        stats.stats_by_extension
+    pub fn get_most_common_extension<'a>(
+        &self,
+        stats: &'a BasicStats,
+    ) -> Option<(String, &'a ExtensionStats)> {
+        stats
+            .stats_by_extension
             .iter()
             .max_by_key(|(_, ext_stats)| ext_stats.file_count)
             .map(|(ext, stats)| (ext.clone(), stats))
     }
-    
+
     /// Get the extension with the most lines of code
-    pub fn get_most_lines_extension<'a>(&self, stats: &'a BasicStats) -> Option<(String, &'a ExtensionStats)> {
-        stats.stats_by_extension
+    pub fn get_most_lines_extension<'a>(
+        &self,
+        stats: &'a BasicStats,
+    ) -> Option<(String, &'a ExtensionStats)> {
+        stats
+            .stats_by_extension
             .iter()
             .max_by_key(|(_, ext_stats)| ext_stats.total_lines)
             .map(|(ext, stats)| (ext.clone(), stats))
     }
-    
+
     /// Get the extension with the largest file size
-    pub fn get_largest_extension<'a>(&self, stats: &'a BasicStats) -> Option<(String, &'a ExtensionStats)> {
-        stats.stats_by_extension
+    pub fn get_largest_extension<'a>(
+        &self,
+        stats: &'a BasicStats,
+    ) -> Option<(String, &'a ExtensionStats)> {
+        stats
+            .stats_by_extension
             .iter()
             .max_by_key(|(_, ext_stats)| ext_stats.total_size)
             .map(|(ext, stats)| (ext.clone(), stats))
     }
-    
+
     /// Calculate size distribution percentages
     pub fn calculate_size_distribution(&self, stats: &BasicStats) -> HashMap<String, f64> {
         let mut distribution = HashMap::new();
-        
+
         if stats.total_size > 0 {
             for (ext, ext_stats) in &stats.stats_by_extension {
                 let percentage = (ext_stats.total_size as f64 / stats.total_size as f64) * 100.0;
                 distribution.insert(ext.clone(), percentage);
             }
         }
-        
+
         distribution
     }
-    
+
     /// Calculate line distribution percentages
     pub fn calculate_line_distribution(&self, stats: &BasicStats) -> HashMap<String, f64> {
         let mut distribution = HashMap::new();
-        
+
         if stats.total_lines > 0 {
             for (ext, ext_stats) in &stats.stats_by_extension {
                 let percentage = (ext_stats.total_lines as f64 / stats.total_lines as f64) * 100.0;
                 distribution.insert(ext.clone(), percentage);
             }
         }
-        
+
         distribution
     }
 }
@@ -185,7 +197,7 @@ impl Default for BasicStatsCalculator {
     fn default() -> Self {
         Self::new()
     }
-} 
+}
 
 #[cfg(test)]
 mod tests {
@@ -258,25 +270,37 @@ mod tests {
     #[test]
     fn test_calculate_project_basic_stats() {
         let calculator = BasicStatsCalculator::new();
-        
+
         // Create mock CodeStats
         let mut stats_by_extension = HashMap::new();
-        stats_by_extension.insert("rs".to_string(), (2, FileStats {
-            total_lines: 150,
-            code_lines: 100,
-            comment_lines: 30,
-            doc_lines: 10,
-            blank_lines: 20,
-            file_size: 3000,
-        }));
-        stats_by_extension.insert("py".to_string(), (1, FileStats {
-            total_lines: 80,
-            code_lines: 60,
-            comment_lines: 15,
-            doc_lines: 3,
-            blank_lines: 5,
-            file_size: 1500,
-        }));
+        stats_by_extension.insert(
+            "rs".to_string(),
+            (
+                2,
+                FileStats {
+                    total_lines: 150,
+                    code_lines: 100,
+                    comment_lines: 30,
+                    doc_lines: 10,
+                    blank_lines: 20,
+                    file_size: 3000,
+                },
+            ),
+        );
+        stats_by_extension.insert(
+            "py".to_string(),
+            (
+                1,
+                FileStats {
+                    total_lines: 80,
+                    code_lines: 60,
+                    comment_lines: 15,
+                    doc_lines: 3,
+                    blank_lines: 5,
+                    file_size: 1500,
+                },
+            ),
+        );
 
         let code_stats = CodeStats {
             total_files: 3,
@@ -289,7 +313,9 @@ mod tests {
             stats_by_extension,
         };
 
-        let result = calculator.calculate_project_basic_stats(&code_stats).unwrap();
+        let result = calculator
+            .calculate_project_basic_stats(&code_stats)
+            .unwrap();
 
         assert_eq!(result.total_files, 3);
         assert_eq!(result.total_lines, 230);
@@ -305,7 +331,7 @@ mod tests {
 
         // Check extension stats
         assert_eq!(result.stats_by_extension.len(), 2);
-        
+
         let rust_stats = &result.stats_by_extension["rs"];
         assert_eq!(rust_stats.file_count, 2);
         assert_eq!(rust_stats.total_lines, 150);
@@ -335,7 +361,9 @@ mod tests {
             stats_by_extension: HashMap::new(),
         };
 
-        let result = calculator.calculate_project_basic_stats(&code_stats).unwrap();
+        let result = calculator
+            .calculate_project_basic_stats(&code_stats)
+            .unwrap();
 
         assert_eq!(result.total_files, 0);
         assert_eq!(result.total_lines, 0);
@@ -354,16 +382,22 @@ mod tests {
     #[test]
     fn test_calculate_project_basic_stats_single_extension() {
         let calculator = BasicStatsCalculator::new();
-        
+
         let mut stats_by_extension = HashMap::new();
-        stats_by_extension.insert("js".to_string(), (3, FileStats {
-            total_lines: 300,
-            code_lines: 200,
-            comment_lines: 50,
-            doc_lines: 25,
-            blank_lines: 50,
-            file_size: 6000,  // This is the total size for all files of this extension
-        }));
+        stats_by_extension.insert(
+            "js".to_string(),
+            (
+                3,
+                FileStats {
+                    total_lines: 300,
+                    code_lines: 200,
+                    comment_lines: 50,
+                    doc_lines: 25,
+                    blank_lines: 50,
+                    file_size: 6000, // This is the total size for all files of this extension
+                },
+            ),
+        );
 
         let code_stats = CodeStats {
             total_files: 3,
@@ -376,7 +410,9 @@ mod tests {
             stats_by_extension,
         };
 
-        let result = calculator.calculate_project_basic_stats(&code_stats).unwrap();
+        let result = calculator
+            .calculate_project_basic_stats(&code_stats)
+            .unwrap();
 
         assert_eq!(result.total_files, 3);
         assert_eq!(result.total_lines, 300);
@@ -510,7 +546,7 @@ mod tests {
     #[test]
     fn test_basic_stats_with_real_project() {
         let project = TestProject::new("test_project").unwrap();
-        
+
         // Create a realistic project structure
         project.create_rust_file("src/main.rs", 10, 5).unwrap();
         project.create_rust_file("src/lib.rs", 20, 8).unwrap();
@@ -518,17 +554,23 @@ mod tests {
         project.create_javascript_file("app.js", 12).unwrap();
 
         let calculator = BasicStatsCalculator::new();
-        
+
         // This would normally be done by the counter, but we'll simulate it
         let mut stats_by_extension = HashMap::new();
-        stats_by_extension.insert("rs".to_string(), (2, FileStats {
-            total_lines: 100,
-            code_lines: 70,
-            comment_lines: 20,
-            doc_lines: 5,
-            blank_lines: 10,
-            file_size: 2000,
-        }));
+        stats_by_extension.insert(
+            "rs".to_string(),
+            (
+                2,
+                FileStats {
+                    total_lines: 100,
+                    code_lines: 70,
+                    comment_lines: 20,
+                    doc_lines: 5,
+                    blank_lines: 10,
+                    file_size: 2000,
+                },
+            ),
+        );
 
         let code_stats = CodeStats {
             total_files: 4,
@@ -541,7 +583,9 @@ mod tests {
             stats_by_extension,
         };
 
-        let result = calculator.calculate_project_basic_stats(&code_stats).unwrap();
+        let result = calculator
+            .calculate_project_basic_stats(&code_stats)
+            .unwrap();
 
         assert_eq!(result.total_files, 4);
         assert_eq!(result.total_lines, 200);
@@ -553,4 +597,4 @@ mod tests {
         assert_eq!(result.average_file_size, 1000.0);
         assert_eq!(result.average_lines_per_file, 50.0);
     }
-} 
+}

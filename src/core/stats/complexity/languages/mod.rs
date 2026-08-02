@@ -1,41 +1,41 @@
-use crate::utils::errors::Result;
 use super::types::{FunctionInfo, StructureInfo};
+use crate::utils::errors::Result;
 
 // Language-specific modules
-pub mod rust;
-pub mod python;
-pub mod javascript;
-pub mod java;
-pub mod cpp;
-pub mod go;
-pub mod csharp;
-pub mod php;
-pub mod ruby;
-pub mod swift;
-pub mod kotlin;
-pub mod dart;
-pub mod erlang;
-pub mod perl;
-pub mod r;
-pub mod matlab;
-pub mod elixir;
-pub mod julia;
-pub mod lua;
-pub mod zig;
 pub mod clojure;
+pub mod cpp;
+pub mod csharp;
+pub mod dart;
+pub mod elixir;
+pub mod erlang;
+pub mod go;
 pub mod haskell;
+pub mod java;
+pub mod javascript;
+pub mod julia;
+pub mod kotlin;
+pub mod lua;
+pub mod matlab;
+pub mod perl;
+pub mod php;
+pub mod python;
+pub mod r;
+pub mod ruby;
+pub mod rust;
+pub mod swift;
+pub mod zig;
 
 /// Common trait for all language-specific complexity analyzers
 pub trait LanguageAnalyzer {
     /// Analyze functions in code lines for complexity metrics
     fn analyze_functions(&self, lines: &[String]) -> Result<Vec<FunctionInfo>>;
-    
+
     /// Analyze structures in code lines (classes, interfaces, etc.)
     fn analyze_structures(&self, lines: &[String]) -> Result<Vec<StructureInfo>>;
-    
+
     /// Get the language name for this analyzer
     fn language_name(&self) -> &'static str;
-    
+
     /// Get the file extensions this analyzer supports
     fn supported_extensions(&self) -> Vec<&'static str>;
 }
@@ -67,4 +67,4 @@ pub fn get_language_analyzer(extension: &str) -> Option<Box<dyn LanguageAnalyzer
         "hs" | "lhs" => Some(Box::new(haskell::HaskellAnalyzer::new())),
         _ => None,
     }
-} 
+}

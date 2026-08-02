@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Statistics for a single file
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -51,4 +51,4 @@ impl Default for CodeStats {
             stats_by_extension: HashMap::new(),
         }
     }
-} 
+}

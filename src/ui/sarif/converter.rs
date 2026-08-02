@@ -1,14 +1,13 @@
-use crate::core::types::{CodeStats, FileStats};
 use crate::core::stats::AggregatedStats;
+use crate::core::types::{CodeStats, FileStats};
 use crate::utils::errors::Result;
-use serde_sarif::sarif::{
-    Sarif, Run, Tool, ToolComponent, Result as SarifResult, 
-    Location, PhysicalLocation, ArtifactLocation, Region,
-    Message, ReportingDescriptor, MultiformatMessageString,
-    RunAutomationDetails, ResultKind, ResultLevel
-};
-use serde_json::Value;
 use chrono::Utc;
+use serde_json::Value;
+use serde_sarif::sarif::{
+    ArtifactLocation, Location, Message, MultiformatMessageString, PhysicalLocation, Region,
+    ReportingDescriptor, Result as SarifResult, ResultKind, ResultLevel, Run, RunAutomationDetails,
+    Sarif, Tool, ToolComponent,
+};
 
 pub struct SarifConverter {
     tool_name: String,
@@ -66,12 +65,16 @@ impl SarifConverter {
         // Generate detailed complexity and quality results
         for (file_path, file_stats) in individual_files {
             // Complexity analysis results
-            if let Some(complexity_results) = self.analyze_file_complexity(file_path, file_stats, aggregated_stats) {
+            if let Some(complexity_results) =
+                self.analyze_file_complexity(file_path, file_stats, aggregated_stats)
+            {
                 results.extend(complexity_results);
             }
 
             // Quality metrics results
-            if let Some(quality_results) = self.analyze_comprehensive_quality(file_path, file_stats, aggregated_stats) {
+            if let Some(quality_results) =
+                self.analyze_comprehensive_quality(file_path, file_stats, aggregated_stats)
+            {
                 results.extend(quality_results);
             }
         }
@@ -83,7 +86,11 @@ impl SarifConverter {
     }
 
     /// Analyze individual file for basic quality issues
-    fn analyze_file_quality(&self, file_path: &str, file_stats: &FileStats) -> Option<Vec<SarifResult>> {
+    fn analyze_file_quality(
+        &self,
+        file_path: &str,
+        file_stats: &FileStats,
+    ) -> Option<Vec<SarifResult>> {
         let mut results = Vec::new();
 
         // Large file warning
@@ -91,7 +98,10 @@ impl SarifConverter {
             results.push(self.create_result(
                 "HM001",
                 "Large File",
-                &format!("File has {} lines, consider breaking it into smaller modules", file_stats.total_lines),
+                &format!(
+                    "File has {} lines, consider breaking it into smaller modules",
+                    file_stats.total_lines
+                ),
                 "warning",
                 file_path,
                 None,
@@ -128,7 +138,11 @@ impl SarifConverter {
             ));
         }
 
-        if results.is_empty() { None } else { Some(results) }
+        if results.is_empty() {
+            None
+        } else {
+            Some(results)
+        }
     }
 
     /// Analyze file complexity using AggregatedStats
@@ -147,13 +161,20 @@ impl SarifConverter {
             .unwrap_or("unknown");
 
         // Check if we have complexity data for this extension
-        if let Some(complexity_data) = aggregated_stats.complexity.complexity_by_extension.get(extension) {
+        if let Some(complexity_data) = aggregated_stats
+            .complexity
+            .complexity_by_extension
+            .get(extension)
+        {
             // High complexity warning
             if complexity_data.cyclomatic_complexity > 15.0 {
                 results.push(self.create_result(
                     "HM101",
                     "High Complexity",
-                    &format!("Average cyclomatic complexity is {:.1}, consider refactoring", complexity_data.cyclomatic_complexity),
+                    &format!(
+                        "Average cyclomatic complexity is {:.1}, consider refactoring",
+                        complexity_data.cyclomatic_complexity
+                    ),
                     "warning",
                     file_path,
                     None,
@@ -165,7 +186,10 @@ impl SarifConverter {
                 results.push(self.create_result(
                     "HM102",
                     "High Cognitive Complexity",
-                    &format!("Cognitive complexity is {:.1}, may be difficult to understand", complexity_data.cognitive_complexity),
+                    &format!(
+                        "Cognitive complexity is {:.1}, may be difficult to understand",
+                        complexity_data.cognitive_complexity
+                    ),
                     "warning",
                     file_path,
                     None,
@@ -177,7 +201,10 @@ impl SarifConverter {
                 results.push(self.create_result(
                     "HM103",
                     "Deep Nesting",
-                    &format!("Maximum nesting depth is {}, consider extracting nested logic", complexity_data.max_nesting_depth),
+                    &format!(
+                        "Maximum nesting depth is {}, consider extracting nested logic",
+                        complexity_data.max_nesting_depth
+                    ),
                     "info",
                     file_path,
                     None,
@@ -185,7 +212,11 @@ impl SarifConverter {
             }
         }
 
-        if results.is_empty() { None } else { Some(results) }
+        if results.is_empty() {
+            None
+        } else {
+            Some(results)
+        }
     }
 
     /// Analyze comprehensive quality metrics
@@ -198,7 +229,12 @@ impl SarifConverter {
         let mut results = Vec::new();
 
         // Maintainability issues
-        if aggregated_stats.complexity.quality_metrics.maintainability_index < 50.0 {
+        if aggregated_stats
+            .complexity
+            .quality_metrics
+            .maintainability_index
+            < 50.0
+        {
             results.push(self.create_result(
                 "HM201",
                 "Low Maintainability",
@@ -211,7 +247,12 @@ impl SarifConverter {
         }
 
         // Code health issues
-        if aggregated_stats.complexity.quality_metrics.code_health_score < 60.0 {
+        if aggregated_stats
+            .complexity
+            .quality_metrics
+            .code_health_score
+            < 60.0
+        {
             results.push(self.create_result(
                 "HM202",
                 "Poor Code Health",
@@ -223,7 +264,11 @@ impl SarifConverter {
             ));
         }
 
-        if results.is_empty() { None } else { Some(results) }
+        if results.is_empty() {
+            None
+        } else {
+            Some(results)
+        }
     }
 
     /// Create project-level summary results
@@ -234,8 +279,13 @@ impl SarifConverter {
         results.push(self.create_result(
             "HM000",
             "Project Summary",
-            &format!("Project contains {} files with {} total lines ({} code, {} comments)", 
-                stats.total_files, stats.total_lines, stats.total_code_lines, stats.total_comment_lines),
+            &format!(
+                "Project contains {} files with {} total lines ({} code, {} comments)",
+                stats.total_files,
+                stats.total_lines,
+                stats.total_code_lines,
+                stats.total_comment_lines
+            ),
             "note",
             "project://summary",
             None,
@@ -246,7 +296,10 @@ impl SarifConverter {
             results.push(self.create_result(
                 "HM301",
                 "Large Project",
-                &format!("Project has {} files, consider modularization strategies", stats.total_files),
+                &format!(
+                    "Project has {} files, consider modularization strategies",
+                    stats.total_files
+                ),
                 "info",
                 "project://summary",
                 None,
@@ -257,7 +310,10 @@ impl SarifConverter {
     }
 
     /// Create comprehensive project-level results
-    fn create_comprehensive_project_results(&self, aggregated_stats: &AggregatedStats) -> Vec<SarifResult> {
+    fn create_comprehensive_project_results(
+        &self,
+        aggregated_stats: &AggregatedStats,
+    ) -> Vec<SarifResult> {
         let mut results = Vec::new();
 
         // Comprehensive project summary
@@ -275,7 +331,12 @@ impl SarifConverter {
         ));
 
         // Technical debt indicators
-        if aggregated_stats.complexity.quality_metrics.code_health_score < 70.0 {
+        if aggregated_stats
+            .complexity
+            .quality_metrics
+            .code_health_score
+            < 70.0
+        {
             results.push(self.create_result(
                 "HM401",
                 "Technical Debt Alert",
@@ -384,7 +445,7 @@ impl SarifConverter {
                 relationships: None,
                 properties: None,
             };
-            
+
             let mut result_with_location = result;
             result_with_location.locations = Some(vec![location]);
             result_with_location
@@ -496,18 +557,62 @@ impl SarifConverter {
     /// Create rule definitions for all howmany rules
     pub fn create_rule_definitions(&self) -> Vec<ReportingDescriptor> {
         vec![
-            self.create_rule("HM000", "Project Summary", "Provides an overview of project statistics"),
-            self.create_rule("HM001", "Large File", "Detects files that may be too large and should be split"),
-            self.create_rule("HM002", "Low Documentation", "Identifies files with insufficient documentation"),
+            self.create_rule(
+                "HM000",
+                "Project Summary",
+                "Provides an overview of project statistics",
+            ),
+            self.create_rule(
+                "HM001",
+                "Large File",
+                "Detects files that may be too large and should be split",
+            ),
+            self.create_rule(
+                "HM002",
+                "Low Documentation",
+                "Identifies files with insufficient documentation",
+            ),
             self.create_rule("HM003", "Empty File", "Detects files with no code content"),
-            self.create_rule("HM101", "High Complexity", "Identifies functions or files with high cyclomatic complexity"),
-            self.create_rule("HM102", "High Cognitive Complexity", "Detects code that may be difficult to understand"),
-            self.create_rule("HM103", "Deep Nesting", "Identifies deeply nested code structures"),
-            self.create_rule("HM201", "Low Maintainability", "Detects code with low maintainability scores"),
-            self.create_rule("HM202", "Poor Code Health", "Identifies overall code health issues"),
-            self.create_rule("HM301", "Large Project", "Warns about projects that may benefit from modularization"),
-            self.create_rule("HM401", "Technical Debt Alert", "Highlights significant technical debt indicators"),
-            self.create_rule("HM402", "Quality Assessment Insights", "Provides overall code quality insights"),
+            self.create_rule(
+                "HM101",
+                "High Complexity",
+                "Identifies functions or files with high cyclomatic complexity",
+            ),
+            self.create_rule(
+                "HM102",
+                "High Cognitive Complexity",
+                "Detects code that may be difficult to understand",
+            ),
+            self.create_rule(
+                "HM103",
+                "Deep Nesting",
+                "Identifies deeply nested code structures",
+            ),
+            self.create_rule(
+                "HM201",
+                "Low Maintainability",
+                "Detects code with low maintainability scores",
+            ),
+            self.create_rule(
+                "HM202",
+                "Poor Code Health",
+                "Identifies overall code health issues",
+            ),
+            self.create_rule(
+                "HM301",
+                "Large Project",
+                "Warns about projects that may benefit from modularization",
+            ),
+            self.create_rule(
+                "HM401",
+                "Technical Debt Alert",
+                "Highlights significant technical debt indicators",
+            ),
+            self.create_rule(
+                "HM402",
+                "Quality Assessment Insights",
+                "Provides overall code quality insights",
+            ),
         ]
     }
 
@@ -532,7 +637,10 @@ impl SarifConverter {
             }),
             message_strings: None,
             default_configuration: None,
-            help_uri: Some(format!("https://github.com/GriffinCanCode/howmany/blob/main/docs/rules/{}.md", id)),
+            help_uri: Some(format!(
+                "https://github.com/GriffinCanCode/howmany/blob/main/docs/rules/{}.md",
+                id
+            )),
             help: None,
             relationships: None,
             properties: None,
@@ -561,9 +669,12 @@ impl SarifConverter {
     pub fn normalize_file_path(&self, file_path: &str) -> String {
         // Convert to forward slashes and ensure proper URI format
         let normalized = file_path.replace('\\', "/");
-        
+
         // If it's already a URI, return as-is
-        if normalized.starts_with("http://") || normalized.starts_with("https://") || normalized.starts_with("file://") {
+        if normalized.starts_with("http://")
+            || normalized.starts_with("https://")
+            || normalized.starts_with("file://")
+        {
             normalized
         } else if std::path::Path::new(&normalized).is_absolute() {
             // Convert absolute paths to file URIs
@@ -579,4 +690,4 @@ impl Default for SarifConverter {
     fn default() -> Self {
         Self::new()
     }
-} 
+}

@@ -8,7 +8,7 @@ mod tests {
 
     fn create_test_stats() -> CodeStats {
         let mut stats_by_extension = HashMap::new();
-        
+
         // Add some test data
         let rust_stats = FileStats {
             total_lines: 1000,
@@ -44,22 +44,28 @@ mod tests {
 
     fn create_test_individual_files() -> Vec<(String, FileStats)> {
         vec![
-            ("src/main.rs".to_string(), FileStats {
-                total_lines: 200,
-                code_lines: 150,
-                comment_lines: 25,
-                doc_lines: 15,
-                blank_lines: 10,
-                file_size: 5000,
-            }),
-            ("src/lib.rs".to_string(), FileStats {
-                total_lines: 100,
-                code_lines: 80,
-                comment_lines: 10,
-                doc_lines: 5,
-                blank_lines: 5,
-                file_size: 2500,
-            }),
+            (
+                "src/main.rs".to_string(),
+                FileStats {
+                    total_lines: 200,
+                    code_lines: 150,
+                    comment_lines: 25,
+                    doc_lines: 15,
+                    blank_lines: 10,
+                    file_size: 5000,
+                },
+            ),
+            (
+                "src/lib.rs".to_string(),
+                FileStats {
+                    total_lines: 100,
+                    code_lines: 80,
+                    comment_lines: 10,
+                    doc_lines: 5,
+                    blank_lines: 5,
+                    file_size: 2500,
+                },
+            ),
         ]
     }
 
@@ -80,12 +86,15 @@ mod tests {
         assert!(result.is_ok());
 
         let sarif_log = result.unwrap();
-        assert_eq!(sarif_log.version, serde_json::Value::String("2.1.0".to_string()));
+        assert_eq!(
+            sarif_log.version,
+            serde_json::Value::String("2.1.0".to_string())
+        );
         assert!(!sarif_log.runs.is_empty());
 
         let run = &sarif_log.runs[0];
         assert_eq!(run.tool.driver.name, "howmany");
-        
+
         // Should have some results
         if let Some(results) = &run.results {
             assert!(!results.is_empty());
@@ -97,18 +106,21 @@ mod tests {
         let reporter = SarifReporter::new();
         let stats = create_test_stats();
         let individual_files = create_test_individual_files();
-        
+
         let temp_file = NamedTempFile::new().unwrap();
         let result = reporter.generate_report(&stats, &individual_files, temp_file.path());
         assert!(result.is_ok());
-        
+
         // Verify file was created and has content
         let content = std::fs::read_to_string(temp_file.path()).unwrap();
         assert!(!content.is_empty());
-        
+
         // Verify it's valid JSON
         let sarif_log: Sarif = serde_json::from_str(&content).unwrap();
-        assert_eq!(sarif_log.version, serde_json::Value::String("2.1.0".to_string()));
+        assert_eq!(
+            sarif_log.version,
+            serde_json::Value::String("2.1.0".to_string())
+        );
         assert!(!sarif_log.runs.is_empty());
     }
 
@@ -117,36 +129,44 @@ mod tests {
         let converter = SarifConverter::new();
         let stats = create_test_stats();
         let individual_files = create_test_individual_files();
-        
-        let sarif_log = converter.convert_basic_analysis(&stats, &individual_files).unwrap();
-        
+
+        let sarif_log = converter
+            .convert_basic_analysis(&stats, &individual_files)
+            .unwrap();
+
         // Test that it can be serialized to JSON
         let json_content = serde_json::to_string_pretty(&sarif_log).unwrap();
         assert!(!json_content.is_empty());
-        
+
         // Test that it can be deserialized back
         let deserialized: Sarif = serde_json::from_str(&json_content).unwrap();
         assert_eq!(deserialized.version, sarif_log.version);
     }
 
-    #[test] 
+    #[test]
     fn test_file_path_normalization() {
         let converter = SarifConverter::new();
-        
+
         // Test different path formats
         assert_eq!(converter.normalize_file_path("src/main.rs"), "src/main.rs");
         assert_eq!(converter.normalize_file_path("src\\main.rs"), "src/main.rs");
-        assert_eq!(converter.normalize_file_path("/absolute/path/file.rs"), "file:///absolute/path/file.rs");
-        assert_eq!(converter.normalize_file_path("file:///already/uri"), "file:///already/uri");
+        assert_eq!(
+            converter.normalize_file_path("/absolute/path/file.rs"),
+            "file:///absolute/path/file.rs"
+        );
+        assert_eq!(
+            converter.normalize_file_path("file:///already/uri"),
+            "file:///already/uri"
+        );
     }
 
     #[test]
     fn test_rule_definitions() {
         let converter = SarifConverter::new();
         let rules = converter.create_rule_definitions();
-        
+
         assert!(!rules.is_empty());
-        
+
         // Check that all rules have required fields
         for rule in &rules {
             assert!(!rule.id.is_empty());
@@ -154,7 +174,7 @@ mod tests {
             assert!(rule.short_description.is_some());
             assert!(rule.full_description.is_some());
         }
-        
+
         // Check for specific expected rules
         let rule_ids: Vec<&str> = rules.iter().map(|r| r.id.as_str()).collect();
         assert!(rule_ids.contains(&"HM001")); // Large File
@@ -181,7 +201,7 @@ mod tests {
 
         let sarif_log = result.unwrap();
         assert!(!sarif_log.runs.is_empty());
-        
+
         // Should still have at least a project summary
         let run = &sarif_log.runs[0];
         if let Some(results) = &run.results {
@@ -189,4 +209,4 @@ mod tests {
             assert!(!results.is_empty());
         }
     }
-} 
+}

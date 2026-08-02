@@ -27,8 +27,8 @@ pub struct StatsMetadata {
 /// Depth of analysis performed
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AnalysisDepth {
-    Basic,      // Only basic line counting
-    Standard,   // Basic + ratios
-    Advanced,   // Standard + complexity analysis
-    Complete,   // Advanced + all insights and quality metrics
-} 
+    Basic,    // Only basic line counting
+    Standard, // Basic + ratios
+    Advanced, // Standard + complexity analysis
+    Complete, // Advanced + all insights and quality metrics
+}

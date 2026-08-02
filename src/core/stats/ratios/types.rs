@@ -4,12 +4,12 @@ use std::collections::HashMap;
 /// Ratio and percentage statistics for analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RatioStats {
-    pub code_ratio: f64,           // code lines / total lines
-    pub comment_ratio: f64,        // comment lines / total lines
-    pub doc_ratio: f64,            // doc lines / total lines
-    pub blank_ratio: f64,          // blank lines / total lines
+    pub code_ratio: f64,            // code lines / total lines
+    pub comment_ratio: f64,         // comment lines / total lines
+    pub doc_ratio: f64,             // doc lines / total lines
+    pub blank_ratio: f64,           // blank lines / total lines
     pub comment_to_code_ratio: f64, // comment lines / code lines
-    pub doc_to_code_ratio: f64,    // doc lines / code lines
+    pub doc_to_code_ratio: f64,     // doc lines / code lines
     pub ratios_by_extension: HashMap<String, ExtensionRatios>,
     pub language_distribution: HashMap<String, f64>, // percentage of total lines by language
     pub file_distribution: HashMap<String, f64>,     // percentage of total files by language
@@ -43,11 +43,11 @@ pub struct QualityMetrics {
 /// Thresholds for quality assessment
 #[derive(Debug, Clone)]
 pub struct QualityThresholds {
-    pub good_comment_ratio: f64,      // 0.15 = 15%
-    pub good_doc_ratio: f64,          // 0.10 = 10%
-    pub max_blank_ratio: f64,         // 0.30 = 30%
-    pub ideal_comment_to_code: f64,   // 0.20 = 20%
-    pub ideal_doc_to_code: f64,       // 0.15 = 15%
+    pub good_comment_ratio: f64,    // 0.15 = 15%
+    pub good_doc_ratio: f64,        // 0.10 = 10%
+    pub max_blank_ratio: f64,       // 0.30 = 30%
+    pub ideal_comment_to_code: f64, // 0.20 = 20%
+    pub ideal_doc_to_code: f64,     // 0.15 = 15%
 }
 
 impl Default for QualityThresholds {
@@ -60,4 +60,4 @@ impl Default for QualityThresholds {
             ideal_doc_to_code: 0.15,
         }
     }
-} 
+}

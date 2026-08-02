@@ -1,7 +1,7 @@
-use crate::core::types::{CodeStats, FileStats};
-use crate::core::stats::AggregatedStats;
-use crate::utils::errors::Result;
 use super::converter::SarifConverter;
+use crate::core::stats::AggregatedStats;
+use crate::core::types::{CodeStats, FileStats};
+use crate::utils::errors::Result;
 use std::fs;
 use std::path::Path;
 
@@ -23,13 +23,23 @@ impl SarifReporter {
         individual_files: &[(String, FileStats)],
         output_path: &Path,
     ) -> Result<()> {
-        let sarif_log = self.converter.convert_basic_analysis(stats, individual_files)?;
-        let sarif_content = serde_json::to_string_pretty(&sarif_log)
-            .map_err(|e| crate::utils::errors::HowManyError::display(format!("SARIF serialization failed: {}", e)))?;
-        
-        fs::write(output_path, sarif_content)
-            .map_err(|e| crate::utils::errors::HowManyError::file_processing(format!("Failed to write SARIF file: {}", e)))?;
-        
+        let sarif_log = self
+            .converter
+            .convert_basic_analysis(stats, individual_files)?;
+        let sarif_content = serde_json::to_string_pretty(&sarif_log).map_err(|e| {
+            crate::utils::errors::HowManyError::display(format!(
+                "SARIF serialization failed: {}",
+                e
+            ))
+        })?;
+
+        fs::write(output_path, sarif_content).map_err(|e| {
+            crate::utils::errors::HowManyError::file_processing(format!(
+                "Failed to write SARIF file: {}",
+                e
+            ))
+        })?;
+
         Ok(())
     }
 
@@ -40,13 +50,23 @@ impl SarifReporter {
         individual_files: &[(String, FileStats)],
         output_path: &Path,
     ) -> Result<()> {
-        let sarif_log = self.converter.convert_comprehensive_analysis(aggregated_stats, individual_files)?;
-        let sarif_content = serde_json::to_string_pretty(&sarif_log)
-            .map_err(|e| crate::utils::errors::HowManyError::display(format!("SARIF serialization failed: {}", e)))?;
-        
-        fs::write(output_path, sarif_content)
-            .map_err(|e| crate::utils::errors::HowManyError::file_processing(format!("Failed to write SARIF file: {}", e)))?;
-        
+        let sarif_log = self
+            .converter
+            .convert_comprehensive_analysis(aggregated_stats, individual_files)?;
+        let sarif_content = serde_json::to_string_pretty(&sarif_log).map_err(|e| {
+            crate::utils::errors::HowManyError::display(format!(
+                "SARIF serialization failed: {}",
+                e
+            ))
+        })?;
+
+        fs::write(output_path, sarif_content).map_err(|e| {
+            crate::utils::errors::HowManyError::file_processing(format!(
+                "Failed to write SARIF file: {}",
+                e
+            ))
+        })?;
+
         Ok(())
     }
 
@@ -65,11 +85,9 @@ impl SarifReporter {
             (Some(basic_stats), None) => {
                 self.generate_report(basic_stats, individual_files, output_path)
             }
-            (None, None) => {
-                Err(crate::utils::errors::HowManyError::invalid_config(
-                    "No statistics provided for SARIF report generation".to_string()
-                ))
-            }
+            (None, None) => Err(crate::utils::errors::HowManyError::invalid_config(
+                "No statistics provided for SARIF report generation".to_string(),
+            )),
         }
     }
 
@@ -81,34 +99,40 @@ impl SarifReporter {
         individual_files: &[(String, FileStats)],
     ) -> Result<String> {
         let sarif_log = match (stats, aggregated_stats) {
-            (_, Some(agg_stats)) => {
-                self.converter.convert_comprehensive_analysis(agg_stats, individual_files)?
-            }
-            (Some(basic_stats), None) => {
-                self.converter.convert_basic_analysis(basic_stats, individual_files)?
-            }
+            (_, Some(agg_stats)) => self
+                .converter
+                .convert_comprehensive_analysis(agg_stats, individual_files)?,
+            (Some(basic_stats), None) => self
+                .converter
+                .convert_basic_analysis(basic_stats, individual_files)?,
             (None, None) => {
                 return Err(crate::utils::errors::HowManyError::invalid_config(
-                    "No statistics provided for SARIF generation".to_string()
+                    "No statistics provided for SARIF generation".to_string(),
                 ));
             }
         };
 
-        serde_json::to_string_pretty(&sarif_log)
-            .map_err(|e| crate::utils::errors::HowManyError::display(format!("SARIF serialization failed: {}", e)))
+        serde_json::to_string_pretty(&sarif_log).map_err(|e| {
+            crate::utils::errors::HowManyError::display(format!(
+                "SARIF serialization failed: {}",
+                e
+            ))
+        })
     }
 
     /// Validate that the generated SARIF is well-formed
     pub fn validate_sarif_output(&self, sarif_content: &str) -> Result<()> {
         // Try to parse the SARIF content back to ensure it's valid JSON
-        let _: serde_json::Value = serde_json::from_str(sarif_content)
-            .map_err(|e| crate::utils::errors::HowManyError::invalid_config(
-                format!("Generated SARIF is not valid JSON: {}", e)
-            ))?;
+        let _: serde_json::Value = serde_json::from_str(sarif_content).map_err(|e| {
+            crate::utils::errors::HowManyError::invalid_config(format!(
+                "Generated SARIF is not valid JSON: {}",
+                e
+            ))
+        })?;
 
         // Additional SARIF-specific validation could be added here
         // For now, we rely on the serde-sarif library to ensure structure compliance
-        
+
         Ok(())
     }
 
@@ -134,4 +158,4 @@ impl Default for SarifReporter {
     fn default() -> Self {
         Self::new()
     }
-} 
+}

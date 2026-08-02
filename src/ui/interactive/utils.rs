@@ -1,17 +1,15 @@
-use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
-};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 pub fn format_size(size: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB"];
     let mut size = size as f64;
     let mut unit_index = 0;
-    
+
     while size >= 1024.0 && unit_index < UNITS.len() - 1 {
         size /= 1024.0;
         unit_index += 1;
     }
-    
+
     if unit_index == 0 {
         format!("{} {}", size as u64, UNITS[unit_index])
     } else {
@@ -82,7 +80,10 @@ pub fn get_language_from_extension(ext: &str) -> LanguageInfo {
 }
 
 /// Map file extension to programming language with optional SherlockIO data
-pub fn get_language_from_extension_with_sherlock(ext: &str, sherlock_result: Option<&crate::core::detector::SherlockResult>) -> LanguageInfo {
+pub fn get_language_from_extension_with_sherlock(
+    ext: &str,
+    sherlock_result: Option<&crate::core::detector::SherlockResult>,
+) -> LanguageInfo {
     // First try to get info from SherlockIO if available
     if let Some(sherlock) = sherlock_result {
         for language in &sherlock.languages {
@@ -100,7 +101,7 @@ pub fn get_language_from_extension_with_sherlock(ext: &str, sherlock_result: Opt
             }
         }
     }
-    
+
     // Fallback to hardcoded mapping
     get_language_from_extension_fallback(ext)
 }
@@ -398,7 +399,12 @@ fn get_language_from_extension_fallback(ext: &str) -> LanguageInfo {
             name: "R Markdown".to_string(),
             icon: "📊".to_string(),
             color: "#198ce7".to_string(),
-            extensions: vec!["r".to_string(), "R".to_string(), "rmd".to_string(), "Rmd".to_string()],
+            extensions: vec![
+                "r".to_string(),
+                "R".to_string(),
+                "rmd".to_string(),
+                "Rmd".to_string(),
+            ],
         },
         _ => LanguageInfo {
             name: "Unknown".to_string(),
@@ -410,14 +416,21 @@ fn get_language_from_extension_fallback(ext: &str) -> LanguageInfo {
 }
 
 /// Group extensions by language and aggregate their stats
-pub fn group_extensions_by_language(stats_by_extension: &std::collections::HashMap<String, (usize, crate::core::types::FileStats)>) -> std::collections::HashMap<String, (LanguageInfo, usize, crate::core::types::FileStats)> {
-    let mut language_stats: std::collections::HashMap<String, (LanguageInfo, usize, crate::core::types::FileStats)> = std::collections::HashMap::new();
-    
+pub fn group_extensions_by_language(
+    stats_by_extension: &std::collections::HashMap<String, (usize, crate::core::types::FileStats)>,
+) -> std::collections::HashMap<String, (LanguageInfo, usize, crate::core::types::FileStats)> {
+    let mut language_stats: std::collections::HashMap<
+        String,
+        (LanguageInfo, usize, crate::core::types::FileStats),
+    > = std::collections::HashMap::new();
+
     for (ext, (file_count, file_stats)) in stats_by_extension {
         let language_info = get_language_from_extension(ext);
         let language_name = language_info.name.clone();
-        
-        if let Some((existing_info, existing_count, existing_stats)) = language_stats.get_mut(&language_name) {
+
+        if let Some((existing_info, existing_count, existing_stats)) =
+            language_stats.get_mut(&language_name)
+        {
             // Merge stats for the same language
             *existing_count += file_count;
             existing_stats.total_lines += file_stats.total_lines;
@@ -426,17 +439,20 @@ pub fn group_extensions_by_language(stats_by_extension: &std::collections::HashM
             existing_stats.doc_lines += file_stats.doc_lines;
             existing_stats.blank_lines += file_stats.blank_lines;
             existing_stats.file_size += file_stats.file_size;
-            
+
             // Update extensions list
             if !existing_info.extensions.contains(&ext.to_string()) {
                 existing_info.extensions.push(ext.to_string());
             }
         } else {
             // First time seeing this language
-            language_stats.insert(language_name, (language_info, *file_count, file_stats.clone()));
+            language_stats.insert(
+                language_name,
+                (language_info, *file_count, file_stats.clone()),
+            );
         }
     }
-    
+
     language_stats
 }
 
@@ -473,7 +489,7 @@ pub fn shorten_path(path: &str, max_width: usize) -> String {
             let filename = parts.last().map_or("", |v| v);
             let first_part = parts.first().map_or("", |v| v);
             let remaining_width = max_width - 3 - filename.len() - first_part.len();
-            
+
             if remaining_width > 0 {
                 format!("{}/.../{}", first_part, filename)
             } else {
@@ -481,4 +497,4 @@ pub fn shorten_path(path: &str, max_width: usize) -> String {
             }
         }
     }
-} 
+}

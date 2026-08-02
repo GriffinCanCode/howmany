@@ -1,16 +1,19 @@
 use crate::core::types::{CodeStats, FileStats};
 
-
 pub struct InsightsGenerator;
 
 impl InsightsGenerator {
     pub fn new() -> Self {
         Self
     }
-    
-    pub fn generate_funny_insights(&self, stats: &CodeStats, _individual_files: &[(String, FileStats)]) -> String {
+
+    pub fn generate_funny_insights(
+        &self,
+        stats: &CodeStats,
+        _individual_files: &[(String, FileStats)],
+    ) -> String {
         let mut insights = Vec::new();
-        
+
         // Documentation insights
         if stats.total_doc_lines > stats.total_code_lines {
             insights.push(format!(
@@ -22,14 +25,14 @@ impl InsightsGenerator {
                 stats.total_doc_lines, stats.total_code_lines
             ));
         }
-        
+
         // Comment insights
         let comment_ratio = if stats.total_code_lines > 0 {
             (stats.total_comment_lines as f64 / stats.total_code_lines as f64) * 100.0
         } else {
             0.0
         };
-        
+
         if comment_ratio > 50.0 {
             insights.push(format!(
                 r#"<div class="insight">
@@ -47,9 +50,13 @@ impl InsightsGenerator {
                 comment_ratio
             ));
         }
-        
+
         // File type insights
-        if let Some((most_files_ext, (file_count, _))) = stats.stats_by_extension.iter().max_by_key(|(_, (count, _))| *count) {
+        if let Some((most_files_ext, (file_count, _))) = stats
+            .stats_by_extension
+            .iter()
+            .max_by_key(|(_, (count, _))| *count)
+        {
             let file_percentage = (*file_count as f64 / stats.total_files as f64) * 100.0;
             if file_percentage > 60.0 {
                 insights.push(format!(
@@ -61,13 +68,23 @@ impl InsightsGenerator {
                 ));
             }
         }
-        
+
         // TypeScript detection
-        if stats.stats_by_extension.contains_key("ts") || stats.stats_by_extension.contains_key("tsx") {
-            let ts_stats = stats.stats_by_extension.get("ts").map(|(_, stats)| stats.total_lines).unwrap_or(0);
-            let tsx_stats = stats.stats_by_extension.get("tsx").map(|(_, stats)| stats.total_lines).unwrap_or(0);
+        if stats.stats_by_extension.contains_key("ts")
+            || stats.stats_by_extension.contains_key("tsx")
+        {
+            let ts_stats = stats
+                .stats_by_extension
+                .get("ts")
+                .map(|(_, stats)| stats.total_lines)
+                .unwrap_or(0);
+            let tsx_stats = stats
+                .stats_by_extension
+                .get("tsx")
+                .map(|(_, stats)| stats.total_lines)
+                .unwrap_or(0);
             let total_ts = ts_stats + tsx_stats;
-            
+
             if total_ts > 1000 {
                 insights.push(format!(
                     r#"<div class="insight">
@@ -78,14 +95,14 @@ impl InsightsGenerator {
                 ));
             }
         }
-        
+
         // Blank line insights
         let blank_ratio = if stats.total_lines > 0 {
             (stats.total_blank_lines as f64 / stats.total_lines as f64) * 100.0
         } else {
             0.0
         };
-        
+
         if blank_ratio > 30.0 {
             insights.push(format!(
                 r#"<div class="insight">
@@ -95,7 +112,7 @@ impl InsightsGenerator {
                 blank_ratio
             ));
         }
-        
+
         // File size insights
         if stats.total_files > 100 {
             insights.push(format!(
@@ -106,7 +123,7 @@ impl InsightsGenerator {
                 stats.total_files
             ));
         }
-        
+
         // Python docstring detection
         if stats.stats_by_extension.contains_key("py") {
             let py_stats = &stats.stats_by_extension.get("py").unwrap().1;
@@ -119,7 +136,7 @@ impl InsightsGenerator {
                 ));
             }
         }
-        
+
         // Rust documentation
         if stats.stats_by_extension.contains_key("rs") {
             let rs_stats = &stats.stats_by_extension.get("rs").unwrap().1;
@@ -133,7 +150,7 @@ impl InsightsGenerator {
                 ));
             }
         }
-        
+
         if insights.is_empty() {
             insights.push(format!(
                 r#"<div class="insight">
@@ -142,7 +159,7 @@ impl InsightsGenerator {
                 </div>"#
             ));
         }
-        
+
         format!(
             r#"<div class="section">
                 <h2><span class="emoji">🎭</span> Brutally Honest Insights</h2>
@@ -151,4 +168,4 @@ impl InsightsGenerator {
             insights.join("\n")
         )
     }
-} 
+}
