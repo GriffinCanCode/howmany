@@ -712,13 +712,16 @@ mod tests {
         }
     }
 
+    /// Ordering is by path, which is not the same as ordering by the rendered
+    /// string: a separator sorts below `0` on unix and above it on windows, so
+    /// comparing the strings would only agree with the engine on one of them.
     #[test]
     fn individual_files_are_sorted_by_path() {
         let project = fixture("engine_sorted");
         let analysis = Engine::new().analyze(project.path(), &options()).unwrap();
         let paths: Vec<&String> = analysis.individual_files.iter().map(|(p, _)| p).collect();
         let mut sorted = paths.clone();
-        sorted.sort();
+        sorted.sort_by(|a, b| Path::new(a.as_str()).cmp(Path::new(b.as_str())));
         assert_eq!(paths, sorted, "per-file rows are not in a stable order");
     }
 
