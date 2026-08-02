@@ -1,6 +1,6 @@
 [package]
 name = "howmany"
-version = "2.1.0"
+version = "2.2.0"
 edition = "2021"
 # Declared so that `cargo install` on an older toolchain says which version is
 # needed instead of failing halfway through with an unresolved-method error.
