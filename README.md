@@ -471,4 +471,4 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ## Version
 
-Current version: 2.2.0
+Current version: 3.0.0
