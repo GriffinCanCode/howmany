@@ -1,0 +1,45 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug howmany (current folder)",
+      "cargo": {
+        "args": ["build", "--bin=howmany", "--package=howmany"],
+        "filter": { "name": "howmany", "kind": "bin" }
+      },
+      "args": ["."],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug howmany (prompt for args)",
+      "cargo": {
+        "args": ["build", "--bin=howmany", "--package=howmany"],
+        "filter": { "name": "howmany", "kind": "bin" }
+      },
+      "args": ["${input:cliArgs}"],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests",
+      "cargo": {
+        "args": ["test", "--no-run", "--lib", "--package=howmany"],
+        "filter": { "kind": "lib" }
+      },
+      "cwd": "${workspaceFolder}"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "cliArgs",
+      "type": "promptString",
+      "description": "Arguments to pass to howmany",
+      "default": "."
+    }
+  ]
+}
