@@ -11,8 +11,9 @@
 //!
 //! Corpora are generated in a temporary directory from a fixed seed, so results
 //! are comparable between runs and between machines with the same core count.
-//! `Throughput::Bytes` is set on every group, which makes Criterion report
-//! MiB/s instead of only wall time.
+//! `Throughput` is set on every group, which makes Criterion report MiB/s
+//! instead of only wall time -- and, for discovery, files/s alongside it, since
+//! the file count is the unit that walk cost actually tracks.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use howmany::core::counter::{comment_patterns, scanner, CodeCounter};
@@ -177,7 +178,10 @@ fn bench_discover(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("discover");
     group.sample_size(30);
-    group.throughput(Throughput::Elements(corpus.files as u64));
+    group.throughput(Throughput::ElementsAndBytes {
+        elements: corpus.files as u64,
+        bytes: corpus.bytes,
+    });
 
     for (label, parallelism) in [
         ("sequential", Parallelism::Fixed(1)),
