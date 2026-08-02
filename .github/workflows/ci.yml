@@ -63,6 +63,29 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
+  msrv:
+    name: Minimum Supported Rust Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # rust-version is what `cargo install` reads to tell someone on an older
+      # toolchain to upgrade, instead of failing halfway through the build. The
+      # floor is set by our dependencies, so it moves without us touching it.
+      - name: Read the declared floor
+        id: msrv
+        run: echo "version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].rust_version')" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Rust ${{ steps.msrv.outputs.version }}
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+
+      - name: Check against the declared floor
+        run: cargo check --all-targets --all-features
+
   security-audit:
     name: Security Audit
     runs-on: ubuntu-latest
