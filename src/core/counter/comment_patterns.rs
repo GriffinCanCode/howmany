@@ -6,8 +6,8 @@
 //! prohibitively expensive. Now construction is free and lookups hand back a
 //! `Copy` descriptor, so nothing is cloned per file either.
 
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 /// How a language spells its comments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -283,8 +283,8 @@ const PATTERN_TABLE: &[(&str, CommentPattern)] = &[
     ("contributing", MARKDOWN_STYLE),
 ];
 
-static PATTERNS: Lazy<HashMap<&'static str, CommentPattern>> =
-    Lazy::new(|| PATTERN_TABLE.iter().copied().collect());
+static PATTERNS: LazyLock<HashMap<&'static str, CommentPattern>> =
+    LazyLock::new(|| PATTERN_TABLE.iter().copied().collect());
 
 /// Comment syntax for a lowercase extension, if known.
 pub fn lookup(extension: &str) -> Option<CommentPattern> {

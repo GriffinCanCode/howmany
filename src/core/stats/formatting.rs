@@ -465,7 +465,7 @@ impl StatFormatter {
         let chars: Vec<char> = num_str.chars().collect();
 
         for (i, ch) in chars.iter().enumerate() {
-            if i > 0 && (chars.len() - i) % 3 == 0 {
+            if i > 0 && (chars.len() - i).is_multiple_of(3) {
                 result.push(',');
             }
             result.push(*ch);

@@ -4,8 +4,10 @@ version = "3.0.0"
 edition = "2021"
 # Declared so that `cargo install` on an older toolchain says which version is
 # needed instead of failing halfway through with an unresolved-method error.
-# 1.82 is the floor `Option::is_none_or` sets; `cargo clippy` enforces it.
-rust-version = "1.82"
+# Our own code only needs 1.82, the floor `Option::is_none_or` sets, but ratatui
+# 0.30 and ignore 0.4.31 both require 1.88 and so decide it; `cargo clippy`
+# enforces whichever is higher.
+rust-version = "1.88"
 authors = ["Griffin <griffin@griffin-code.com>"]
 description = "A blazingly fast, intelligent code analysis tool with parallel processing, caching, and beautiful visualizations"
 license = "MIT"
@@ -29,28 +31,29 @@ include = [
 ]
 
 [dependencies]
-anyhow = "1.0"
-clap = { version = "4.0", features = ["derive"] }
-regex = "1.10"
+# Patch-level floor: `Error::downcast_mut` is unsound before 1.0.103
+# (RUSTSEC-2026-0190).
+anyhow = "1.0.103"
+clap = { version = "4.6", features = ["derive"] }
+regex = "1.13"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-rayon = "1.7"
+rayon = "1.12"
 chrono = { version = "0.4", features = ["serde"] }
-tempfile = "3.0"
+tempfile = "3.27"
 crossterm = "0.29"
-ratatui = "0.29"
-once_cell = "1.19"
-memchr = "2.7"
-thiserror = "1.0"
-ignore = "0.4"
-indicatif = "0.17"
-toml = "0.8"
-dirs = "5.0"
-owo-colors = "4.0"
+ratatui = "0.30"
+memchr = "2.8"
+thiserror = "2.0"
+ignore = "0.4.31"
+indicatif = "0.18"
+toml = "1.1"
+dirs = "6.0"
+owo-colors = "4.3"
 serde-sarif = "0.8"
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = { version = "0.8", features = ["html_reports"] }
 
 [[bin]]
 name = "howmany"

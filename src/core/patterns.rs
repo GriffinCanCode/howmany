@@ -14,10 +14,10 @@
 //!    category are compiled into a single [`RegexSet`], which evaluates every
 //!    alternative in a single scan of the input.
 
-use once_cell::sync::Lazy;
 use regex::{Regex, RegexSet};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::sync::LazyLock;
 
 /// Files produced by the OS or a desktop environment.
 const OS_PATTERNS: &[&str] = &[
@@ -365,13 +365,13 @@ fn compile_set(patterns: &[&str]) -> RegexSet {
     RegexSet::new(patterns).expect("built-in patterns must compile")
 }
 
-static OS_SET: Lazy<RegexSet> = Lazy::new(|| compile_set(OS_PATTERNS));
-static IDE_SET: Lazy<RegexSet> = Lazy::new(|| compile_set(IDE_PATTERNS));
-static TEMP_SET: Lazy<RegexSet> = Lazy::new(|| compile_set(TEMP_PATTERNS));
-static VCS_SET: Lazy<RegexSet> = Lazy::new(|| compile_set(VCS_PATTERNS));
+static OS_SET: LazyLock<RegexSet> = LazyLock::new(|| compile_set(OS_PATTERNS));
+static IDE_SET: LazyLock<RegexSet> = LazyLock::new(|| compile_set(IDE_PATTERNS));
+static TEMP_SET: LazyLock<RegexSet> = LazyLock::new(|| compile_set(TEMP_PATTERNS));
+static VCS_SET: LazyLock<RegexSet> = LazyLock::new(|| compile_set(VCS_PATTERNS));
 
 /// Every "ignore this outright" pattern, evaluated in a single scan.
-static IGNORE_SET: Lazy<RegexSet> = Lazy::new(|| {
+static IGNORE_SET: LazyLock<RegexSet> = LazyLock::new(|| {
     let all: Vec<&str> = OS_PATTERNS
         .iter()
         .chain(IDE_PATTERNS)
@@ -383,7 +383,7 @@ static IGNORE_SET: Lazy<RegexSet> = Lazy::new(|| {
 });
 
 /// Every build/cache pattern across all ecosystems, evaluated in a single scan.
-static BUILD_SET: Lazy<RegexSet> = Lazy::new(|| {
+static BUILD_SET: LazyLock<RegexSet> = LazyLock::new(|| {
     let all: Vec<&str> = LANGUAGE_BUILD_SPECS
         .iter()
         .flat_map(|(_, pats)| pats.iter())
@@ -392,7 +392,7 @@ static BUILD_SET: Lazy<RegexSet> = Lazy::new(|| {
     compile_set(&all)
 });
 
-static LANGUAGE_BUILD_PATTERNS: Lazy<HashMap<&'static str, Vec<Regex>>> = Lazy::new(|| {
+static LANGUAGE_BUILD_PATTERNS: LazyLock<HashMap<&'static str, Vec<Regex>>> = LazyLock::new(|| {
     LANGUAGE_BUILD_SPECS
         .iter()
         .map(|(lang, pats)| {
@@ -415,7 +415,7 @@ static LANGUAGE_BUILD_PATTERNS: Lazy<HashMap<&'static str, Vec<Regex>>> = Lazy::
 /// The build entries are *derived* from [`LANGUAGE_BUILD_SPECS`] rather than
 /// restated, so the fast path cannot fall behind the pattern list -- adding
 /// `dist/` there prunes `dist` here, with no second edit to forget.
-static PRUNE_DIR_SET: Lazy<HashSet<String>> = Lazy::new(|| {
+static PRUNE_DIR_SET: LazyLock<HashSet<String>> = LazyLock::new(|| {
     LANGUAGE_BUILD_SPECS
         .iter()
         .flat_map(|(_, patterns)| patterns.iter())
@@ -424,11 +424,11 @@ static PRUNE_DIR_SET: Lazy<HashSet<String>> = Lazy::new(|| {
         .collect()
 });
 
-static BINARY_EXTENSION_SET: Lazy<HashSet<&'static str>> =
-    Lazy::new(|| BINARY_EXTENSIONS.iter().copied().collect());
+static BINARY_EXTENSION_SET: LazyLock<HashSet<&'static str>> =
+    LazyLock::new(|| BINARY_EXTENSIONS.iter().copied().collect());
 
-static GENERATED_NAME_SET: Lazy<HashSet<&'static str>> =
-    Lazy::new(|| GENERATED_NAMES.iter().copied().collect());
+static GENERATED_NAME_SET: LazyLock<HashSet<&'static str>> =
+    LazyLock::new(|| GENERATED_NAMES.iter().copied().collect());
 
 /// Legal and credits boilerplate, matched on the stem so that `LICENSE`,
 /// `LICENSE.md` and `LICENSE.txt` are all treated alike.
@@ -448,8 +448,8 @@ const BOILERPLATE_STEMS: &[&str] = &[
     "contributors",
 ];
 
-static BOILERPLATE_STEM_SET: Lazy<HashSet<&'static str>> =
-    Lazy::new(|| BOILERPLATE_STEMS.iter().copied().collect());
+static BOILERPLATE_STEM_SET: LazyLock<HashSet<&'static str>> =
+    LazyLock::new(|| BOILERPLATE_STEMS.iter().copied().collect());
 
 /// Patterns shared between the detector and the file filter.
 #[derive(Debug, Default, Clone, Copy)]
