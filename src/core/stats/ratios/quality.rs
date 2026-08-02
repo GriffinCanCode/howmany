@@ -1,4 +1,4 @@
-use super::types::{ExtensionRatios, QualityMetrics, QualityThresholds};
+use super::types::{ExtensionRatios, LineRatios, QualityMetrics, QualityThresholds};
 use std::collections::BTreeMap;
 
 /// Quality metrics calculator
@@ -14,28 +14,27 @@ impl QualityCalculator {
     /// Calculate quality metrics
     pub fn calculate_quality_metrics(
         &self,
-        code_ratio: f64,
-        comment_ratio: f64,
-        doc_ratio: f64,
-        blank_ratio: f64,
-        comment_to_code_ratio: f64,
-        doc_to_code_ratio: f64,
+        ratios: LineRatios,
         ratios_by_extension: &BTreeMap<String, ExtensionRatios>,
     ) -> QualityMetrics {
         // Documentation score (0-100)
         let doc_score = self.calculate_documentation_score(
-            doc_ratio,
-            comment_ratio,
-            doc_to_code_ratio,
-            comment_to_code_ratio,
+            ratios.doc,
+            ratios.comment,
+            ratios.doc_to_code,
+            ratios.comment_to_code,
         );
 
         // Maintainability score (0-100)
-        let maintainability_score =
-            self.calculate_maintainability_score(code_ratio, comment_ratio, doc_ratio, blank_ratio);
+        let maintainability_score = self.calculate_maintainability_score(
+            ratios.code,
+            ratios.comment,
+            ratios.doc,
+            ratios.blank,
+        );
 
         // Readability score (0-100)
-        let readability_score = self.calculate_readability_score(comment_ratio, blank_ratio);
+        let readability_score = self.calculate_readability_score(ratios.comment, ratios.blank);
 
         // Consistency score (0-100)
         let consistency_score = self.calculate_consistency_score(ratios_by_extension);

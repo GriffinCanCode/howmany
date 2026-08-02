@@ -9,4 +9,4 @@ pub use calculator::RatioStatsCalculator;
 pub use insights::InsightsAnalyzer;
 pub use manager::RatioStatsManager;
 pub use quality::QualityCalculator;
-pub use types::{ExtensionRatios, QualityMetrics, QualityThresholds, RatioStats};
+pub use types::{ExtensionRatios, LineRatios, QualityMetrics, QualityThresholds, RatioStats};

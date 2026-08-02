@@ -1,5 +1,5 @@
 use super::quality::QualityCalculator;
-use super::types::{ExtensionRatios, QualityThresholds, RatioStats};
+use super::types::{ExtensionRatios, LineRatios, QualityThresholds, RatioStats};
 use crate::core::types::{CodeStats, FileStats};
 use crate::utils::errors::Result;
 use std::collections::BTreeMap;
@@ -72,12 +72,14 @@ impl RatioStatsCalculator {
         };
 
         let quality_metrics = self.quality_calculator.calculate_quality_metrics(
-            code_ratio,
-            comment_ratio,
-            doc_ratio,
-            blank_ratio,
-            comment_to_code_ratio,
-            doc_to_code_ratio,
+            LineRatios {
+                code: code_ratio,
+                comment: comment_ratio,
+                doc: doc_ratio,
+                blank: blank_ratio,
+                comment_to_code: comment_to_code_ratio,
+                doc_to_code: doc_to_code_ratio,
+            },
             &BTreeMap::new(),
         );
 
@@ -198,12 +200,14 @@ impl RatioStatsCalculator {
         let size_distribution = self.calculate_size_distribution(code_stats);
 
         let quality_metrics = self.quality_calculator.calculate_quality_metrics(
-            code_ratio,
-            comment_ratio,
-            doc_ratio,
-            blank_ratio,
-            comment_to_code_ratio,
-            doc_to_code_ratio,
+            LineRatios {
+                code: code_ratio,
+                comment: comment_ratio,
+                doc: doc_ratio,
+                blank: blank_ratio,
+                comment_to_code: comment_to_code_ratio,
+                doc_to_code: doc_to_code_ratio,
+            },
             &ratios_by_extension,
         );
 

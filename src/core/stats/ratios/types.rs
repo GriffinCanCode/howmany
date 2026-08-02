@@ -18,6 +18,21 @@ pub struct RatioStats {
     pub quality_metrics: QualityMetrics,
 }
 
+/// The line ratios every quality score is derived from.
+///
+/// Grouped because they always travel together, and six bare `f64` arguments
+/// in a row are trivially transposed at a call site without the compiler
+/// noticing.
+#[derive(Debug, Clone, Copy)]
+pub struct LineRatios {
+    pub code: f64,
+    pub comment: f64,
+    pub doc: f64,
+    pub blank: f64,
+    pub comment_to_code: f64,
+    pub doc_to_code: f64,
+}
+
 /// Ratio statistics for a specific file extension
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtensionRatios {
