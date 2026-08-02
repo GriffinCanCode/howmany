@@ -1,4 +1,5 @@
 use crate::core::types::CodeStats;
+use std::cmp::Reverse;
 
 use crate::ui::interactive::app::{AppMode, ExportFormat, InteractiveApp, SearchMode};
 use crate::ui::interactive::charts::{
@@ -748,7 +749,7 @@ fn render_language_bar_chart(f: &mut ratatui::Frame, area: Rect, app: &Interacti
     }
 
     // Sort by lines descending
-    chart_data.sort_by(|a, b| b.2.cmp(&a.2));
+    chart_data.sort_by_key(|(_, _, line_count)| Reverse(*line_count));
 
     let chart_lines = if chart_data.is_empty() {
         vec![Line::from(vec![Span::styled(
@@ -873,7 +874,7 @@ fn render_language_details_table(f: &mut ratatui::Frame, area: Rect, app: &mut I
     let mut language_data: Vec<_> = app.language_stats.iter().collect();
 
     // Sort by total lines descending
-    language_data.sort_by(|a, b| b.1 .2.total_lines.cmp(&a.1 .2.total_lines));
+    language_data.sort_by_key(|(_, (_, _, file_stats))| Reverse(file_stats.total_lines));
 
     for (language_name, (language_info, file_count, file_stats)) in language_data {
         let extensions_str = language_info.extensions.join(", ");

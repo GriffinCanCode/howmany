@@ -392,9 +392,8 @@ impl ComplexityCalculator {
             let cognitive_score = (30.0 - avg_cognitive * 2.0).max(0.0);
             let param_score = (20.0 - avg_params * 3.0).max(0.0);
 
-            let base_score = (length_score + complexity_score + cognitive_score + param_score)
-                .min(100.0)
-                .max(0.0);
+            let base_score =
+                (length_score + complexity_score + cognitive_score + param_score).clamp(0.0, 100.0);
 
             // Apply file length penalty based on project file size distribution
             let large_files_count = individual_files

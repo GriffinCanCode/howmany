@@ -4,6 +4,7 @@ use crate::core::stats::basic::BasicStats;
 use crate::core::stats::complexity::ComplexityStatsCalculator;
 use crate::core::types::{CodeStats, FileStats};
 
+use std::cmp::Reverse;
 use std::fmt::Write;
 
 pub struct TemplateGenerator {
@@ -36,7 +37,7 @@ impl TemplateGenerator {
     pub fn generate_extension_rows(&self, stats: &CodeStats) -> String {
         let mut rows = String::with_capacity(stats.stats_by_extension.len() * 200); // Pre-allocate
         let mut extensions: Vec<_> = stats.stats_by_extension.iter().collect();
-        extensions.sort_by(|a, b| b.1 .1.total_lines.cmp(&a.1 .1.total_lines));
+        extensions.sort_by_key(|(_, (_, ext_stats))| Reverse(ext_stats.total_lines));
 
         for (ext, (file_count, ext_stats)) in extensions {
             let complexity_class = self.get_complexity_class_for_extension(ext);
@@ -82,7 +83,7 @@ impl TemplateGenerator {
         let mut rows = String::with_capacity(extensions_count * 300); // Better pre-allocation
 
         let mut extensions: Vec<_> = aggregated_stats.basic.stats_by_extension.iter().collect();
-        extensions.sort_by(|a, b| b.1.total_lines.cmp(&a.1.total_lines));
+        extensions.sort_by_key(|(_, ext_stats)| Reverse(ext_stats.total_lines));
 
         for (ext, ext_stats) in extensions {
             let complexity_data = aggregated_stats.complexity.complexity_by_extension.get(ext);

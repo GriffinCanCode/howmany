@@ -153,10 +153,10 @@ impl SarifReporter {
             return Err(invalid("a log must contain at least one run"));
         }
         for run in runs {
-            if !run
+            if run
                 .pointer("/tool/driver/name")
                 .and_then(|v| v.as_str())
-                .is_some_and(|name| !name.is_empty())
+                .is_none_or(str::is_empty)
             {
                 return Err(invalid("a run does not name the tool that produced it"));
             }

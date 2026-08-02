@@ -1,4 +1,5 @@
 use crate::core::stats::aggregation::AggregatedStats;
+use std::cmp::Reverse;
 
 use crate::core::stats::visualization::{ChartConfig, PieChartData};
 use ratatui::{
@@ -165,7 +166,7 @@ pub fn render_language_bars(f: &mut ratatui::Frame, area: Rect, stats: &Aggregat
 
     // Sort extensions by line count
     let mut extensions: Vec<_> = stats.basic.stats_by_extension.iter().collect();
-    extensions.sort_by(|a, b| b.1.total_lines.cmp(&a.1.total_lines));
+    extensions.sort_by_key(|(_, ext_stats)| Reverse(ext_stats.total_lines));
 
     for (ext, ext_stats) in extensions.iter().take(8) {
         let percentage = (ext_stats.total_lines as f64 / total_lines) * 100.0;
@@ -1297,7 +1298,7 @@ fn render_enhanced_language_bars(f: &mut ratatui::Frame, area: Rect, stats: &Agg
 
     // Sort extensions by line count and take top 6
     let mut extensions: Vec<_> = stats.basic.stats_by_extension.iter().collect();
-    extensions.sort_by(|a, b| b.1.total_lines.cmp(&a.1.total_lines));
+    extensions.sort_by_key(|(_, ext_stats)| Reverse(ext_stats.total_lines));
 
     for (ext, ext_stats) in extensions.iter().take(6) {
         let percentage = (ext_stats.total_lines as f64 / total_lines) * 100.0;
@@ -1305,11 +1306,10 @@ fn render_enhanced_language_bars(f: &mut ratatui::Frame, area: Rect, stats: &Agg
         let color = get_language_color(ext);
 
         // Calculate additional metrics
-        let avg_file_size = if ext_stats.file_count > 0 {
-            ext_stats.total_lines / ext_stats.file_count
-        } else {
-            0
-        };
+        let avg_file_size = ext_stats
+            .total_lines
+            .checked_div(ext_stats.file_count)
+            .unwrap_or(0);
 
         let code_ratio = if ext_stats.total_lines > 0 {
             (ext_stats.code_lines as f64 / ext_stats.total_lines as f64) * 100.0
@@ -1415,11 +1415,11 @@ fn render_language_statistics_summary(f: &mut ratatui::Frame, area: Rect, stats:
     ]));
 
     // Average file size across languages
-    let avg_file_size = if stats.basic.total_files > 0 {
-        stats.basic.total_lines / stats.basic.total_files
-    } else {
-        0
-    };
+    let avg_file_size = stats
+        .basic
+        .total_lines
+        .checked_div(stats.basic.total_files)
+        .unwrap_or(0);
 
     summary_lines.push(Line::from(vec![
         Span::styled("📏 Avg File Size: ", Style::default().fg(Color::Magenta)),
@@ -1475,7 +1475,7 @@ fn render_detailed_language_analysis(f: &mut ratatui::Frame, area: Rect, stats: 
 
     // Sort extensions by line count
     let mut extensions: Vec<_> = stats.basic.stats_by_extension.iter().collect();
-    extensions.sort_by(|a, b| b.1.total_lines.cmp(&a.1.total_lines));
+    extensions.sort_by_key(|(_, ext_stats)| Reverse(ext_stats.total_lines));
 
     for (ext, ext_stats) in extensions.iter().take(10) {
         let (emoji, name) = get_language_info(ext);
@@ -1485,11 +1485,10 @@ fn render_detailed_language_analysis(f: &mut ratatui::Frame, area: Rect, stats: 
             0.0
         };
 
-        let avg_file_size = if ext_stats.file_count > 0 {
-            ext_stats.total_lines / ext_stats.file_count
-        } else {
-            0
-        };
+        let avg_file_size = ext_stats
+            .total_lines
+            .checked_div(ext_stats.file_count)
+            .unwrap_or(0);
 
         let code_ratio = if ext_stats.total_lines > 0 {
             (ext_stats.code_lines as f64 / ext_stats.total_lines as f64) * 100.0

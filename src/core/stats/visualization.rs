@@ -241,7 +241,7 @@ impl VisualizationGenerator {
             values.push(dist.very_high_complexity as f64);
         }
 
-        let colors = vec![
+        let colors = [
             "#28a745".to_string(), // Green for low
             "#ffc107".to_string(), // Yellow for medium
             "#fd7e14".to_string(), // Orange for high
@@ -284,7 +284,7 @@ impl VisualizationGenerator {
             values.push(stats.basic.blank_lines as f64);
         }
 
-        let colors = vec![
+        let colors = [
             "#007bff".to_string(), // Blue for code
             "#6c757d".to_string(), // Gray for comments
             "#17a2b8".to_string(), // Teal for docs
