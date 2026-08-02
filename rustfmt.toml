@@ -1,0 +1,12 @@
+# Stable-only options. CI runs `cargo fmt --all -- --check` on stable and beta,
+# so nightly-gated settings would silently no-op there and drift locally.
+edition = "2021"
+max_width = 100
+tab_spaces = 4
+hard_tabs = false
+newline_style = "Unix"
+reorder_imports = true
+reorder_modules = true
+merge_derives = true
+remove_nested_parens = true
+use_small_heuristics = "Default"
