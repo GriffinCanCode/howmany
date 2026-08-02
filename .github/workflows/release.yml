@@ -20,9 +20,37 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # The tap is a second repository, so publishing the formula depends on a token
+  # that expires. When it lapsed, `update-homebrew-formula` failed on its own
+  # while the tag, the binaries, and crates.io all published — v2.1.0, v2.2.0 and
+  # v3.0.0 shipped with the tap frozen on v2.0.0 before anyone noticed. Checking
+  # the credential before anything is published makes a lapse cost a re-run
+  # instead of a version that exists everywhere except Homebrew.
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the Homebrew tap credential
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::HOMEBREW_TAP_TOKEN is unset. Add a token with write access to GriffinCanCode/homebrew-howmany, then re-run."
+            exit 1
+          fi
+          if ! PUSH=$(gh api repos/GriffinCanCode/homebrew-howmany --jq .permissions.push 2>&1); then
+            echo "::error::HOMEBREW_TAP_TOKEN cannot reach GriffinCanCode/homebrew-howmany ($PUSH). It has expired or lost access; rotate it, then re-run."
+            exit 1
+          fi
+          if [ "$PUSH" != "true" ]; then
+            echo "::error::HOMEBREW_TAP_TOKEN can read GriffinCanCode/homebrew-howmany but not write to it. Grant contents:write, then re-run."
+            exit 1
+          fi
+
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    needs: preflight
     permissions:
       contents: write
       discussions: write
@@ -60,8 +88,7 @@ jobs:
             
             ### Homebrew (macOS/Linux)
             ```bash
-            brew tap GriffinCanCode/howmany
-            brew install howmany
+            brew install GriffinCanCode/howmany/howmany
             ```
             
             ### Cargo
@@ -72,7 +99,7 @@ jobs:
             ### From Source
             ```bash
             git clone https://github.com/GriffinCanCode/howmany.git
-            cd howmany/howmany-core
+            cd howmany
             cargo install --path .
             ```
 
@@ -166,6 +193,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [create-release, build-and-test]
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
       - name: Checkout homebrew-howmany
         uses: actions/checkout@v7
         with:
@@ -173,24 +203,21 @@ jobs:
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: homebrew-tap
 
-      - name: Get release tarball SHA256
-        id: get_sha
+      # `packaging/howmany.rb` is the source of truth. The tap gets a copy of it
+      # with this release's url and checksum stamped in, so the published formula
+      # cannot drift from the one in the crate the way it did through v2.x.
+      - name: Stamp the release into the formula
+        id: stamp
         run: |
           VERSION="${{ needs.create-release.outputs.version }}"
           URL="https://github.com/GriffinCanCode/howmany/archive/refs/tags/${VERSION}.tar.gz"
-          SHA256=$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)
-          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
-          echo "url=$URL" >> $GITHUB_OUTPUT
+          SHA256=$(curl -fsSL "$URL" | sha256sum | cut -d' ' -f1)
+          mkdir -p homebrew-tap/Formula
+          sed -e "s|^  url \".*\"|  url \"$URL\"|" \
+              -e "s|^  sha256 \".*\"|  sha256 \"$SHA256\"|" \
+              packaging/howmany.rb > homebrew-tap/Formula/howmany.rb
+          ruby -c homebrew-tap/Formula/howmany.rb
           echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
-
-      - name: Update formula
-        run: |
-          cd homebrew-tap
-          sed -i 's|url ".*"|url "${{ steps.get_sha.outputs.url }}"|' Formula/howmany.rb
-          sed -i 's|sha256 ".*"|sha256 "${{ steps.get_sha.outputs.sha256 }}"|' Formula/howmany.rb
-          
-          # Update version in tests if present
-          sed -i 's|--version.*"|--version|' Formula/howmany.rb
 
       - name: Commit and push changes
         run: |
@@ -198,7 +225,8 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add Formula/howmany.rb
-          git commit -m "Update howmany to ${{ steps.get_sha.outputs.version }}" || exit 0
+          git diff --staged --quiet && exit 0
+          git commit -m "howmany ${{ steps.stamp.outputs.version }}"
           git push
 
   notify-success:

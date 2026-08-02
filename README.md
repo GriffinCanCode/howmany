@@ -30,8 +30,11 @@ HowMany is a command-line tool that analyzes codebases to provide comprehensive 
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew install howmany
+brew install GriffinCanCode/howmany/howmany
 ```
+
+`howmany` is published from its own tap rather than homebrew-core, so the
+package name is qualified. A bare `brew install howmany` will not find it.
 
 ### From crates.io (Recommended)
 

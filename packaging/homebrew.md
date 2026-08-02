@@ -1,135 +1,65 @@
-# Homebrew Publishing Guide for HowMany
+# Homebrew
 
-This guide explains how to publish the `howmany` tool to Homebrew, making it easily installable via `brew install howmany`.
-
-## Files
-
-- `howmany.rb` - The Homebrew formula for the `howmany` package
-
-## Publishing Options
-
-### Option 1: Submit to homebrew-core (Recommended for Popular Tools)
-
-To get `howmany` into the main Homebrew repository:
-
-1. **Prerequisites**:
-   - The tool should be well-known and widely used
-   - Must have a stable release with proper versioning
-   - Must follow Homebrew's guidelines
-
-2. **Steps**:
-   ```bash
-   # Fork homebrew-core
-   git clone https://github.com/Homebrew/homebrew-core.git
-   cd homebrew-core
-   
-   # Create the formula
-   cp /path/to/howmany-core/packaging/howmany.rb Formula/howmany.rb
-   
-   # Test the formula
-   brew install --build-from-source ./Formula/howmany.rb
-   brew test howmany
-   brew audit --strict howmany
-   
-   # Create PR
-   git checkout -b howmany
-   git add Formula/howmany.rb
-   git commit -m "howmany: add new formula"
-   git push origin howmany
-   ```
-
-3. **Create a Pull Request** to [homebrew-core](https://github.com/Homebrew/homebrew-core)
-
-### Option 2: Create a Homebrew Tap (Easier Alternative)
-
-Create your own tap for immediate availability:
-
-1. **Create a new repository** named `homebrew-howmany`:
-   ```bash
-   # Create repository at https://github.com/GriffinCanCode/homebrew-howmany
-   git clone https://github.com/GriffinCanCode/homebrew-howmany.git
-   cd homebrew-howmany
-   
-   # Copy the formula
-   mkdir -p Formula
-   cp /path/to/howmany-core/packaging/howmany.rb Formula/howmany.rb
-   
-   # Commit and push
-   git add Formula/howmany.rb
-   git commit -m "Add howmany formula"
-   git push origin main
-   ```
-
-2. **Users can then install with**:
-   ```bash
-   brew tap GriffinCanCode/howmany
-   brew install howmany
-   ```
-
-## Formula Details
-
-The current formula (`howmany.rb`) includes:
-
-- **Source**: GitHub release tarball (v0.3.2)
-- **Dependencies**: Rust (build-time only)
-- **Build Process**: Cargo build in the `howmany-core` subdirectory
-- **Tests**: Version check, help check, and basic functionality test
-
-## Testing the Formula
-
-Before publishing, test the formula locally:
+`howmany` ships from its own tap, [GriffinCanCode/homebrew-howmany][tap], not
+from homebrew-core. Users install it with a qualified name:
 
 ```bash
-# Install from local formula
-brew install --build-from-source packaging/howmany.rb
-
-# Run tests
-brew test howmany
-
-# Audit for issues
-brew audit --strict packaging/howmany.rb
-
-# Uninstall after testing
-brew uninstall howmany
+brew install GriffinCanCode/howmany/howmany
 ```
 
-## Updating the Formula
+Homebrew taps the repository as part of that command, so there is no separate
+`brew tap` step. **A bare `brew install howmany` cannot work** — that name
+resolves against homebrew-core only, and homebrew-core requires a notability bar
+— roughly 75 stars, 30 forks, or 30 watchers — that this project does not yet
+clear. Every place we document installation has to use the qualified name;
+documenting the bare one is what produced [issue
+#1](https://github.com/GriffinCanCode/howmany/issues/1).
 
-When releasing a new version:
+## How the tap gets updated
 
-1. **Create a new GitHub release** with a git tag (e.g., `v0.3.3`)
+`packaging/howmany.rb` is the source of truth. The `update-homebrew-formula`
+job in `.github/workflows/release.yml` runs on every `v*` tag: it copies that
+file into the tap, stamps in the tag's tarball url and its sha256, checks the
+result parses as Ruby, and pushes. Nothing in the tap is hand-maintained, so
+the published formula cannot drift from the crate.
 
-2. **Update the formula**:
-   ```bash
-   # Get the new SHA256
-   curl -sL https://github.com/GriffinCanCode/howmany/archive/refs/tags/v0.3.3.tar.gz | shasum -a 256
-   
-   # Update howmany.rb with:
-   # - New version in the URL
-   # - New SHA256 hash
-   # - Update version in tests if needed
-   ```
+The job authenticates to the tap with the `HOMEBREW_TAP_TOKEN` secret, a
+personal access token with write access to `homebrew-howmany`. **This is the
+single point of failure.** When that token expires the job fails with
+`Bad credentials`, the release itself still succeeds, and the tap silently
+freezes at the last version that got through — which is exactly how the tap sat
+on v2.0.0 while v2.1.0, v2.2.0, and v3.0.0 shipped. If a release's Homebrew job
+goes red, rotate the token before assuming the formula published.
 
-3. **Test and submit** the updated formula
+## Testing a formula change
 
-## License Considerations
+Homebrew 6 refuses to install a formula given as a loose path — it has to live
+in a tap — so test by dropping the candidate into the local tap checkout, which
+is a clone and pushes nothing:
 
-The current license is "Griffin-1.0" (custom license with attribution requirements). This may need to be:
+```bash
+cp packaging/howmany.rb "$(brew --repository GriffinCanCode/howmany)/Formula/"
+brew install --build-from-source GriffinCanCode/howmany/howmany
+brew test howmany
+brew audit --strict --formula GriffinCanCode/howmany/howmany
+```
 
-- Registered as a custom license identifier with Homebrew
-- Or changed to a standard license (MIT, Apache-2.0, etc.) for easier acceptance
+## Publishing out of band
 
-## Maintenance
+If CI cannot publish and the formula has to go out by hand:
 
-Once published, the formula will need updates for:
+```bash
+VERSION=v3.0.0
+URL="https://github.com/GriffinCanCode/howmany/archive/refs/tags/$VERSION.tar.gz"
+SHA=$(curl -fsSL "$URL" | shasum -a 256 | cut -d' ' -f1)
 
-- New releases
-- Dependency changes
-- Build system changes
-- macOS compatibility updates
+git clone https://github.com/GriffinCanCode/homebrew-howmany.git /tmp/tap
+sed -e "s|^  url \".*\"|  url \"$URL\"|" \
+    -e "s|^  sha256 \".*\"|  sha256 \"$SHA\"|" \
+    packaging/howmany.rb > /tmp/tap/Formula/howmany.rb
+git -C /tmp/tap commit -am "howmany ${VERSION#v}" && git -C /tmp/tap push
+```
 
-## Resources
+That is the same transformation the workflow performs. Prefer fixing the token.
 
-- [Homebrew Formula Cookbook](https://docs.brew.sh/Formula-Cookbook)
-- [Homebrew Acceptable Formulae](https://docs.brew.sh/Acceptable-Formulae)
-- [Creating Homebrew Taps](https://docs.brew.sh/How-to-Create-and-Maintain-a-Tap) 
+[tap]: https://github.com/GriffinCanCode/homebrew-howmany

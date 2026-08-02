@@ -118,11 +118,10 @@ if [[ "$DRY_RUN" == true ]]; then
     echo -e "\n${YELLOW}🔍 DRY RUN - No changes will be made${NC}"
     echo -e "\nWould perform the following actions:"
     echo -e "1. Update version in Cargo.toml to $NEW_VERSION"
-    echo -e "2. Update version in Homebrew formula"
-    echo -e "3. Run cargo check to validate"
-    echo -e "4. Commit changes with message 'Bump version to $NEW_VERSION'"
-    echo -e "5. Create git tag $NEW_TAG"
-    echo -e "6. Push changes and tag to origin"
+    echo -e "2. Run cargo check to validate"
+    echo -e "3. Commit changes with message 'Bump version to $NEW_VERSION'"
+    echo -e "4. Create git tag $NEW_TAG"
+    echo -e "5. Push changes and tag to origin"
     echo -e "\nTo actually perform the release, run without --dry-run"
     exit 0
 fi
@@ -142,14 +141,12 @@ echo -e "${BLUE}📝 Updating Cargo.toml...${NC}"
 sed -i.bak "s/^version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" Cargo.toml
 rm -f Cargo.toml.bak
 
-# Update version in Homebrew formula if it exists
-HOMEBREW_FORMULA="packaging/howmany.rb"
-if [[ -f "$HOMEBREW_FORMULA" ]]; then
-    echo -e "${BLUE}🍺 Updating Homebrew formula...${NC}"
-    # Note: The SHA256 will be updated automatically by the GitHub Action
-    sed -i.bak "s|archive/refs/tags/v[0-9]*\.[0-9]*\.[0-9]*\.tar\.gz|archive/refs/tags/$NEW_TAG.tar.gz|" "$HOMEBREW_FORMULA"
-    rm -f "${HOMEBREW_FORMULA}.bak"
-fi
+# The formula is deliberately left alone. Its url and sha256 have to agree, and
+# the tarball this tag will produce does not exist yet, so bumping the url here
+# would leave the checked-in formula pointing at a tarball whose checksum it
+# does not carry -- unbuildable, and the command packaging/README tells you to
+# test with. The release workflow stamps both fields into the tap copy from this
+# file, so the version here trails the tap by one release and always installs.
 
 # Run cargo check to ensure everything is valid
 echo -e "${BLUE}🔍 Running cargo check...${NC}"
@@ -161,9 +158,6 @@ fi
 # Commit changes
 echo -e "${BLUE}💾 Committing changes...${NC}"
 git add Cargo.toml
-if [[ -f "$HOMEBREW_FORMULA" ]]; then
-    git add "$HOMEBREW_FORMULA"
-fi
 git commit -m "Bump version to $NEW_VERSION"
 
 # Create and push tag
@@ -181,9 +175,11 @@ echo -e "1. GitHub Actions will automatically:"
 echo -e "   - Create a GitHub release"
 echo -e "   - Build and upload binaries"
 echo -e "   - Publish to crates.io"
-echo -e "   - Update Homebrew formula"
+echo -e "   - Publish the Homebrew formula to the tap"
 echo -e "\n2. Monitor the GitHub Actions workflow at:"
 echo -e "   https://github.com/GriffinCanCode/howmany/actions"
+echo -e "   ${YELLOW}A red 'Update Homebrew Formula' job does not fail the release.${NC}"
+echo -e "   ${YELLOW}If it goes red the tap keeps serving the previous version.${NC}"
 echo -e "\n3. Once complete, users can install with:"
-echo -e "   ${GREEN}brew tap GriffinCanCode/howmany && brew install howmany${NC}"
-echo -e "   ${GREEN}cargo install howmany${NC}" 
+echo -e "   ${GREEN}brew install GriffinCanCode/howmany/howmany${NC}"
+echo -e "   ${GREEN}cargo install howmany${NC}"

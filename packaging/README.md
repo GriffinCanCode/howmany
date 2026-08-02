@@ -5,10 +5,9 @@ bump, the git tag, and the Homebrew formula.
 
 | File | What it does |
 |---|---|
-| `release.sh` | Bump the version in `Cargo.toml`, update the formula, tag, and push. |
+| `release.sh` | Bump the version in `Cargo.toml`, tag, and push. |
 | `howmany.rb` | The Homebrew formula for the `howmany` package. |
-| `create-homebrew-tap.sh` | Scaffold the `homebrew-howmany` tap repository from the formula. |
-| `homebrew.md` | How to publish and update the formula in the tap. |
+| `homebrew.md` | How the formula reaches the tap, and what breaks when it doesn't. |
 
 These live inside the crate rather than beside it because every path they use is
 relative to the crate root — `Cargo.toml`, `packaging/howmany.rb`. `release.sh`
@@ -23,8 +22,9 @@ directory, but only as long as that parent is the crate.
 ```
 
 The script refuses to run with a dirty working tree, so commit or stash first. It
-takes `patch`, `minor`, or `major`, and updates both `Cargo.toml` and the
-formula's version so the two cannot drift apart.
+takes `patch`, `minor`, or `major`. It bumps `Cargo.toml` and nothing else — the
+formula's version is stamped in by the release workflow, from the tag, once the
+tarball it has to checksum exists.
 
 Before releasing, confirm the packaged crate is actually installable — the test
 suites all run inside the source tree and cannot see a packaging mistake:
@@ -37,9 +37,15 @@ cargo package                    # warns about anything missing from `include`
 ## Homebrew
 
 `homebrew.md` has the full procedure. The short version: the formula here is the
-source of truth, and publishing means copying it into the tap repository.
+source of truth, the release workflow copies it into
+[the tap](https://github.com/GriffinCanCode/homebrew-howmany) with the tag's
+checksum stamped in, and users install it as
+`brew install GriffinCanCode/howmany/howmany`. A bare `brew install howmany`
+resolves against homebrew-core, where we are not published, and always fails.
 
-```bash
-brew install --build-from-source packaging/howmany.rb   # test locally
-brew audit --strict packaging/howmany.rb                # before publishing
-```
+Homebrew 6 will not install a formula from a loose path, so test the candidate
+through the local tap checkout — `homebrew.md` has the three commands.
+
+The tap job authenticates with the `HOMEBREW_TAP_TOKEN` secret. It fails without
+failing the release, so a red Homebrew job means the formula did not publish
+even though the tag, the binaries, and crates.io all did.
