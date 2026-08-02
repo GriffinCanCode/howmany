@@ -120,32 +120,25 @@ jobs:
       - name: Build release
         run: cargo build --release --verbose
 
-      - name: Upload binary (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ needs.create-release.outputs.version }}
-          files: ./target/release/howmany
+      # Every platform builds a file called `howmany`, so uploading under that
+      # name let each leg overwrite the last and only one binary survived.
+      - name: Name the binary for the platform that built it
+        id: stage
+        shell: bash
+        run: |
+          triple=$(rustc -vV | awk '/^host:/{print $2}')
+          if [ "${{ runner.os }}" = "Windows" ]; then ext=".exe"; else ext=""; fi
+          asset="howmany-${triple}${ext}"
+          cp "target/release/howmany${ext}" "$asset"
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
 
-      - name: Upload binary (macOS)
-        if: matrix.os == 'macos-latest'
+      - name: Upload binary
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ needs.create-release.outputs.version }}
-          files: ./target/release/howmany
-
-      - name: Upload binary (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ needs.create-release.outputs.version }}
-          files: ./target/release/howmany.exe
+          files: ${{ steps.stage.outputs.asset }}
 
     needs: create-release
 
