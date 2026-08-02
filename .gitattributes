@@ -1,0 +1,33 @@
+# Normalize line endings on checkin; check out with native endings.
+* text=auto eol=lf
+
+*.rs      text diff=rust
+*.toml    text
+*.md      text diff=markdown
+*.yml     text
+*.yaml    text
+*.json    text
+*.html    text diff=html
+*.css     text diff=css
+*.js      text
+*.sh      text eol=lf
+*.bat     text eol=crlf
+
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.woff    binary
+*.woff2   binary
+
+# Generated / vendored: keep out of diffs and language stats.
+Cargo.lock  linguist-generated=true -diff
+
+# Keep repo-hygiene files out of the source-distribution tarball.
+/.github/        export-ignore
+/.gitattributes  export-ignore
+/.gitignore      export-ignore
+/.editorconfig   export-ignore
+/.vscode/        export-ignore
+/benches/        export-ignore
