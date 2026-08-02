@@ -520,6 +520,7 @@ mod detector_tests {
         assert!(detector.is_user_created_file(&dockerfile_upper));
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_symlinks() {
         let project = TestProject::new("test_project").unwrap();
