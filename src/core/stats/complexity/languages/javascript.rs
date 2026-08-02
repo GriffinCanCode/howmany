@@ -60,19 +60,19 @@ impl JavaScriptAnalyzer {
 
         // Basic control structures
         if line.contains("if") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("else") {
             complexity += 1;
         }
         if line.contains("while") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("for") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("switch") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("case") {
             complexity += 1;
@@ -343,14 +343,6 @@ impl LanguageAnalyzer for JavaScriptAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "JavaScript/TypeScript"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["js", "jsx", "ts", "tsx"]
     }
 }
 

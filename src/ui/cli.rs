@@ -4,7 +4,9 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(name = "howmany")]
 #[command(about = "Count files and lines of code in your projects")]
-#[command(version = "2.1.0")]
+// Taken from the manifest so `--version` cannot disagree with the crate that
+// was actually built, or with the version stamped into every report.
+#[command(version = env!("CARGO_PKG_VERSION"))]
 pub struct Config {
     /// Directory to analyze (defaults to current directory)
     #[arg(value_name = "PATH")]
@@ -184,6 +186,28 @@ pub struct Config {
     /// Explain why files were included/excluded
     #[arg(long = "explain")]
     pub explain_filtering: bool,
+
+    // Performance and reproducibility
+    /// Worker threads to use (0 = one per available core)
+    #[arg(short = 'j', long = "threads", default_value_t = 0)]
+    pub threads: usize,
+
+    /// Skip external language detection (faster, and identical on every machine)
+    #[arg(long = "no-detect")]
+    pub no_detect: bool,
+
+    /// Do not read or write the on-disk results cache
+    #[arg(long = "no-cache")]
+    pub no_cache: bool,
+
+    /// Write html/sarif reports here instead of the default name in the
+    /// current directory
+    #[arg(long = "output-file")]
+    pub output_file: Option<PathBuf>,
+
+    /// Reproducible mode: no language detection, no cache, single threaded
+    #[arg(long = "reproducible")]
+    pub reproducible: bool,
 }
 
 #[derive(Clone)]
@@ -314,6 +338,60 @@ impl Config {
                 _ => {} // Unknown preset, ignore
             }
         }
+    }
+
+    /// Translate the CLI flags into engine options.
+    pub fn analysis_options(
+        &self,
+        collect_individual_files: bool,
+    ) -> crate::core::engine::AnalysisOptions {
+        use crate::core::engine::{AnalysisOptions, DetectionMode, Parallelism};
+
+        AnalysisOptions {
+            max_depth: self.max_depth,
+            include_hidden: self.include_hidden,
+            ignore_patterns: self.get_ignore_patterns(),
+            extensions: self.get_extensions(),
+            collect_individual_files,
+            detection: if self.no_detect || self.reproducible {
+                DetectionMode::Disabled
+            } else {
+                DetectionMode::Auto
+            },
+            parallelism: if self.reproducible {
+                Parallelism::Fixed(1)
+            } else if self.threads == 0 {
+                Parallelism::Auto
+            } else {
+                Parallelism::Fixed(self.threads)
+            },
+            use_cache: !self.no_cache && !self.reproducible,
+            compute_complexity: self.reports_complexity(),
+        }
+    }
+
+    /// Whether the selected output actually shows complexity and quality.
+    ///
+    /// Computing it is the expensive half of a run, so it is skipped for the
+    /// formats that only print totals. It must not be skipped for the formats
+    /// that print the numbers: those used to emit a section of zeros with a
+    /// maintainability index of 100, which reads as a perfect score.
+    pub fn reports_complexity(&self) -> bool {
+        match self.format {
+            OutputFormat::Json | OutputFormat::Html | OutputFormat::Sarif => true,
+            // Plain text is either the interactive dashboard or the summary
+            // tables, both of which show quality; `--cli` and `--quiet` are the
+            // totals-only paths and take their options from elsewhere.
+            OutputFormat::Text => !self.cli_mode && !self.quiet,
+            OutputFormat::Csv => false,
+        }
+    }
+
+    /// Destination for html/sarif reports.
+    pub fn report_path(&self, default_name: &str) -> PathBuf {
+        self.output_file
+            .clone()
+            .unwrap_or_else(|| PathBuf::from(default_name))
     }
 
     /// Convert CLI options to FilterOptions

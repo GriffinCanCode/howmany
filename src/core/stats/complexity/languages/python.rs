@@ -14,11 +14,9 @@ impl PythonAnalyzer {
     fn extract_function_name(&self, line: &str) -> Option<String> {
         if let Some(start) = line.find("def ") {
             let after_def = &line[start + 4..];
-            if let Some(end) = after_def.find('(') {
-                Some(after_def[..end].trim().to_string())
-            } else {
-                None
-            }
+            after_def
+                .find('(')
+                .map(|end| after_def[..end].trim().to_string())
         } else {
             None
         }
@@ -42,7 +40,7 @@ impl PythonAnalyzer {
 
         // Basic control structures
         if line.contains("if ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("elif ") {
             complexity += 1;
@@ -51,13 +49,13 @@ impl PythonAnalyzer {
             complexity += 1;
         }
         if line.contains("while ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("for ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("try:") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("except") {
             complexity += 1;
@@ -312,14 +310,6 @@ impl LanguageAnalyzer for PythonAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "Python"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["py"]
     }
 }
 

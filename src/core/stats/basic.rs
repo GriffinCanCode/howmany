@@ -1,7 +1,7 @@
 use crate::core::types::{CodeStats, FileStats};
 use crate::utils::errors::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Basic statistics for a file or project
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,7 +17,8 @@ pub struct BasicStats {
     pub average_lines_per_file: f64,
     pub largest_file_size: u64,
     pub smallest_file_size: u64,
-    pub stats_by_extension: HashMap<String, ExtensionStats>,
+    /// Ordered so that two identical runs serialise identically.
+    pub stats_by_extension: BTreeMap<String, ExtensionStats>,
 }
 
 /// Statistics for a specific file extension
@@ -56,13 +57,13 @@ impl BasicStatsCalculator {
             average_lines_per_file: file_stats.total_lines as f64,
             largest_file_size: file_stats.file_size,
             smallest_file_size: file_stats.file_size,
-            stats_by_extension: HashMap::new(),
+            stats_by_extension: BTreeMap::new(),
         })
     }
 
     /// Calculate basic statistics for a project
     pub fn calculate_project_basic_stats(&self, code_stats: &CodeStats) -> Result<BasicStats> {
-        let mut stats_by_extension = HashMap::new();
+        let mut stats_by_extension = BTreeMap::new();
         let mut file_sizes = Vec::new();
 
         for (ext, (file_count, file_stats)) in &code_stats.stats_by_extension {
@@ -165,8 +166,8 @@ impl BasicStatsCalculator {
     }
 
     /// Calculate size distribution percentages
-    pub fn calculate_size_distribution(&self, stats: &BasicStats) -> HashMap<String, f64> {
-        let mut distribution = HashMap::new();
+    pub fn calculate_size_distribution(&self, stats: &BasicStats) -> BTreeMap<String, f64> {
+        let mut distribution = BTreeMap::new();
 
         if stats.total_size > 0 {
             for (ext, ext_stats) in &stats.stats_by_extension {
@@ -179,8 +180,8 @@ impl BasicStatsCalculator {
     }
 
     /// Calculate line distribution percentages
-    pub fn calculate_line_distribution(&self, stats: &BasicStats) -> HashMap<String, f64> {
-        let mut distribution = HashMap::new();
+    pub fn calculate_line_distribution(&self, stats: &BasicStats) -> BTreeMap<String, f64> {
+        let mut distribution = BTreeMap::new();
 
         if stats.total_lines > 0 {
             for (ext, ext_stats) in &stats.stats_by_extension {
@@ -203,13 +204,23 @@ impl Default for BasicStatsCalculator {
 mod tests {
     use super::*;
     use crate::testing::test_utils::TestProject;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
+    /// A fresh calculator given nothing must report zeroes rather than
+    /// uninitialised or NaN averages, which downstream ratios would propagate.
     #[test]
-    fn test_basic_stats_calculator_creation() {
+    fn empty_input_yields_zeroed_consistent_stats() {
         let calculator = BasicStatsCalculator::new();
-        // Test that the calculator can be created without issues
-        assert!(true); // Basic creation test
+        let stats = calculator
+            .calculate_project_basic_stats(&CodeStats::default())
+            .unwrap();
+
+        assert_eq!(stats.total_files, 0);
+        assert_eq!(stats.total_lines, 0);
+        assert_eq!(stats.total_size, 0);
+        assert_eq!(stats.average_file_size, 0.0);
+        assert_eq!(stats.average_lines_per_file, 0.0);
+        assert!(stats.stats_by_extension.is_empty());
     }
 
     #[test]
@@ -272,7 +283,7 @@ mod tests {
         let calculator = BasicStatsCalculator::new();
 
         // Create mock CodeStats
-        let mut stats_by_extension = HashMap::new();
+        let mut stats_by_extension = BTreeMap::new();
         stats_by_extension.insert(
             "rs".to_string(),
             (
@@ -358,7 +369,7 @@ mod tests {
             total_doc_lines: 0,
             total_blank_lines: 0,
             total_size: 0,
-            stats_by_extension: HashMap::new(),
+            stats_by_extension: BTreeMap::new(),
         };
 
         let result = calculator
@@ -383,7 +394,7 @@ mod tests {
     fn test_calculate_project_basic_stats_single_extension() {
         let calculator = BasicStatsCalculator::new();
 
-        let mut stats_by_extension = HashMap::new();
+        let mut stats_by_extension = BTreeMap::new();
         stats_by_extension.insert(
             "js".to_string(),
             (
@@ -474,7 +485,7 @@ mod tests {
             average_lines_per_file: 100.0,
             largest_file_size: 5000,
             smallest_file_size: 500,
-            stats_by_extension: HashMap::new(),
+            stats_by_extension: BTreeMap::new(),
         };
 
         // Test serialization to JSON
@@ -556,7 +567,7 @@ mod tests {
         let calculator = BasicStatsCalculator::new();
 
         // This would normally be done by the counter, but we'll simulate it
-        let mut stats_by_extension = HashMap::new();
+        let mut stats_by_extension = BTreeMap::new();
         stats_by_extension.insert(
             "rs".to_string(),
             (

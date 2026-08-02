@@ -3,7 +3,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+/// User configuration, read from `howmany.toml`.
+///
+/// Every field defaults, and every section is optional. Users set one key and
+/// expect the rest to keep working; requiring the whole document meant a
+/// two-line config file failed to parse and the run aborted.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct HowManyConfig {
     pub default_max_depth: Option<usize>,
     pub default_include_hidden: bool,
@@ -15,6 +21,7 @@ pub struct HowManyConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct OutputPreferences {
     pub default_format: String,
     pub default_sort_by: String,
@@ -23,6 +30,7 @@ pub struct OutputPreferences {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct PerformanceConfig {
     pub parallel_processing: bool,
     pub max_threads: Option<usize>,

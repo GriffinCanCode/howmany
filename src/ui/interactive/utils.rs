@@ -417,12 +417,12 @@ fn get_language_from_extension_fallback(ext: &str) -> LanguageInfo {
 
 /// Group extensions by language and aggregate their stats
 pub fn group_extensions_by_language(
-    stats_by_extension: &std::collections::HashMap<String, (usize, crate::core::types::FileStats)>,
-) -> std::collections::HashMap<String, (LanguageInfo, usize, crate::core::types::FileStats)> {
-    let mut language_stats: std::collections::HashMap<
+    stats_by_extension: &std::collections::BTreeMap<String, (usize, crate::core::types::FileStats)>,
+) -> std::collections::BTreeMap<String, (LanguageInfo, usize, crate::core::types::FileStats)> {
+    let mut language_stats: std::collections::BTreeMap<
         String,
         (LanguageInfo, usize, crate::core::types::FileStats),
-    > = std::collections::HashMap::new();
+    > = std::collections::BTreeMap::new();
 
     for (ext, (file_count, file_stats)) in stats_by_extension {
         let language_info = get_language_from_extension(ext);

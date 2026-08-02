@@ -1,4 +1,20 @@
+# Build output.
 /target
-Cargo.lock
+
+# Local secrets and machine-specific settings.
 .env
-testing/
+
+# macOS directory metadata.
+.DS_Store
+
+# Python bytecode from the tools in tools/.
+__pycache__/
+
+# Cargo.lock is deliberately NOT ignored: this crate ships a binary, so the
+# lockfile is what makes `cargo install --locked` reproduce a known-good build.
+#
+# There is deliberately no `testing/` entry. One used to live here, and because a
+# pattern without a leading slash matches at every depth, it silently excluded
+# `src/testing/` -- the entire unit test suite, which `#[cfg(test)] pub mod
+# testing;` in src/lib.rs requires. A fresh clone therefore compiled but could
+# not run a single test.

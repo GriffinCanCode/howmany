@@ -3,7 +3,7 @@
 // This module contains only the type definitions to avoid circular dependencies
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Complexity statistics for a file or project
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,7 +27,7 @@ pub struct ComplexityStats {
     pub methods_per_class: f64,
     pub average_parameters_per_function: f64,
     pub max_parameters_per_function: usize,
-    pub complexity_by_extension: HashMap<String, ExtensionComplexity>,
+    pub complexity_by_extension: BTreeMap<String, ExtensionComplexity>,
     pub complexity_distribution: ComplexityDistribution,
     pub structure_distribution: StructureDistribution,
     pub function_complexity_details: Vec<FunctionComplexityDetail>,

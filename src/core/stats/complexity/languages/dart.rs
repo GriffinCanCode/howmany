@@ -62,7 +62,7 @@ impl DartAnalyzer {
         if trimmed.contains("(") && !trimmed.contains("=") {
             // Look for class constructor pattern
             let parts: Vec<&str> = trimmed.split_whitespace().collect();
-            for (_i, part) in parts.iter().enumerate() {
+            for part in parts.iter() {
                 if part.contains("(") {
                     let name = part.split('(').next().unwrap_or("");
                     if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
@@ -137,7 +137,7 @@ impl DartAnalyzer {
 
         // Basic control structures
         if line.contains("if ") || line.contains("if(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("else if") {
             complexity += 1;
@@ -146,16 +146,16 @@ impl DartAnalyzer {
             complexity += 1;
         }
         if line.contains("for ") || line.contains("for(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("while ") || line.contains("while(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("do ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("switch ") || line.contains("switch(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("case ") {
             complexity += 1;
@@ -179,7 +179,7 @@ impl DartAnalyzer {
             complexity += 1;
         }
         if line.contains("catch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("finally ") {
             complexity += 1;
@@ -362,18 +362,6 @@ impl DartAnalyzer {
     /// Check if it's a setter
     fn is_setter(&self, line: &str) -> bool {
         line.contains("set ")
-    }
-
-    /// Check if it's a constructor
-    fn is_constructor(&self, line: &str, class_name: &str) -> bool {
-        line.contains(class_name) && line.contains("(") && !line.contains("=")
-    }
-
-    /// Check if it's a Widget (Flutter specific)
-    fn is_widget(&self, line: &str) -> bool {
-        line.contains("Widget")
-            || line.contains("StatefulWidget")
-            || line.contains("StatelessWidget")
     }
 
     /// Count inheritance/mixin usage from declaration
@@ -617,10 +605,10 @@ impl LanguageAnalyzer for DartAnalyzer {
                     }
 
                     // Count mixin methods for mixins
-                    if structure.structure_type == StructureType::Interface {
-                        if self.is_function_declaration(trimmed) {
-                            structure.interface_count += 1;
-                        }
+                    if structure.structure_type == StructureType::Interface
+                        && self.is_function_declaration(trimmed)
+                    {
+                        structure.interface_count += 1;
                     }
                 }
 
@@ -671,14 +659,6 @@ impl LanguageAnalyzer for DartAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "Dart"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["dart"]
     }
 }
 

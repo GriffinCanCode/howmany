@@ -100,7 +100,7 @@ pub struct InteractiveApp {
     pub search_state: SearchState,
     pub filtered_files: Vec<(String, FileStats)>,
     pub filtered_extensions: Vec<String>,
-    pub language_stats: std::collections::HashMap<
+    pub language_stats: std::collections::BTreeMap<
         String,
         (
             crate::ui::interactive::utils::LanguageInfo,
@@ -131,7 +131,7 @@ impl Default for InteractiveApp {
             search_state: SearchState::default(),
             filtered_files: Vec::new(),
             filtered_extensions: Vec::new(),
-            language_stats: std::collections::HashMap::new(),
+            language_stats: std::collections::BTreeMap::new(),
             show_code_health: false,
         }
     }
@@ -204,7 +204,7 @@ impl InteractiveApp {
             }
             SearchMode::Extensions => {
                 if let Some(ref stats) = self.stats {
-                    for (ext, _) in &stats.stats_by_extension {
+                    for ext in stats.stats_by_extension.keys() {
                         if ext.to_lowercase().contains(&query) {
                             // Find files with this extension
                             for (file_path, file_stats) in &self.individual_files {
@@ -265,7 +265,7 @@ impl InteractiveApp {
     }
 
     fn calculate_file_relevance(&self, file_path: &str, query: &str) -> f64 {
-        let file_name = file_path.split('/').last().unwrap_or(file_path);
+        let file_name = file_path.split('/').next_back().unwrap_or(file_path);
         let file_lower = file_name.to_lowercase();
 
         // Exact match gets highest score
@@ -290,7 +290,7 @@ impl InteractiveApp {
 
     fn estimate_content_match(&self, file_path: &str, query: &str) -> f64 {
         // Simple heuristic based on file type and query
-        let extension = file_path.split('.').last().unwrap_or("");
+        let extension = file_path.split('.').next_back().unwrap_or("");
 
         // Programming language keywords
         let keywords = match extension {
@@ -331,7 +331,7 @@ impl InteractiveApp {
         }
 
         // Check if query might be a common programming concept
-        let common_terms = vec![
+        let common_terms = [
             "main", "init", "config", "util", "helper", "test", "spec", "mock",
         ];
         if common_terms
@@ -587,48 +587,34 @@ impl InteractiveApp {
     }
 
     fn page_down(&mut self) {
-        match self.mode {
-            AppMode::Languages => {
-                let len = self.language_stats.len();
-                if len > 0 {
-                    let selected = self.table_state.selected().unwrap_or(0);
-                    self.table_state.select(Some((selected + 10).min(len - 1)));
-                }
+        if self.mode == AppMode::Languages {
+            let len = self.language_stats.len();
+            if len > 0 {
+                let selected = self.table_state.selected().unwrap_or(0);
+                self.table_state.select(Some((selected + 10).min(len - 1)));
             }
-
-            _ => {}
         }
     }
 
     fn page_up(&mut self) {
-        match self.mode {
-            AppMode::Languages => {
-                let selected = self.table_state.selected().unwrap_or(0);
-                self.table_state.select(Some(selected.saturating_sub(10)));
-            }
-
-            _ => {}
+        if self.mode == AppMode::Languages {
+            let selected = self.table_state.selected().unwrap_or(0);
+            self.table_state.select(Some(selected.saturating_sub(10)));
         }
     }
 
     fn scroll_to_top(&mut self) {
-        match self.mode {
-            AppMode::Languages => self.table_state.select(Some(0)),
-
-            _ => {}
+        if self.mode == AppMode::Languages {
+            self.table_state.select(Some(0))
         }
     }
 
     fn scroll_to_bottom(&mut self) {
-        match self.mode {
-            AppMode::Languages => {
-                let len = self.language_stats.len();
-                if len > 0 {
-                    self.table_state.select(Some(len - 1));
-                }
+        if self.mode == AppMode::Languages {
+            let len = self.language_stats.len();
+            if len > 0 {
+                self.table_state.select(Some(len - 1));
             }
-
-            _ => {}
         }
     }
 
@@ -639,9 +625,8 @@ impl InteractiveApp {
     }
 
     fn handle_enter_key(&mut self) {
-        match self.mode {
-            AppMode::Export => self.execute_export(),
-            _ => {}
+        if self.mode == AppMode::Export {
+            self.execute_export()
         }
     }
 

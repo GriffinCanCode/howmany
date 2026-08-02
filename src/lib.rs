@@ -2,6 +2,7 @@
 pub mod core {
     pub mod counter;
     pub mod detector;
+    pub mod engine;
     pub mod filters;
     pub mod patterns;
     pub mod stats;
@@ -31,8 +32,11 @@ pub mod utils {
 pub mod testing;
 
 // Re-export commonly used types for convenience
-pub use core::counter::CodeCounter;
+pub use core::counter::{CachedCodeCounter, CodeCounter, CommentPattern};
 pub use core::detector::{FileDetector, SherlockLanguage, SherlockResult, SherlockSummary};
+pub use core::engine::{
+    Analysis, AnalysisOptions, AnalysisReport, DetectionMode, Engine, Parallelism,
+};
 pub use core::filters::FileFilter;
 pub use core::patterns::PatternMatcher;
 pub use core::stats::StatsCalculator;

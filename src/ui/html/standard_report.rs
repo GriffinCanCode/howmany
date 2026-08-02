@@ -10,6 +10,12 @@ pub struct StandardReportGenerator {
     stats_calculator: StatsCalculator,
 }
 
+impl Default for StandardReportGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StandardReportGenerator {
     pub fn new() -> Self {
         Self {
@@ -1896,17 +1902,19 @@ impl StandardReportGenerator {
         complexity.min(10.0)
     }
 
+    /// A path shortened for display and escaped for embedding in the report.
     fn shorten_file_path(&self, path: &str) -> String {
-        if path.len() <= 50 {
-            return path.to_string();
-        }
-
-        let parts: Vec<&str> = path.split('/').collect();
-        if parts.len() > 2 {
-            format!(".../{}/{}", parts[parts.len() - 2], parts[parts.len() - 1])
+        let shortened = if path.len() <= 50 {
+            path.to_string()
         } else {
-            let truncated: String = path.chars().take(47).collect();
-            format!("{}...", truncated)
-        }
+            let parts: Vec<&str> = path.split('/').collect();
+            if parts.len() > 2 {
+                format!(".../{}/{}", parts[parts.len() - 2], parts[parts.len() - 1])
+            } else {
+                let truncated: String = path.chars().take(47).collect();
+                format!("{truncated}...")
+            }
+        };
+        crate::ui::html::utils::escape_html(&shortened)
     }
 }

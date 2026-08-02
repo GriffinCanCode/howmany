@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Ratio and percentage statistics for analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10,10 +10,11 @@ pub struct RatioStats {
     pub blank_ratio: f64,           // blank lines / total lines
     pub comment_to_code_ratio: f64, // comment lines / code lines
     pub doc_to_code_ratio: f64,     // doc lines / code lines
-    pub ratios_by_extension: HashMap<String, ExtensionRatios>,
-    pub language_distribution: HashMap<String, f64>, // percentage of total lines by language
-    pub file_distribution: HashMap<String, f64>,     // percentage of total files by language
-    pub size_distribution: HashMap<String, f64>,     // percentage of total size by language
+    // Ordered maps: a report has to serialise identically on every run.
+    pub ratios_by_extension: BTreeMap<String, ExtensionRatios>,
+    pub language_distribution: BTreeMap<String, f64>, // percentage of total lines by language
+    pub file_distribution: BTreeMap<String, f64>,     // percentage of total files by language
+    pub size_distribution: BTreeMap<String, f64>,     // percentage of total size by language
     pub quality_metrics: QualityMetrics,
 }
 

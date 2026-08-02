@@ -14,11 +14,9 @@ impl RustAnalyzer {
     fn extract_function_name(&self, line: &str) -> Option<String> {
         if let Some(start) = line.find("fn ") {
             let after_fn = &line[start + 3..];
-            if let Some(end) = after_fn.find('(') {
-                Some(after_fn[..end].trim().to_string())
-            } else {
-                None
-            }
+            after_fn
+                .find('(')
+                .map(|end| after_fn[..end].trim().to_string())
         } else {
             None
         }
@@ -42,22 +40,22 @@ impl RustAnalyzer {
 
         // Basic control structures
         if line.contains("if") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("else") {
             complexity += 1;
         }
         if line.contains("match") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("while") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("for") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("loop") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
 
         // Logical operators
@@ -306,14 +304,6 @@ impl LanguageAnalyzer for RustAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "Rust"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["rs"]
     }
 }
 

@@ -457,8 +457,8 @@ impl SarifConverter {
     /// Create the complete SARIF log structure
     fn create_sarif_log(&self, results: Vec<SarifResult>) -> Result<Sarif> {
         let sarif_log = Sarif {
-            version: Value::String("2.1.0".to_string()),
-            schema: Some("https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json".to_string()),
+            version: Value::String(super::SARIF_VERSION.to_string()),
+            schema: Some(super::SARIF_SCHEMA.to_string()),
             runs: vec![self.create_run(results)],
             inline_external_properties: None,
             properties: None,

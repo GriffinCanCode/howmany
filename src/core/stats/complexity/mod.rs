@@ -4,9 +4,11 @@ use crate::utils::errors::Result;
 // Re-export all public types
 pub use types::*;
 
-// Internal modules
-mod analyzer;
-mod calculator;
+// Internal modules. `analyzer` and `calculator` are crate-visible so the test
+// suite can drive them directly: reaching them only through a whole analysis run
+// is what let this module ship untested.
+pub(crate) mod analyzer;
+pub(crate) mod calculator;
 mod languages;
 mod quality;
 mod types;

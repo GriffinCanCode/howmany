@@ -10,6 +10,12 @@ pub struct HtmlReporter {
     standard_generator: StandardReportGenerator,
 }
 
+impl Default for HtmlReporter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HtmlReporter {
     pub fn new() -> Self {
         Self {

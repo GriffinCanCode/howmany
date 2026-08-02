@@ -32,12 +32,6 @@ pub trait LanguageAnalyzer {
 
     /// Analyze structures in code lines (classes, interfaces, etc.)
     fn analyze_structures(&self, lines: &[String]) -> Result<Vec<StructureInfo>>;
-
-    /// Get the language name for this analyzer
-    fn language_name(&self) -> &'static str;
-
-    /// Get the file extensions this analyzer supports
-    fn supported_extensions(&self) -> Vec<&'static str>;
 }
 
 /// Factory function to get the appropriate language analyzer

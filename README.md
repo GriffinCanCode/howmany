@@ -50,7 +50,7 @@ cargo build --release
 ### Using the Build Script
 
 ```bash
-./rebuild.sh
+./tools/rebuild.sh
 ```
 
 This will build the project and create a symlink in `/usr/local/bin/howmany` for system-wide access.

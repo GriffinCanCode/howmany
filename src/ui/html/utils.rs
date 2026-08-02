@@ -1,6 +1,54 @@
 use crate::core::types::FileStats;
 
+/// Escape text that came from the file system before it enters the report.
+///
+/// Paths and extensions are attacker-controlled in the sense that matters here:
+/// a checkout can legally contain `src/<script>x</script>.rs`, and interpolating
+/// that name raw made the report execute it in whoever's browser opened it.
+pub fn escape_html(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for character in text.chars() {
+        match character {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            other => escaped.push(other),
+        }
+    }
+    escaped
+}
+
+/// Escape text for use inside a single-quoted JavaScript string literal.
+///
+/// Chart labels are emitted inside a `<script>` block, where HTML entities are
+/// not decoded; a quote or backslash there would end the literal.
+pub fn escape_js_string(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for character in text.chars() {
+        match character {
+            '\\' => escaped.push_str("\\\\"),
+            '\'' => escaped.push_str("\\'"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            // `</script>` inside a literal still ends the element.
+            '<' => escaped.push_str("\\u003c"),
+            '>' => escaped.push_str("\\u003e"),
+            other => escaped.push(other),
+        }
+    }
+    escaped
+}
+
 pub struct FileUtils;
+
+impl Default for FileUtils {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl FileUtils {
     pub fn new() -> Self {

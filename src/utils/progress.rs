@@ -6,6 +6,12 @@ pub struct ProgressReporter {
     main_progress: ProgressBar,
 }
 
+impl Default for ProgressReporter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProgressReporter {
     pub fn new() -> Self {
         let multi_progress = MultiProgress::new();
@@ -96,12 +102,16 @@ impl FileProgress {
         self.bytes_processed += bytes;
     }
 
+    /// Progress as a percentage, clamped to `0..=100`.
+    ///
+    /// The total is an estimate made before the walk finishes, so more files can
+    /// arrive than were promised. A progress bar asked to draw 118% either
+    /// overflows its width or panics, so the value is clamped here instead.
     pub fn percentage(&self) -> f64 {
         if self.total_files == 0 {
-            100.0
-        } else {
-            (self.files_processed as f64 / self.total_files as f64) * 100.0
+            return 100.0;
         }
+        ((self.files_processed as f64 / self.total_files as f64) * 100.0).clamp(0.0, 100.0)
     }
 }
 

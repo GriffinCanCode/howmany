@@ -96,7 +96,7 @@ impl RubyAnalyzer {
 
         // Basic control structures
         if line.contains("if ") || line.contains("if(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("elsif ") {
             complexity += 1;
@@ -105,19 +105,19 @@ impl RubyAnalyzer {
             complexity += 1;
         }
         if line.contains("unless ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("for ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("while ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("until ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("case ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("when ") {
             complexity += 1;
@@ -135,10 +135,10 @@ impl RubyAnalyzer {
 
         // Exception handling
         if line.contains("begin ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("rescue ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("ensure ") {
             complexity += 1;
@@ -501,7 +501,7 @@ impl LanguageAnalyzer for RubyAnalyzer {
                     // Count instance variables and constants
                     if trimmed.starts_with('@')
                         || trimmed.starts_with("@@")
-                        || (trimmed.chars().next().map_or(false, |c| c.is_uppercase())
+                        || (trimmed.chars().next().is_some_and(|c| c.is_uppercase())
                             && trimmed.contains(" = "))
                     {
                         structure.properties += 1;
@@ -591,14 +591,6 @@ impl LanguageAnalyzer for RubyAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "Ruby"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["rb", "rbw", "rake", "gemspec"]
     }
 }
 

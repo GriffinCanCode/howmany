@@ -79,7 +79,7 @@ impl GoAnalyzer {
 
         // Basic control structures
         if line.contains("if ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("else if") {
             complexity += 1;
@@ -88,16 +88,16 @@ impl GoAnalyzer {
             complexity += 1;
         }
         if line.contains("for ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("switch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("case ") {
             complexity += 1;
         }
         if line.contains("select ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
 
         // Logical operators
@@ -189,7 +189,7 @@ impl GoAnalyzer {
     /// Determine visibility from Go naming conventions
     fn get_visibility(&self, name: &str) -> Visibility {
         // In Go, exported (public) names start with uppercase
-        if name.chars().next().map_or(false, |c| c.is_uppercase()) {
+        if name.chars().next().is_some_and(|c| c.is_uppercase()) {
             Visibility::Public
         } else {
             Visibility::Private
@@ -499,14 +499,6 @@ impl LanguageAnalyzer for GoAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "Go"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["go"]
     }
 }
 

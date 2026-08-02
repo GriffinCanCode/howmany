@@ -120,18 +120,47 @@ impl SarifReporter {
         })
     }
 
-    /// Validate that the generated SARIF is well-formed
+    /// Check that `sarif_content` is a SARIF log a consumer will accept.
+    ///
+    /// Valid JSON is not enough: a CI system reading the report looks for the
+    /// version, the schema and at least one run with a named tool. Accepting
+    /// `{}` here meant the check passed for output nothing could consume.
     pub fn validate_sarif_output(&self, sarif_content: &str) -> Result<()> {
-        // Try to parse the SARIF content back to ensure it's valid JSON
-        let _: serde_json::Value = serde_json::from_str(sarif_content).map_err(|e| {
-            crate::utils::errors::HowManyError::invalid_config(format!(
-                "Generated SARIF is not valid JSON: {}",
-                e
-            ))
-        })?;
+        let invalid = |detail: &str| {
+            crate::utils::errors::HowManyError::invalid_config(format!("Invalid SARIF: {detail}"))
+        };
 
-        // Additional SARIF-specific validation could be added here
-        // For now, we rely on the serde-sarif library to ensure structure compliance
+        let log: serde_json::Value = serde_json::from_str(sarif_content)
+            .map_err(|e| invalid(&format!("not valid JSON: {e}")))?;
+
+        let expected = super::SARIF_VERSION;
+        if log.get("version").and_then(|v| v.as_str()) != Some(expected) {
+            return Err(invalid(&format!("version must be {expected}")));
+        }
+        if !log
+            .get("$schema")
+            .and_then(|v| v.as_str())
+            .is_some_and(|s| s.contains("sarif"))
+        {
+            return Err(invalid("missing $schema"));
+        }
+
+        let runs = log
+            .get("runs")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| invalid("missing runs array"))?;
+        if runs.is_empty() {
+            return Err(invalid("a log must contain at least one run"));
+        }
+        for run in runs {
+            if !run
+                .pointer("/tool/driver/name")
+                .and_then(|v| v.as_str())
+                .is_some_and(|name| !name.is_empty())
+            {
+                return Err(invalid("a run does not name the tool that produced it"));
+            }
+        }
 
         Ok(())
     }

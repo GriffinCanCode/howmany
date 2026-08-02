@@ -71,22 +71,22 @@ impl RAnalyzer {
 
         // Basic control structures
         if line.contains("if ") || line.contains("if(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("else") {
             complexity += 1;
         }
         if line.contains("for ") || line.contains("for(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("while ") || line.contains("while(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("repeat") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("switch(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
 
         // Vectorized conditional
@@ -105,7 +105,7 @@ impl RAnalyzer {
             complexity += 1;
         }
         if line.contains("tryCatch(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("stop(") {
             complexity += 1;
@@ -217,71 +217,6 @@ impl RAnalyzer {
         } else {
             Visibility::Public
         }
-    }
-
-    /// Check if function uses data frames
-    fn uses_data_frames(&self, line: &str) -> bool {
-        line.contains("data.frame(")
-            || line.contains("$")
-            || line.contains("[[")
-            || line.contains("subset(")
-            || line.contains("merge(")
-            || line.contains("aggregate(")
-    }
-
-    /// Check if function uses vectors
-    fn uses_vectors(&self, line: &str) -> bool {
-        line.contains("c(")
-            || line.contains("rep(")
-            || line.contains("seq(")
-            || line.contains("length(")
-            || line.contains("which(")
-            || line.contains("match(")
-    }
-
-    /// Check if function uses statistical functions
-    fn uses_statistical_functions(&self, line: &str) -> bool {
-        line.contains("mean(")
-            || line.contains("median(")
-            || line.contains("sd(")
-            || line.contains("var(")
-            || line.contains("cor(")
-            || line.contains("lm(")
-            || line.contains("glm(")
-            || line.contains("t.test(")
-            || line.contains("aov(")
-            || line.contains("summary(")
-    }
-
-    /// Check if function uses apply family
-    fn uses_apply_family(&self, line: &str) -> bool {
-        line.contains("apply(")
-            || line.contains("lapply(")
-            || line.contains("sapply(")
-            || line.contains("mapply(")
-            || line.contains("tapply(")
-    }
-
-    /// Check if function uses plotting
-    fn uses_plotting(&self, line: &str) -> bool {
-        line.contains("plot(")
-            || line.contains("ggplot(")
-            || line.contains("hist(")
-            || line.contains("boxplot(")
-            || line.contains("barplot(")
-            || line.contains("lines(")
-            || line.contains("points(")
-            || line.contains("abline(")
-    }
-
-    /// Check if function uses matrix operations
-    fn uses_matrix_operations(&self, line: &str) -> bool {
-        line.contains("matrix(")
-            || line.contains("%*%")
-            || line.contains("t(")
-            || line.contains("solve(")
-            || line.contains("eigen(")
-            || line.contains("svd(")
     }
 }
 
@@ -480,14 +415,6 @@ impl LanguageAnalyzer for RAnalyzer {
         structures.push(script_structure);
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "R"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["r", "R"]
     }
 }
 

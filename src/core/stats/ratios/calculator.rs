@@ -2,7 +2,7 @@ use super::quality::QualityCalculator;
 use super::types::{ExtensionRatios, QualityThresholds, RatioStats};
 use crate::core::types::{CodeStats, FileStats};
 use crate::utils::errors::Result;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Helper function to round a floating-point value to 2 decimal places
 fn round_to_2_decimals(value: f64) -> f64 {
@@ -78,7 +78,7 @@ impl RatioStatsCalculator {
             blank_ratio,
             comment_to_code_ratio,
             doc_to_code_ratio,
-            &HashMap::new(),
+            &BTreeMap::new(),
         );
 
         Ok(RatioStats {
@@ -88,10 +88,10 @@ impl RatioStatsCalculator {
             blank_ratio,
             comment_to_code_ratio,
             doc_to_code_ratio,
-            ratios_by_extension: HashMap::new(),
-            language_distribution: HashMap::new(),
-            file_distribution: HashMap::new(),
-            size_distribution: HashMap::new(),
+            ratios_by_extension: BTreeMap::new(),
+            language_distribution: BTreeMap::new(),
+            file_distribution: BTreeMap::new(),
+            size_distribution: BTreeMap::new(),
             quality_metrics,
         })
     }
@@ -139,7 +139,7 @@ impl RatioStatsCalculator {
         };
 
         // Calculate per-extension ratios
-        let mut ratios_by_extension = HashMap::new();
+        let mut ratios_by_extension = BTreeMap::new();
 
         for (ext, (file_count, file_stats)) in &code_stats.stats_by_extension {
             let ext_total_lines = file_stats.total_lines as f64;
@@ -223,8 +223,8 @@ impl RatioStatsCalculator {
     }
 
     /// Calculate language distribution by lines
-    fn calculate_language_distribution(&self, code_stats: &CodeStats) -> HashMap<String, f64> {
-        let mut distribution = HashMap::new();
+    fn calculate_language_distribution(&self, code_stats: &CodeStats) -> BTreeMap<String, f64> {
+        let mut distribution = BTreeMap::new();
         let total_lines = code_stats.total_lines as f64;
 
         if total_lines > 0.0 {
@@ -239,8 +239,8 @@ impl RatioStatsCalculator {
     }
 
     /// Calculate file distribution by count
-    fn calculate_file_distribution(&self, code_stats: &CodeStats) -> HashMap<String, f64> {
-        let mut distribution = HashMap::new();
+    fn calculate_file_distribution(&self, code_stats: &CodeStats) -> BTreeMap<String, f64> {
+        let mut distribution = BTreeMap::new();
         let total_files = code_stats.total_files as f64;
 
         if total_files > 0.0 {
@@ -255,8 +255,8 @@ impl RatioStatsCalculator {
     }
 
     /// Calculate size distribution
-    fn calculate_size_distribution(&self, code_stats: &CodeStats) -> HashMap<String, f64> {
-        let mut distribution = HashMap::new();
+    fn calculate_size_distribution(&self, code_stats: &CodeStats) -> BTreeMap<String, f64> {
+        let mut distribution = BTreeMap::new();
         let total_size = code_stats.total_size as f64;
 
         if total_size > 0.0 {
@@ -303,13 +303,29 @@ mod tests {
     use super::*;
     use crate::core::stats::ratios::types::QualityMetrics;
     use crate::testing::test_utils::TestProject;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
+    /// The default thresholds must be the ones the quality score documents;
+    /// a silent change here moves every project's score.
     #[test]
-    fn test_ratio_stats_calculator_creation() {
+    fn default_thresholds_are_the_documented_ones() {
         let calculator = RatioStatsCalculator::new();
-        // Test that the calculator can be created without issues
-        assert!(true); // Basic creation test
+        let defaults = QualityThresholds::default();
+
+        assert_eq!(
+            calculator.thresholds.good_comment_ratio,
+            defaults.good_comment_ratio
+        );
+        assert_eq!(
+            calculator.thresholds.good_doc_ratio,
+            defaults.good_doc_ratio
+        );
+        assert_eq!(
+            calculator.thresholds.max_blank_ratio,
+            defaults.max_blank_ratio
+        );
+        assert!(calculator.thresholds.good_comment_ratio > 0.0);
+        assert!(calculator.thresholds.max_blank_ratio < 1.0);
     }
 
     #[test]
@@ -396,7 +412,7 @@ mod tests {
     fn test_calculate_project_ratio_stats() {
         let calculator = RatioStatsCalculator::new();
 
-        let mut stats_by_extension = HashMap::new();
+        let mut stats_by_extension = BTreeMap::new();
         stats_by_extension.insert(
             "rs".to_string(),
             (
@@ -498,7 +514,7 @@ mod tests {
             total_doc_lines: 0,
             total_blank_lines: 0,
             total_size: 0,
-            stats_by_extension: HashMap::new(),
+            stats_by_extension: BTreeMap::new(),
         };
 
         let result = calculator
@@ -522,7 +538,7 @@ mod tests {
     fn test_calculate_project_ratio_stats_single_extension() {
         let calculator = RatioStatsCalculator::new();
 
-        let mut stats_by_extension = HashMap::new();
+        let mut stats_by_extension = BTreeMap::new();
         stats_by_extension.insert(
             "js".to_string(),
             (
@@ -611,10 +627,10 @@ mod tests {
             blank_ratio: 0.05,
             comment_to_code_ratio: 0.29,
             doc_to_code_ratio: 0.07,
-            ratios_by_extension: HashMap::new(),
-            language_distribution: HashMap::new(),
-            file_distribution: HashMap::new(),
-            size_distribution: HashMap::new(),
+            ratios_by_extension: BTreeMap::new(),
+            language_distribution: BTreeMap::new(),
+            file_distribution: BTreeMap::new(),
+            size_distribution: BTreeMap::new(),
             quality_metrics: QualityMetrics {
                 documentation_score: 75.0,
                 maintainability_score: 80.0,
@@ -745,7 +761,7 @@ mod tests {
         let calculator = RatioStatsCalculator::new();
 
         // Simulate realistic project stats
-        let mut stats_by_extension = HashMap::new();
+        let mut stats_by_extension = BTreeMap::new();
         stats_by_extension.insert(
             "rs".to_string(),
             (

@@ -95,7 +95,7 @@ impl PhpAnalyzer {
 
         // Basic control structures
         if line.contains("if ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("elseif ") {
             complexity += 1;
@@ -104,19 +104,19 @@ impl PhpAnalyzer {
             complexity += 1;
         }
         if line.contains("for ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("foreach ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("while ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("do ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("switch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("case ") {
             complexity += 1;
@@ -134,10 +134,10 @@ impl PhpAnalyzer {
 
         // Exception handling
         if line.contains("try ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("catch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("finally ") {
             complexity += 1;
@@ -537,10 +537,10 @@ impl LanguageAnalyzer for PhpAnalyzer {
                     }
 
                     // Count interface methods
-                    if structure.structure_type == StructureType::Interface {
-                        if self.is_function_declaration(trimmed) {
-                            structure.interface_count += 1;
-                        }
+                    if structure.structure_type == StructureType::Interface
+                        && self.is_function_declaration(trimmed)
+                    {
+                        structure.interface_count += 1;
                     }
                 }
 
@@ -590,14 +590,6 @@ impl LanguageAnalyzer for PhpAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "PHP"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["php", "php3", "php4", "php5", "phtml"]
     }
 }
 

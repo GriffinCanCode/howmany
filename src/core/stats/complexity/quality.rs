@@ -57,8 +57,7 @@ impl QualityCalculator {
             + complexity * 0.25
             + function_size * 0.15
             + nesting_depth * 0.1)
-            .min(100.0)
-            .max(0.0)
+            .clamp(0.0, 100.0)
     }
 
     /// Calculate industry-standard maintainability index
@@ -103,7 +102,7 @@ impl QualityCalculator {
                 score -= 20.0;
             }
 
-            return score.min(100.0).max(0.0);
+            return score.clamp(0.0, 100.0);
         }
 
         let mut total_score = 0.0;
@@ -123,7 +122,7 @@ impl QualityCalculator {
             total_score += length_score + cyclomatic_score + cognitive_score + param_score;
         }
 
-        let base_score = (total_score / functions.len() as f64).min(100.0).max(0.0);
+        let base_score = (total_score / functions.len() as f64).clamp(0.0, 100.0);
 
         // Apply file length penalty - files over 500 lines are considered less maintainable
         let file_length_penalty = if file_stats.total_lines > 500 {
@@ -142,72 +141,6 @@ impl QualityCalculator {
         };
 
         (base_score - file_length_penalty).max(0.0)
-    }
-
-    /// Calculate readability score
-    fn calculate_readability_score(
-        &self,
-        functions: &[FunctionInfo],
-        file_stats: &FileStats,
-    ) -> f64 {
-        let mut score = 100.0;
-
-        // Comment ratio (higher is better)
-        let comment_ratio = file_stats.comment_lines as f64 / file_stats.total_lines.max(1) as f64;
-        score += comment_ratio * 20.0;
-
-        // Average function length (shorter is better)
-        if !functions.is_empty() {
-            let avg_length = functions.iter().map(|f| f.line_count).sum::<usize>() as f64
-                / functions.len() as f64;
-            if avg_length > 20.0 {
-                score -= (avg_length - 20.0) * 2.0;
-            }
-        }
-
-        // Nesting depth (lower is better)
-        for func in functions {
-            if func.nesting_depth > 3 {
-                score -= (func.nesting_depth - 3) as f64 * 5.0;
-            }
-        }
-
-        score.min(100.0).max(0.0)
-    }
-
-    /// Calculate testability score
-    fn calculate_testability_score(&self, functions: &[FunctionInfo]) -> f64 {
-        if functions.is_empty() {
-            return 100.0;
-        }
-
-        let mut total_score = 0.0;
-
-        for func in functions {
-            let mut func_score = 100.0;
-
-            // Functions with fewer parameters are more testable
-            if func.parameter_count > 4 {
-                func_score -= (func.parameter_count - 4) as f64 * 10.0;
-            }
-
-            // Lower complexity is more testable
-            func_score -= func.cyclomatic_complexity as f64 * 4.0;
-
-            // Functions with fewer return paths are more testable
-            if func.return_path_count > 3 {
-                func_score -= (func.return_path_count - 3) as f64 * 8.0;
-            }
-
-            // Exception handling makes testing more complex
-            if func.has_exception_handling {
-                func_score -= 10.0;
-            }
-
-            total_score += func_score.max(0.0);
-        }
-
-        (total_score / functions.len() as f64).min(100.0).max(0.0)
     }
 
     /// Estimate code duplication ratio
@@ -241,80 +174,7 @@ impl QualityCalculator {
             duplication_score += 2.0;
         }
 
-        duplication_score.min(25.0).max(0.0) // Cap at 25% max duplication
-    }
-
-    /// Calculate comment coverage ratio
-    fn calculate_comment_coverage(&self, file_stats: &FileStats) -> f64 {
-        let total_non_blank = file_stats.total_lines - file_stats.blank_lines;
-        if total_non_blank == 0 {
-            return 0.0;
-        }
-
-        ((file_stats.comment_lines + file_stats.doc_lines) as f64 / total_non_blank as f64) * 100.0
-    }
-
-    /// Calculate function size score
-    fn calculate_function_size_score(&self, functions: &[FunctionInfo]) -> f64 {
-        if functions.is_empty() {
-            return 100.0;
-        }
-
-        let mut score = 100.0;
-        let avg_size =
-            functions.iter().map(|f| f.line_count).sum::<usize>() as f64 / functions.len() as f64;
-
-        // Ideal function size is 10-20 lines
-        if avg_size > 20.0 {
-            score -= (avg_size - 20.0) * 2.0;
-        } else if avg_size < 5.0 {
-            score -= (5.0 - avg_size) * 3.0;
-        }
-
-        // Penalize very large functions
-        for func in functions {
-            if func.line_count > 100 {
-                score -= 10.0;
-            } else if func.line_count > 50 {
-                score -= 5.0;
-            }
-        }
-
-        score.min(100.0).max(0.0)
-    }
-
-    /// Calculate complexity score
-    fn calculate_complexity_score(&self, functions: &[FunctionInfo]) -> f64 {
-        if functions.is_empty() {
-            return 100.0;
-        }
-
-        let mut score = 100.0;
-        let avg_cyclomatic = functions
-            .iter()
-            .map(|f| f.cyclomatic_complexity)
-            .sum::<usize>() as f64
-            / functions.len() as f64;
-        let avg_cognitive = functions
-            .iter()
-            .map(|f| f.cognitive_complexity)
-            .sum::<usize>() as f64
-            / functions.len() as f64;
-
-        // Penalize high complexity
-        score -= avg_cyclomatic * 3.0;
-        score -= avg_cognitive * 2.0;
-
-        // Extra penalty for very complex functions
-        for func in functions {
-            if func.cyclomatic_complexity > 20 {
-                score -= 15.0;
-            } else if func.cyclomatic_complexity > 10 {
-                score -= 5.0;
-            }
-        }
-
-        score.min(100.0).max(0.0)
+        duplication_score.clamp(0.0, 25.0) // Cap at 25% max duplication
     }
 
     /// Calculate code health metrics for the entire project
@@ -508,7 +368,7 @@ impl QualityCalculator {
                 score -= ((file_stats.total_lines - 500) as f64 / 100.0).min(25.0);
             }
 
-            return score.min(100.0).max(0.0);
+            return score.clamp(0.0, 100.0);
         }
 
         let mut score = 100.0;
@@ -529,7 +389,7 @@ impl QualityCalculator {
             }
         }
 
-        score.min(100.0).max(0.0)
+        score.clamp(0.0, 100.0)
     }
 
     /// Calculate nesting depth health score
@@ -557,7 +417,7 @@ impl QualityCalculator {
                 score -= 15.0;
             }
 
-            return score.min(100.0).max(0.0);
+            return score.clamp(0.0, 100.0);
         }
 
         let mut score = 100.0;
@@ -578,7 +438,7 @@ impl QualityCalculator {
             }
         }
 
-        score.min(100.0).max(0.0)
+        score.clamp(0.0, 100.0)
     }
 
     /// Calculate technical debt ratio

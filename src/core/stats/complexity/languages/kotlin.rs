@@ -89,7 +89,7 @@ impl KotlinAnalyzer {
 
         // Basic control structures
         if line.contains("if ") || line.contains("if(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("else if") {
             complexity += 1;
@@ -98,16 +98,16 @@ impl KotlinAnalyzer {
             complexity += 1;
         }
         if line.contains("when ") || line.contains("when(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("for ") || line.contains("for(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("while ") || line.contains("while(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("do ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
 
         // When expression branches
@@ -129,7 +129,7 @@ impl KotlinAnalyzer {
             complexity += 1;
         }
         if line.contains("catch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("finally ") {
             complexity += 1;
@@ -288,16 +288,6 @@ impl KotlinAnalyzer {
         } else {
             false
         }
-    }
-
-    /// Check if it's a data class
-    fn is_data_class(&self, line: &str) -> bool {
-        line.contains("data class")
-    }
-
-    /// Check if it's a sealed class
-    fn is_sealed_class(&self, line: &str) -> bool {
-        line.contains("sealed class") || line.contains("sealed interface")
     }
 
     /// Count inheritance/interface implementations from declaration
@@ -528,12 +518,11 @@ impl LanguageAnalyzer for KotlinAnalyzer {
                     }
 
                     // Count interface methods for interfaces
-                    if structure.structure_type == StructureType::Interface {
-                        if self.is_function_declaration(trimmed)
-                            || (trimmed.contains("val ") || trimmed.contains("var "))
-                        {
-                            structure.interface_count += 1;
-                        }
+                    if structure.structure_type == StructureType::Interface
+                        && (self.is_function_declaration(trimmed)
+                            || (trimmed.contains("val ") || trimmed.contains("var ")))
+                    {
+                        structure.interface_count += 1;
                     }
                 }
 
@@ -584,14 +573,6 @@ impl LanguageAnalyzer for KotlinAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "Kotlin"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["kt", "kts"]
     }
 }
 

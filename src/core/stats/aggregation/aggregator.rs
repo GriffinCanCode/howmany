@@ -4,7 +4,7 @@ use crate::core::stats::basic::BasicStats;
 use crate::core::stats::complexity::ComplexityStats;
 use crate::core::stats::ratios::RatioStats;
 use crate::utils::errors::Result;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Aggregator for combining different types of statistics
 pub struct StatsAggregator {
@@ -78,8 +78,8 @@ impl StatsAggregator {
     }
 
     /// Get summary statistics
-    pub fn get_summary(&self, stats: &AggregatedStats) -> HashMap<String, String> {
-        let mut summary = HashMap::new();
+    pub fn get_summary(&self, stats: &AggregatedStats) -> BTreeMap<String, String> {
+        let mut summary = BTreeMap::new();
 
         summary.insert(
             "total_files".to_string(),

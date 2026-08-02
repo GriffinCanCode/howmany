@@ -1,4 +1,4 @@
-use super::analyzer::CodeAnalyzer;
+use super::analyzer::{CodeAnalyzer, FileAnalysis};
 use super::quality::QualityCalculator;
 use super::types::{
     ComplexityDistribution, ComplexityStats, ExtensionComplexity, FunctionInfo,
@@ -6,7 +6,8 @@ use super::types::{
 };
 use crate::core::types::{CodeStats, FileStats};
 use crate::utils::errors::Result;
-use std::collections::HashMap;
+use rayon::prelude::*;
+use std::collections::BTreeMap;
 use std::path::Path;
 
 /// Main complexity statistics calculator
@@ -29,8 +30,13 @@ impl ComplexityCalculator {
         file_stats: &FileStats,
         file_path: &str,
     ) -> Result<ComplexityStats> {
-        let functions = self.analyzer.analyze_file_functions(file_path)?;
-        let structures = self.analyzer.analyze_file_structures(file_path)?;
+        // A file that cannot be re-read contributes no structures rather than
+        // failing the statistics for the whole run: its line counts are already
+        // known, and the file may simply have been moved since it was counted.
+        let FileAnalysis {
+            functions,
+            structures,
+        } = self.analyzer.analyze_file(file_path).unwrap_or_default();
 
         let function_count = functions.len();
 
@@ -164,7 +170,7 @@ impl ComplexityCalculator {
             methods_per_class,
             average_parameters_per_function,
             max_parameters_per_function,
-            complexity_by_extension: HashMap::new(),
+            complexity_by_extension: BTreeMap::new(),
             complexity_distribution,
             structure_distribution,
             function_complexity_details,
@@ -190,19 +196,33 @@ impl ComplexityCalculator {
         let mut min_function_length = usize::MAX;
         let mut max_nesting_depth = 0;
         let mut total_nesting_depth = 0.0;
-        let mut complexity_by_extension = HashMap::new();
+        let mut complexity_by_extension = BTreeMap::new();
         let mut all_functions = Vec::new();
         let mut all_structures = Vec::new();
 
-        // Analyze individual files for detailed complexity metrics
-        for (file_path, _) in individual_files {
-            if let Ok(functions) = self.analyzer.analyze_file_functions(file_path) {
-                all_functions.extend(functions.clone());
-            }
+        // Analyze every file exactly once, in parallel.
+        //
+        // Reading and parsing the sources dominates project-level analysis, so
+        // this is where the wall-clock time goes. `collect` preserves input
+        // order, which keeps the per-extension running averages below -- and
+        // therefore the report -- identical on every run.
+        let analyses: Vec<(&String, FileAnalysis)> = individual_files
+            .par_iter()
+            .filter_map(|(file_path, _)| {
+                self.analyzer
+                    .analyze_file(file_path)
+                    .ok()
+                    .map(|analysis| (file_path, analysis))
+            })
+            .collect();
 
-            if let Ok(structures) = self.analyzer.analyze_file_structures(file_path) {
-                all_structures.extend(structures.clone());
+        for (file_path, analysis) in analyses {
+            let FileAnalysis {
+                functions,
+                structures,
+            } = analysis;
 
+            {
                 total_classes += structures
                     .iter()
                     .filter(|s| s.structure_type == StructureType::Class)
@@ -232,7 +252,7 @@ impl ComplexityCalculator {
                     .count();
             }
 
-            if let Ok(functions) = self.analyzer.analyze_file_functions(file_path) {
+            {
                 let extension = Path::new(file_path)
                     .extension()
                     .and_then(|ext| ext.to_str())
@@ -293,9 +313,15 @@ impl ComplexityCalculator {
                         + ext_avg_nesting * function_count as f64)
                         / entry.function_count as f64;
                 }
-
-                all_functions.extend(functions);
             }
+
+            // Exactly once per file. The previous implementation extended
+            // `all_functions` from two separate analysis passes, so every
+            // function was counted twice and `function_count`,
+            // `average_function_length` and the complexity distribution were all
+            // reported at double their true size.
+            all_functions.extend(functions);
+            all_structures.extend(structures);
         }
 
         // Calculate aggregate statistics
@@ -555,7 +581,7 @@ impl ComplexityCalculator {
             total_score += length_score + cyclomatic_score + cognitive_score + param_score;
         }
 
-        let base_score = (total_score / functions.len() as f64).min(100.0).max(0.0);
+        let base_score = (total_score / functions.len() as f64).clamp(0.0, 100.0);
 
         // Apply file length penalty - files over 500 lines are considered less maintainable
         let file_length_penalty = if file_stats.total_lines > 500 {

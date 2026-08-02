@@ -124,19 +124,19 @@ impl ErlangAnalyzer {
 
         // Basic control structures
         if line.contains("if ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("case ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("receive") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("try ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("catch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("after ") {
             complexity += 1;
@@ -149,7 +149,7 @@ impl ErlangAnalyzer {
 
         // Guards add complexity
         if line.contains(" when ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
 
         // Logical operators
@@ -266,50 +266,9 @@ impl ErlangAnalyzer {
         0
     }
 
-    /// Determine visibility (all functions are public in Erlang unless unexported)
-    fn get_visibility(&self, _line: &str) -> Visibility {
-        Visibility::Public // Default in Erlang
-    }
-
-    /// Check if function is exported
-    fn is_exported(&self, _line: &str) -> bool {
-        // Would need to check export list, simplified for now
-        true
-    }
-
-    /// Check if line contains a process spawn
-    fn is_process_spawn(&self, line: &str) -> bool {
-        line.contains("spawn(") || line.contains("spawn_link(") || line.contains("spawn_monitor(")
-    }
-
-    /// Check if line contains message passing
-    fn has_message_passing(&self, line: &str) -> bool {
-        line.contains("!") || line.contains("receive")
-    }
-
     /// Check if line contains pattern matching
     fn has_pattern_matching(&self, line: &str) -> bool {
         line.contains("=") && !line.contains("==") && !line.contains("=/=")
-    }
-
-    /// Check if line contains guards
-    fn has_guards(&self, line: &str) -> bool {
-        line.contains(" when ")
-    }
-
-    /// Check if line contains list comprehension
-    fn has_list_comprehension(&self, line: &str) -> bool {
-        line.contains("||") && line.contains("[")
-    }
-
-    /// Check if line contains binary comprehension
-    fn has_binary_comprehension(&self, line: &str) -> bool {
-        line.contains("<=") && line.contains("<<")
-    }
-
-    /// Check if line contains fun expression
-    fn has_fun_expression(&self, line: &str) -> bool {
-        line.contains("fun ")
     }
 
     /// Count clauses in function (multiple function heads)
@@ -554,14 +513,6 @@ impl LanguageAnalyzer for ErlangAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "Erlang"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["erl", "hrl"]
     }
 }
 

@@ -84,7 +84,7 @@ impl JavaAnalyzer {
 
         // Basic control structures
         if line.contains("if ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("else if") {
             complexity += 1;
@@ -93,22 +93,22 @@ impl JavaAnalyzer {
             complexity += 1;
         }
         if line.contains("while ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("for ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("do ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("switch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("case ") {
             complexity += 1;
         }
         if line.contains("catch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("finally") {
             complexity += 1;
@@ -460,14 +460,6 @@ impl LanguageAnalyzer for JavaAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "Java"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["java"]
     }
 }
 

@@ -1,5 +1,5 @@
 use super::types::{ExtensionRatios, QualityMetrics, QualityThresholds};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Quality metrics calculator
 pub struct QualityCalculator {
@@ -20,7 +20,7 @@ impl QualityCalculator {
         blank_ratio: f64,
         comment_to_code_ratio: f64,
         doc_to_code_ratio: f64,
-        ratios_by_extension: &HashMap<String, ExtensionRatios>,
+        ratios_by_extension: &BTreeMap<String, ExtensionRatios>,
     ) -> QualityMetrics {
         // Documentation score (0-100)
         let doc_score = self.calculate_documentation_score(
@@ -160,7 +160,7 @@ impl QualityCalculator {
     /// Calculate consistency score
     fn calculate_consistency_score(
         &self,
-        ratios_by_extension: &HashMap<String, ExtensionRatios>,
+        ratios_by_extension: &BTreeMap<String, ExtensionRatios>,
     ) -> f64 {
         if ratios_by_extension.len() <= 1 {
             return 100.0; // Perfect consistency with one or no languages

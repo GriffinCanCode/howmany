@@ -9,6 +9,12 @@ pub struct InteractiveDisplay {
     modern_display: Option<ModernInteractiveDisplay>,
 }
 
+impl Default for InteractiveDisplay {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InteractiveDisplay {
     pub fn new() -> Self {
         Self {
@@ -18,9 +24,7 @@ impl InteractiveDisplay {
 
     pub fn show_welcome(&mut self) -> io::Result<()> {
         if let Some(ref mut display) = self.modern_display {
-            display
-                .show_welcome()
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            display.show_welcome().map_err(io::Error::other)?;
         } else {
             // Fallback to simple console output
             println!("{}", "🔍 HOW MANY CODE ANALYZER 🔍".bright_cyan());
@@ -65,7 +69,7 @@ impl InteractiveDisplay {
             let individual_files_vec = individual_files.to_vec();
             display
                 .run_interactive_mode(stats.clone(), individual_files_vec)
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                .map_err(io::Error::other)?;
         } else {
             // Fallback to simple table output
             self.show_fallback_results(stats, individual_files)?;

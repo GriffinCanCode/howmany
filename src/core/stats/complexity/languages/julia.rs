@@ -256,14 +256,6 @@ impl LanguageAnalyzer for JuliaAnalyzer {
 
         Ok(structures)
     }
-
-    fn language_name(&self) -> &'static str {
-        "Julia"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["jl"]
-    }
 }
 
 impl JuliaAnalyzer {
@@ -319,24 +311,6 @@ impl JuliaAnalyzer {
         }
 
         lines.len().saturating_sub(1)
-    }
-
-    /// Count methods within a structure
-    fn count_methods_in_structure(
-        &self,
-        lines: &[String],
-        start_line: usize,
-        end_line: usize,
-    ) -> usize {
-        let mut count = 0;
-
-        for i in start_line..=end_line.min(lines.len().saturating_sub(1)) {
-            if self.extract_function_name(&lines[i]).is_some() {
-                count += 1;
-            }
-        }
-
-        count
     }
 
     /// Count fields within a structure

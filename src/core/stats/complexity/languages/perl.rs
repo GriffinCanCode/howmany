@@ -20,8 +20,7 @@ impl PerlAnalyzer {
         }
 
         // Look for sub declarations: sub function_name
-        if trimmed.starts_with("sub ") {
-            let after_sub = &trimmed[4..];
+        if let Some(after_sub) = trimmed.strip_prefix("sub ") {
             let parts: Vec<&str> = after_sub.split_whitespace().collect();
 
             if let Some(first_part) = parts.first() {
@@ -86,7 +85,7 @@ impl PerlAnalyzer {
 
         // Basic control structures
         if line.contains("if ") || line.contains("if(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("elsif ") {
             complexity += 1;
@@ -95,27 +94,27 @@ impl PerlAnalyzer {
             complexity += 1;
         }
         if line.contains("unless ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("for ") || line.contains("for(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("foreach ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("while ") || line.contains("while(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("until ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("do ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
 
         // Switch-like structures
         if line.contains("given ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("when ") {
             complexity += 1;
@@ -258,35 +257,6 @@ impl PerlAnalyzer {
         } else {
             Visibility::Public
         }
-    }
-
-    /// Check if function uses references
-    fn uses_references(&self, line: &str) -> bool {
-        line.contains("\\") && !line.contains("\\n") && !line.contains("\\t")
-    }
-
-    /// Check if function uses regular expressions
-    fn uses_regex(&self, line: &str) -> bool {
-        line.contains("=~")
-            || line.contains("!~")
-            || line.contains("m/")
-            || line.contains("s/")
-            || line.contains("tr/")
-    }
-
-    /// Check if function uses complex data structures
-    fn uses_complex_data(&self, line: &str) -> bool {
-        line.contains("@{") || line.contains("%{") || line.contains("${")
-    }
-
-    /// Check if function uses map/grep/sort
-    fn uses_functional_constructs(&self, line: &str) -> bool {
-        line.contains("map ") || line.contains("grep ") || line.contains("sort ")
-    }
-
-    /// Check if line contains object-oriented constructs
-    fn uses_oo_constructs(&self, line: &str) -> bool {
-        line.contains("->") || line.contains("bless") || line.contains("SUPER::")
     }
 }
 
@@ -539,14 +509,6 @@ impl LanguageAnalyzer for PerlAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "Perl"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["pl", "pm", "perl"]
     }
 }
 

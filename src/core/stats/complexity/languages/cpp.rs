@@ -29,7 +29,7 @@ impl CppAnalyzer {
             let before_paren = &trimmed[..paren_pos];
             let parts: Vec<&str> = before_paren.split_whitespace().collect();
 
-            if parts.len() >= 1 {
+            if !parts.is_empty() {
                 let potential_name = parts.last().unwrap();
 
                 // Remove pointer/reference indicators
@@ -103,7 +103,7 @@ impl CppAnalyzer {
 
         // Basic control structures
         if line.contains("if ") || line.contains("if(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("else if") {
             complexity += 1;
@@ -112,22 +112,22 @@ impl CppAnalyzer {
             complexity += 1;
         }
         if line.contains("while ") || line.contains("while(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("for ") || line.contains("for(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("do ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("switch ") || line.contains("switch(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("case ") {
             complexity += 1;
         }
         if line.contains("catch ") || line.contains("catch(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
 
         // Logical operators
@@ -541,14 +541,6 @@ impl LanguageAnalyzer for CppAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "C/C++"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["cpp", "cc", "cxx", "c", "h", "hpp"]
     }
 }
 

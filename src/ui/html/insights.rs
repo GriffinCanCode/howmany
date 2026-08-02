@@ -2,6 +2,12 @@ use crate::core::types::{CodeStats, FileStats};
 
 pub struct InsightsGenerator;
 
+impl Default for InsightsGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InsightsGenerator {
     pub fn new() -> Self {
         Self
@@ -128,12 +134,10 @@ impl InsightsGenerator {
         if stats.stats_by_extension.contains_key("py") {
             let py_stats = &stats.stats_by_extension.get("py").unwrap().1;
             if py_stats.doc_lines > py_stats.comment_lines * 2 {
-                insights.push(format!(
-                    r#"<div class="insight">
+                insights.push(r#"<div class="insight">
                         <div class="insight-title">🐍 Python Docstring Devotee</div>
                         Your Python code has more docstrings than comments. Following PEP 257 like a true Pythonista!
-                    </div>"#
-                ));
+                    </div>"#.to_string());
             }
         }
 
@@ -152,12 +156,10 @@ impl InsightsGenerator {
         }
 
         if insights.is_empty() {
-            insights.push(format!(
-                r#"<div class="insight">
+            insights.push(r#"<div class="insight">
                     <div class="insight-title">🤖 The Efficient Coder</div>
                     Your code is so clean and well-balanced, our humor algorithms can't find anything to roast you about. Impressive!
-                </div>"#
-            ));
+                </div>"#.to_string());
         }
 
         format!(

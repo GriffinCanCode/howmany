@@ -3,11 +3,11 @@ mod tests {
     use crate::core::types::{CodeStats, FileStats};
     use crate::ui::sarif::{SarifConverter, SarifReporter};
     use serde_sarif::sarif::Sarif;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     use tempfile::NamedTempFile;
 
     fn create_test_stats() -> CodeStats {
-        let mut stats_by_extension = HashMap::new();
+        let mut stats_by_extension = BTreeMap::new();
 
         // Add some test data
         let rust_stats = FileStats {
@@ -192,7 +192,7 @@ mod tests {
             total_doc_lines: 0,
             total_blank_lines: 0,
             total_size: 0,
-            stats_by_extension: HashMap::new(),
+            stats_by_extension: BTreeMap::new(),
         };
         let individual_files = vec![];
 

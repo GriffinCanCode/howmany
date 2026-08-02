@@ -4,7 +4,7 @@ use crate::core::stats::complexity::ComplexityStats;
 use crate::core::stats::ratios::RatioStats;
 use crate::core::types::{CodeStats, FileStats};
 use crate::utils::errors::{HowManyError, Result};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Handles merging of different statistics types
 pub struct StatsMerger {
@@ -59,7 +59,7 @@ impl StatsMerger {
         let mut doc_lines = 0;
         let mut blank_lines = 0;
         let mut total_size = 0;
-        let mut merged_extensions = HashMap::new();
+        let mut merged_extensions = BTreeMap::new();
         let mut all_file_sizes = Vec::new();
 
         for stats in stats_list {
@@ -158,7 +158,7 @@ impl StatsMerger {
         let mut total_nesting_depth = 0.0;
         let mut total_parameters = 0;
         let mut max_parameters = 0;
-        let mut merged_complexity_by_extension = HashMap::new();
+        let mut merged_complexity_by_extension = BTreeMap::new();
 
         // Merge complexity distribution
         let mut merged_distribution = crate::core::stats::complexity::ComplexityDistribution {
@@ -462,7 +462,7 @@ impl StatsMerger {
         let ratio_calculator = crate::core::stats::ratios::RatioStatsCalculator::new();
 
         // Create a temporary CodeStats for recalculation
-        let mut temp_stats_by_extension = HashMap::new();
+        let mut temp_stats_by_extension = BTreeMap::new();
         for stats in stats_list {
             for (ext, ext_stats) in &stats.basic.stats_by_extension {
                 let entry = temp_stats_by_extension.entry(ext.clone()).or_insert((
@@ -490,7 +490,7 @@ impl StatsMerger {
         let temp_code_stats = CodeStats {
             total_files: stats_list.iter().map(|s| s.basic.total_files).sum(),
             total_lines,
-            total_code_lines: total_code_lines,
+            total_code_lines,
             total_comment_lines: comment_lines,
             total_blank_lines: blank_lines,
             total_size: stats_list.iter().map(|s| s.basic.total_size).sum(),

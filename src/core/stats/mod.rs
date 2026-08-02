@@ -148,7 +148,7 @@ impl StatsCalculator {
     pub fn get_comprehensive_summary(
         &self,
         stats: &AggregatedStats,
-    ) -> std::collections::HashMap<String, String> {
+    ) -> std::collections::BTreeMap<String, String> {
         let mut summary = self.aggregator.get_summary(stats);
 
         // Add additional insights

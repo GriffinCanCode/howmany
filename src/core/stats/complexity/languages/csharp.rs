@@ -115,7 +115,7 @@ impl CSharpAnalyzer {
 
         // Basic control structures
         if line.contains("if ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("else if") {
             complexity += 1;
@@ -124,19 +124,19 @@ impl CSharpAnalyzer {
             complexity += 1;
         }
         if line.contains("for ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("foreach ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("while ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("do ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("switch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("case ") {
             complexity += 1;
@@ -151,10 +151,10 @@ impl CSharpAnalyzer {
 
         // Exception handling
         if line.contains("try ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("catch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("finally ") {
             complexity += 1;
@@ -174,7 +174,7 @@ impl CSharpAnalyzer {
             complexity += 2;
         } // Yield statements are complex
         if line.contains("lock ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         } // Lock statements
         if line.contains("using ") && line.contains('(') {
             complexity += 1;
@@ -538,14 +538,13 @@ impl LanguageAnalyzer for CSharpAnalyzer {
                     }
 
                     // Count interface implementations
-                    if structure.structure_type == StructureType::Interface {
-                        if trimmed.contains('(')
-                            && trimmed.contains(')')
-                            && !trimmed.starts_with("//")
-                            && !trimmed.starts_with("/*")
-                        {
-                            structure.interface_count += 1;
-                        }
+                    if structure.structure_type == StructureType::Interface
+                        && trimmed.contains('(')
+                        && trimmed.contains(')')
+                        && !trimmed.starts_with("//")
+                        && !trimmed.starts_with("/*")
+                    {
+                        structure.interface_count += 1;
                     }
                 }
 
@@ -595,14 +594,6 @@ impl LanguageAnalyzer for CSharpAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "C#"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["cs"]
     }
 }
 

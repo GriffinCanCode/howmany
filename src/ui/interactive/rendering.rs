@@ -202,7 +202,7 @@ fn create_aggregated_stats_from_basic(
         ComplexityDistribution, ComplexityStats, QualityMetrics, StructureDistribution,
     };
     use crate::core::stats::ratios::RatioStats;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     // Create basic stats
     let basic_stats = BasicStats {
@@ -286,7 +286,7 @@ fn create_aggregated_stats_from_basic(
         methods_per_class: 0.0,
         average_parameters_per_function: 0.0,
         max_parameters_per_function: 0,
-        complexity_by_extension: HashMap::new(),
+        complexity_by_extension: BTreeMap::new(),
         complexity_distribution: ComplexityDistribution {
             very_low_complexity: 0,
             low_complexity: 0,
@@ -347,10 +347,10 @@ fn create_aggregated_stats_from_basic(
         } else {
             0.0
         },
-        ratios_by_extension: HashMap::new(),
-        language_distribution: HashMap::new(),
-        file_distribution: HashMap::new(),
-        size_distribution: HashMap::new(),
+        ratios_by_extension: BTreeMap::new(),
+        language_distribution: BTreeMap::new(),
+        file_distribution: BTreeMap::new(),
+        size_distribution: BTreeMap::new(),
         quality_metrics: crate::core::stats::ratios::QualityMetrics {
             overall_quality_score: 85.0,
             documentation_score: if stats.total_code_lines > 0 {
@@ -381,39 +381,6 @@ fn create_aggregated_stats_from_basic(
         ratios: ratio_stats,
         metadata,
     }
-}
-
-// Helper function to convert CodeStats extension stats to BasicStats extension stats
-fn convert_to_extension_stats(
-    stats_by_extension: &std::collections::HashMap<String, (usize, crate::core::types::FileStats)>,
-) -> std::collections::HashMap<String, crate::core::stats::basic::ExtensionStats> {
-    use crate::core::stats::basic::ExtensionStats;
-
-    stats_by_extension
-        .iter()
-        .map(|(ext, (file_count, file_stats))| {
-            let extension_stats = ExtensionStats {
-                file_count: *file_count,
-                total_lines: file_stats.total_lines,
-                code_lines: file_stats.code_lines,
-                comment_lines: file_stats.comment_lines,
-                doc_lines: file_stats.doc_lines,
-                blank_lines: file_stats.blank_lines,
-                total_size: file_stats.file_size,
-                average_lines_per_file: if *file_count > 0 {
-                    file_stats.total_lines as f64 / *file_count as f64
-                } else {
-                    0.0
-                },
-                average_size_per_file: if *file_count > 0 {
-                    file_stats.file_size as f64 / *file_count as f64
-                } else {
-                    0.0
-                },
-            };
-            (ext.clone(), extension_stats)
-        })
-        .collect()
 }
 
 pub fn render_main_stats(f: &mut ratatui::Frame, area: Rect, stats: &CodeStats) {
@@ -691,19 +658,6 @@ fn render_languages_with_code_health(f: &mut ratatui::Frame, area: Rect, app: &m
     }
 }
 
-fn render_language_overview_chart(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(60), // Bar chart
-            Constraint::Percentage(40), // Stats summary
-        ])
-        .split(area);
-
-    render_language_bar_chart(f, chunks[0], app);
-    render_language_stats_summary(f, chunks[1], app);
-}
-
 fn render_language_overview_chart_no_stats(
     f: &mut ratatui::Frame,
     area: Rect,
@@ -887,130 +841,6 @@ fn render_language_bar_chart(f: &mut ratatui::Frame, area: Rect, app: &Interacti
         .wrap(Wrap { trim: true });
 
     f.render_widget(chart_paragraph, area);
-}
-
-fn render_language_stats_summary(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
-    let mut total_files = 0;
-    let mut total_lines = 0;
-    let mut total_code_lines = 0;
-    let language_count = app.language_stats.len();
-
-    // Calculate totals
-    for (_, (_, file_count, file_stats)) in &app.language_stats {
-        total_files += file_count;
-        total_lines += file_stats.total_lines;
-        total_code_lines += file_stats.code_lines;
-    }
-
-    // Find dominant language
-    let dominant_language = app
-        .language_stats
-        .iter()
-        .max_by_key(|(_, (_, _, file_stats))| file_stats.total_lines)
-        .map(|(name, (info, _, _))| (name.clone(), info.clone()));
-
-    let mut summary_lines = vec![
-        Line::from(vec![Span::styled(
-            "📈 Project Summary",
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        )]),
-        Line::from(""),
-    ];
-
-    // Language count with icon
-    summary_lines.push(Line::from(vec![
-        Span::styled("🌐 Languages: ", Style::default().fg(Color::Cyan)),
-        Span::styled(
-            language_count.to_string(),
-            Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::BOLD),
-        ),
-    ]));
-
-    // Total files with icon
-    summary_lines.push(Line::from(vec![
-        Span::styled("📁 Files: ", Style::default().fg(Color::Blue)),
-        Span::styled(
-            total_files.to_string(),
-            Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::BOLD),
-        ),
-    ]));
-
-    // Total lines with icon
-    summary_lines.push(Line::from(vec![
-        Span::styled("📏 Lines: ", Style::default().fg(Color::Green)),
-        Span::styled(
-            total_lines.to_string(),
-            Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::BOLD),
-        ),
-    ]));
-
-    // Code lines with icon
-    summary_lines.push(Line::from(vec![
-        Span::styled("⚡ Code: ", Style::default().fg(Color::Magenta)),
-        Span::styled(
-            total_code_lines.to_string(),
-            Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::BOLD),
-        ),
-    ]));
-
-    summary_lines.push(Line::from(""));
-
-    // Dominant language
-    if let Some((lang_name, lang_info)) = dominant_language {
-        summary_lines.push(Line::from(vec![Span::styled(
-            "👑 Primary: ",
-            Style::default().fg(Color::Yellow),
-        )]));
-        summary_lines.push(Line::from(vec![Span::styled(
-            format!("{} {}", lang_info.icon, lang_name),
-            Style::default()
-                .fg(parse_hex_color(&lang_info.color))
-                .add_modifier(Modifier::BOLD),
-        )]));
-    }
-
-    // Code quality indicator
-    let code_ratio = if total_lines > 0 {
-        (total_code_lines as f64 / total_lines as f64) * 100.0
-    } else {
-        0.0
-    };
-
-    summary_lines.push(Line::from(""));
-    summary_lines.push(Line::from(vec![
-        Span::styled("📊 Code Ratio: ", Style::default().fg(Color::Cyan)),
-        Span::styled(
-            format!("{:.1}%", code_ratio),
-            Style::default().fg(if code_ratio > 70.0 {
-                Color::Green
-            } else if code_ratio > 50.0 {
-                Color::Yellow
-            } else {
-                Color::Red
-            }),
-        ),
-    ]));
-
-    let summary_paragraph = Paragraph::new(summary_lines)
-        .alignment(Alignment::Left)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(" Quick Stats "),
-        )
-        .wrap(Wrap { trim: true });
-
-    f.render_widget(summary_paragraph, area);
 }
 
 fn parse_hex_color(hex: &str) -> Color {
@@ -1491,39 +1321,4 @@ pub fn render_export(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
         .alignment(Alignment::Left)
         .block(Block::default().borders(Borders::ALL).title(" Help "));
     f.render_widget(help_block, chunks[3]);
-}
-
-// Helper functions for realistic file size calculations
-fn calculate_largest_file_size(stats: &CodeStats) -> u64 {
-    if stats.stats_by_extension.is_empty() {
-        return 0;
-    }
-
-    // Estimate largest file size based on extension with most lines
-    let max_lines_per_ext = stats
-        .stats_by_extension
-        .values()
-        .map(|(_, file_stats)| file_stats.total_lines)
-        .max()
-        .unwrap_or(0);
-
-    // Estimate bytes per line (average ~50 bytes per line)
-    (max_lines_per_ext as u64 * 50).max(1)
-}
-
-fn calculate_smallest_file_size(stats: &CodeStats) -> u64 {
-    if stats.stats_by_extension.is_empty() {
-        return 0;
-    }
-
-    // Estimate smallest file size based on extension with fewest lines
-    let min_lines_per_ext = stats
-        .stats_by_extension
-        .values()
-        .map(|(_, file_stats)| file_stats.total_lines)
-        .min()
-        .unwrap_or(0);
-
-    // Estimate bytes per line (average ~50 bytes per line)
-    (min_lines_per_ext as u64 * 50).max(1)
 }

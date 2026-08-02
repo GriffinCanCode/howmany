@@ -252,14 +252,6 @@ impl LanguageAnalyzer for ZigAnalyzer {
 
         Ok(structures)
     }
-
-    fn language_name(&self) -> &'static str {
-        "Zig"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["zig"]
-    }
 }
 
 impl ZigAnalyzer {
@@ -276,25 +268,6 @@ impl ZigAnalyzer {
         }
 
         0
-    }
-
-    /// Extract return type from function definition
-    fn extract_return_type(&self, line: &str) -> Option<String> {
-        // Look for return type after closing parenthesis
-        if let Some(paren_pos) = line.find(')') {
-            let after_paren = &line[paren_pos + 1..];
-            if let Some(arrow_pos) = after_paren.find("->") {
-                let return_type = after_paren[arrow_pos + 2..].trim();
-                if let Some(brace_pos) = return_type.find('{') {
-                    let clean_type = return_type[..brace_pos].trim();
-                    if !clean_type.is_empty() {
-                        return Some(clean_type.to_string());
-                    }
-                }
-            }
-        }
-
-        None
     }
 
     /// Find the end of a structure definition
@@ -323,24 +296,6 @@ impl ZigAnalyzer {
         }
 
         lines.len().saturating_sub(1)
-    }
-
-    /// Count methods within a structure
-    fn count_methods_in_structure(
-        &self,
-        lines: &[String],
-        start_line: usize,
-        end_line: usize,
-    ) -> usize {
-        let mut count = 0;
-
-        for i in start_line..=end_line.min(lines.len().saturating_sub(1)) {
-            if self.extract_function_name(&lines[i]).is_some() {
-                count += 1;
-            }
-        }
-
-        count
     }
 
     /// Count fields within a structure

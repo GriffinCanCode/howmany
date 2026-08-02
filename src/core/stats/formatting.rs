@@ -367,7 +367,7 @@ impl StatFormatter {
             "| Total Size | {} |\n",
             self.format_size(stats.basic.total_size)
         ));
-        md.push_str("\n");
+        md.push('\n');
 
         // Extension breakdown
         md.push_str("## 📋 File Type Breakdown\n\n");

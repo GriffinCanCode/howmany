@@ -1,6 +1,9 @@
 # Clippy tailors its suggestions to this floor rather than proposing APIs that
-# would not compile for the oldest supported toolchain.
-msrv = "1.74.0"
+# would not compile for the oldest supported toolchain, and flags any call that
+# is newer than it. Keep in step with `rust-version` in Cargo.toml: they
+# disagreed, so the crate used APIs stabilised eight releases after its declared
+# floor.
+msrv = "1.82.0"
 
 # Project nouns that are correctly cased but trip `doc_markdown`.
 # ".." keeps clippy's own default allowlist in addition to these.

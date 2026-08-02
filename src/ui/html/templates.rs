@@ -1,4 +1,4 @@
-use super::utils::FileUtils;
+use super::utils::{escape_html, escape_js_string, FileUtils};
 use crate::core::stats::aggregation::AggregatedStats;
 use crate::core::stats::basic::BasicStats;
 use crate::core::stats::complexity::ComplexityStatsCalculator;
@@ -9,6 +9,12 @@ use std::fmt::Write;
 pub struct TemplateGenerator {
     file_utils: FileUtils,
     sherlock_result: Option<crate::core::detector::SherlockResult>,
+}
+
+impl Default for TemplateGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TemplateGenerator {
@@ -50,7 +56,7 @@ impl TemplateGenerator {
                     <td>{}</td>
                 </tr>"#,
                 self.file_utils.get_file_emoji(ext),
-                ext,
+                escape_html(ext),
                 file_count,
                 ext_stats.total_lines,
                 ext_stats.code_lines,
@@ -90,7 +96,7 @@ impl TemplateGenerator {
             rows.push_str(&format!(
                 "<tr><td>{} {}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td><span class=\"complexity-badge {}\">{:.1}</span></td><td>{}</td></tr>",
                 self.file_utils.get_file_emoji(ext),
-                ext,
+                escape_html(ext),
                 ext_stats.file_count,
                 ext_stats.total_lines,
                 ext_stats.code_lines,
@@ -206,11 +212,16 @@ impl TemplateGenerator {
         section
     }
 
+    /// Chart labels, as a JavaScript array body.
+    ///
+    /// These are emitted inside a `<script>`, where HTML escaping does not
+    /// apply: the label is escaped as a JS string instead, so an extension
+    /// containing a quote cannot terminate it and inject code.
     pub fn generate_complexity_labels(&self, stats: &CodeStats) -> String {
         let mut labels: Vec<String> = stats
             .stats_by_extension
             .keys()
-            .map(|ext| format!("'{}'", ext))
+            .map(|ext| format!("'{}'", escape_js_string(ext)))
             .collect();
         labels.sort();
         labels.join(", ")
@@ -895,8 +906,13 @@ impl TemplateGenerator {
         }
     }
 
+    /// A path shortened for display and escaped for embedding in the report.
+    ///
+    /// Escaping happens here because this is the only way a path reaches the
+    /// document; a file legitimately named `<img onerror=...>.rs` would
+    /// otherwise run in the reader's browser.
     fn shorten_path(&self, path: &str) -> String {
-        if path.len() > 50 {
+        let shortened = if path.len() > 50 {
             let parts: Vec<&str> = path.split('/').collect();
             if parts.len() > 2 {
                 format!(".../{}/{}", parts[parts.len() - 2], parts[parts.len() - 1])
@@ -905,6 +921,7 @@ impl TemplateGenerator {
             }
         } else {
             path.to_string()
-        }
+        };
+        escape_html(&shortened)
     }
 }

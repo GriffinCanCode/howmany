@@ -1,11 +1,12 @@
-use howmany::core::counter::CachedCodeCounter;
-use howmany::core::detector::{SherlockResult, SherlockSummary};
-use howmany::core::stats::{AggregatedStats, StatsCalculator};
-use howmany::core::types::{CodeStats, FileStats};
+use howmany::core::engine::{Analysis, AnalysisOptions, Engine};
+use howmany::core::stats::AggregatedStats;
+use howmany::core::types::FileStats;
 use howmany::ui::cli::{OutputFormat, SortBy};
-use howmany::ui::filters::{FileFilter as FileStatsFilter, FilterOptions, FilteredOutputFormatter};
-use howmany::utils::metrics::MetricsCollector;
-use howmany::{Config, FileDetector, FileFilter, InteractiveDisplay, Result};
+use howmany::ui::filters::{
+    FileComplexity, FileFilter as FileStatsFilter, FilterOptions, FilteredOutputFormatter,
+};
+use howmany::{Config, InteractiveDisplay, Result};
+use std::io::Write;
 use std::path::Path;
 use std::process;
 
@@ -25,48 +26,40 @@ fn main() {
 fn run(config: Config) -> Result<()> {
     let path = config.path.as_deref().unwrap_or_else(|| Path::new("."));
 
-    // Handle quiet mode - suppress most output except essential results
+    // A path that does not exist is a typo, not an empty project. Reporting
+    // "0 files, 0 lines" for it looks like a successful answer and has sent
+    // people looking for the bug in their code instead of in their command.
+    if !path.exists() {
+        return Err(howmany::utils::errors::HowManyError::file_processing(
+            format!("{} does not exist", path.display()),
+        ));
+    }
+
+    if config.list_files {
+        return list_files(path, &config);
+    }
+
+    // Quiet mode - suppress most output except essential results
     if config.quiet && !config.cli_mode {
-        return quiet_output(
-            path,
-            config.max_depth,
-            config.include_hidden,
-            config.get_ignore_patterns(),
-            config.get_extensions(),
-            config.get_filter_options(),
-        );
+        return quiet_output(path, &config);
     }
 
     // Simple CLI mode - just show basic counts
     if config.cli_mode {
-        return simple_cli_output(
-            path,
-            config.max_depth,
-            config.include_hidden,
-            config.get_ignore_patterns(),
-            config.get_extensions(),
-            config.get_filter_options(),
-        );
+        return simple_cli_output(path, &config, config.get_filter_options());
     }
 
-    // Interactive mode (default unless --no-interactive is passed or specific output format is requested)
+    // Interactive mode (default unless --no-interactive or an explicit format)
     if config.interactive() && matches!(config.format, OutputFormat::Text) && !config.quiet {
-        let (aggregated_stats, individual_files) = analyze_code_comprehensive(
-            path,
-            config.max_depth,
-            config.include_hidden,
-            config.get_ignore_patterns(),
-            config.get_extensions(),
-            true, // Always collect individual files for interactive mode to enable real-time analysis
-            &config.format,
-        )?;
+        // Interactive mode analyses per-file so its drill-down views have data.
+        let analysis = analyze(path, &config, true)?;
 
         let mut display = InteractiveDisplay::new();
         display.show_welcome()?;
         let pb = display.show_scanning_progress(&path.display().to_string())?;
         pb.finish_and_clear();
         return display
-            .show_comprehensive_results(&aggregated_stats, &individual_files)
+            .show_comprehensive_results(&analysis.stats, &analysis.individual_files)
             .map_err(|e| {
                 howmany::utils::errors::HowManyError::display(format!(
                     "Interactive display error: {}",
@@ -75,276 +68,106 @@ fn run(config: Config) -> Result<()> {
             });
     }
 
-    // List files mode
-    if config.list_files {
-        return list_files(
-            path,
-            config.max_depth,
-            config.include_hidden,
-            config.get_ignore_patterns(),
-            config.get_extensions(),
-            &config.format,
-        );
-    }
-
-    // Regular counting mode with comprehensive analysis
-    let (aggregated_stats, individual_files) = analyze_code_comprehensive(
-        path,
-        config.max_depth,
-        config.include_hidden,
-        config.get_ignore_patterns(),
-        config.get_extensions(),
-        config.show_files,
-        &config.format,
-    )?;
+    let analysis = analyze(path, &config, config.show_files)?;
 
     output_comprehensive_results(
-        &aggregated_stats,
-        &individual_files,
+        &analysis.stats,
+        &analysis.individual_files,
         config.format.clone(),
-        config.sort_by.clone(),
+        config.sort_by,
         config.descending,
         config.verbose,
         &config,
     )
 }
 
-/// Comprehensive code analysis using the full stats pipeline
-fn analyze_code_comprehensive(
-    path: &Path,
-    max_depth: Option<usize>,
-    include_hidden: bool,
-    ignore_patterns: Vec<String>,
-    extensions: Vec<String>,
-    show_files: bool,
-    output_format: &OutputFormat,
-) -> Result<(AggregatedStats, Vec<(String, FileStats)>)> {
-    // Only print messages for text output format
-    let should_print = matches!(output_format, OutputFormat::Text);
+/// Run the analysis pipeline, reporting progress only for human-readable output.
+fn analyze(path: &Path, config: &Config, collect_individual_files: bool) -> Result<Analysis> {
+    let should_print = matches!(config.format, OutputFormat::Text) && !config.quiet;
+    let options = config.analysis_options(collect_individual_files);
 
     if should_print {
         println!("Analyzing directory: {}", path.display());
     }
 
-    // Get language detection from SherlockIO first
-    if should_print {
-        println!("Detecting languages with SherlockIO...");
-    }
-    let sherlock_result = FileDetector::new().detect_languages(path).unwrap_or_else(|e| {
-        if should_print {
-            eprintln!("Warning: SherlockIO detection failed ({}), falling back to extension-based detection", e);
-        }
-        // Create empty result as fallback
-        SherlockResult {
-            languages: vec![],
-            summary: SherlockSummary {
-                languages_detected: 0,
-                total_bytes: 0,
-                total_files: 0,
-            },
-            unknown_files: vec![],
-        }
-    });
-
-    let detector = FileDetector::new().with_sherlock_result(sherlock_result.clone());
-    let mut filter = FileFilter::new()
-        .respect_hidden(!include_hidden)
-        .respect_gitignore(true);
-
-    if let Some(depth) = max_depth {
-        filter = filter.with_max_depth(depth);
-    }
-
-    // Add custom ignore patterns
-    if !ignore_patterns.is_empty() {
-        filter = filter.with_custom_ignores(ignore_patterns);
-    }
+    let analysis = Engine::new().analyze(path, &options)?;
 
     if should_print {
-        println!("Scanning for user-created code files...");
+        report_run(&analysis, config);
     }
 
-    // Collect all file paths first
-    let file_paths: Vec<_> = filter
-        .walk_directory(path)
-        .filter_map(|entry| {
-            let entry_path = entry.path();
-
-            if !entry_path.is_file() {
-                return None;
-            }
-
-            // Check if it's a user-created file
-            if !detector.is_user_created_file(entry_path) {
-                return None;
-            }
-
-            // Check extension filter if specified
-            if !extensions.is_empty() {
-                if let Some(ext) = entry_path.extension() {
-                    let ext_str = ext.to_string_lossy().to_lowercase();
-                    if !extensions.iter().any(|e| e.to_lowercase() == ext_str) {
-                        return None;
-                    }
-                } else {
-                    return None;
-                }
-            }
-
-            Some(entry_path.to_path_buf())
-        })
-        .collect();
-
-    if file_paths.is_empty() {
-        if should_print {
-            println!("No files found matching the criteria.");
-        }
-        let empty_stats = StatsCalculator::new().calculate_project_stats(
-            &CodeStats {
-                total_files: 0,
-                total_lines: 0,
-                total_code_lines: 0,
-                total_comment_lines: 0,
-                total_blank_lines: 0,
-                total_size: 0,
-                total_doc_lines: 0,
-                stats_by_extension: std::collections::HashMap::new(),
-            },
-            &[],
-        )?;
-        return Ok((empty_stats, Vec::new()));
-    }
-
-    let mut counter = CachedCodeCounter::new();
-    let mut metrics = MetricsCollector::new();
-
-    if should_print {
-        println!("Processing {} files...", file_paths.len());
-    }
-
-    // Process files sequentially to enable caching
-    let mut file_stats = Vec::new();
-    let mut individual_files = Vec::new();
-
-    for file_path in &file_paths {
-        match counter.count_file(file_path) {
-            Ok(stats) => {
-                // Record metrics
-                metrics.record_file_processed(stats.total_lines, stats.file_size);
-
-                let extension = file_path
-                    .extension()
-                    .and_then(|ext| ext.to_str())
-                    .unwrap_or("no_ext")
-                    .to_string();
-                file_stats.push((extension, stats.clone()));
-
-                if show_files {
-                    individual_files.push((file_path.to_string_lossy().to_string(), stats));
-                }
-            }
-            Err(e) => {
-                if show_files && should_print {
-                    eprintln!("Warning: Failed to process {}: {}", file_path.display(), e);
-                }
-            }
-        }
-    }
-
-    // Create basic aggregated stats
-    let basic_code_stats = counter.aggregate_stats(file_stats);
-
-    // Use comprehensive stats calculator
-    let stats_calculator = StatsCalculator::new();
-    let aggregated_stats =
-        stats_calculator.calculate_project_stats(&basic_code_stats, &individual_files)?;
-
-    // Save cache and cleanup
-    counter.cleanup_cache();
-    if let Err(e) = counter.save_cache() {
-        if should_print {
-            eprintln!("Warning: Failed to save cache: {}", e);
-        }
-    }
-
-    // Show performance metrics only for text output
-    let final_metrics = metrics.finish();
-    let (cache_hits, cache_misses) = counter.cache_stats();
-
-    if final_metrics.files_processed > 0 && should_print {
-        println!("📊 Performance Summary:");
-        println!("   • Files processed: {}", final_metrics.files_processed);
-        println!(
-            "   • Processing time: {:.2}s",
-            final_metrics.total_duration.as_secs_f64()
-        );
-
-        if cache_hits + cache_misses > 0 {
-            println!(
-                "   • Cache hit rate: {:.1}%",
-                counter.cache_hit_rate() * 100.0
-            );
-            println!("   • Cache hits: {}", cache_hits);
-            println!("   • Cache misses: {}", cache_misses);
-            println!("   • Cache size: {} entries", counter.cache_size());
-        }
-    }
-
-    Ok((aggregated_stats, individual_files))
+    Ok(analysis)
 }
 
-fn list_files(
-    path: &Path,
-    max_depth: Option<usize>,
-    include_hidden: bool,
-    ignore_patterns: Vec<String>,
-    extensions: Vec<String>,
-    output_format: &OutputFormat,
-) -> Result<()> {
-    let should_print = matches!(output_format, OutputFormat::Text);
+/// Print what the run cost, and anything it could not read.
+fn report_run(analysis: &Analysis, config: &Config) {
+    let report = &analysis.report;
 
-    let detector = FileDetector::new();
-    let mut filter = FileFilter::new()
-        .respect_hidden(!include_hidden)
-        .respect_gitignore(true);
-
-    if let Some(depth) = max_depth {
-        filter = filter.with_max_depth(depth);
+    if report.files_counted == 0 && report.files_failed == 0 {
+        println!("No files found matching the criteria.");
+        return;
     }
 
-    // Add custom ignore patterns
-    if !ignore_patterns.is_empty() {
-        filter = filter.with_custom_ignores(ignore_patterns);
+    if report.detection_unavailable {
+        eprintln!(
+            "Note: the optional 'sherlock' language detector is not installed; \
+             classifying files by extension."
+        );
     }
 
-    if should_print {
+    println!("Processed {} files", report.files_counted);
+
+    if config.verbose {
+        println!("Performance Summary:");
+        println!("   - Files processed: {}", report.files_counted);
+        println!(
+            "   - Processing time: {:.3}s (discover {:.3}s, count {:.3}s, aggregate {:.3}s)",
+            report.total_time.as_secs_f64(),
+            report.discovery_time.as_secs_f64(),
+            report.counting_time.as_secs_f64(),
+            report.aggregation_time.as_secs_f64(),
+        );
+        if let Some(rate) = report.throughput_files_per_second() {
+            println!("   - Throughput: {rate:.0} files/s");
+        }
+        if report.cache_hits + report.cache_misses > 0 {
+            println!(
+                "   - Cache hit rate: {:.1}%",
+                report.cache_hit_rate() * 100.0
+            );
+            println!("   - Cache hits: {}", report.cache_hits);
+            println!("   - Cache misses: {}", report.cache_misses);
+        }
+    }
+
+    if report.files_failed > 0 {
+        eprintln!(
+            "Warning: {} file(s) could not be read:",
+            report.files_failed
+        );
+        for (path, message) in report.failures.iter().take(10) {
+            eprintln!("  {}: {}", path.display(), message);
+        }
+        if report.failures.len() > 10 {
+            eprintln!("  ... and {} more", report.failures.len() - 10);
+        }
+    }
+}
+
+fn list_files(path: &Path, config: &Config) -> Result<()> {
+    let options = config.analysis_options(false);
+    let files = Engine::new().discover_files(path, &options)?;
+
+    if matches!(config.format, OutputFormat::Text) && !config.quiet {
         println!("Files that would be counted:");
     }
 
-    for entry in filter.walk_directory(path) {
-        let entry_path = entry.path();
-
-        if entry_path.is_file() {
-            // Check if it's a user-created file
-            if !detector.is_user_created_file(entry_path) {
-                continue;
-            }
-
-            // Check extension filter if specified
-            if !extensions.is_empty() {
-                if let Some(ext) = entry_path.extension() {
-                    let ext_str = ext.to_string_lossy().to_lowercase();
-                    if !extensions.iter().any(|e| e.to_lowercase() == ext_str) {
-                        continue;
-                    }
-                } else {
-                    continue;
-                }
-            }
-
-            println!("  {}", entry_path.display());
-        }
+    let stdout = std::io::stdout();
+    let mut out = std::io::BufWriter::new(stdout.lock());
+    for file in files {
+        let _ = writeln!(out, "  {}", file.display());
     }
+    let _ = out.flush();
 
     Ok(())
 }
@@ -367,10 +190,10 @@ fn output_comprehensive_results(
             verbose,
             config,
         ),
-        OutputFormat::Json => output_json(aggregated_stats, individual_files),
-        OutputFormat::Csv => output_csv(aggregated_stats, individual_files),
-        OutputFormat::Html => output_html(aggregated_stats, individual_files),
-        OutputFormat::Sarif => output_sarif(aggregated_stats, individual_files),
+        OutputFormat::Json => output_json(aggregated_stats),
+        OutputFormat::Csv => output_csv(aggregated_stats),
+        OutputFormat::Html => output_html(aggregated_stats, individual_files, config),
+        OutputFormat::Sarif => output_sarif(aggregated_stats, individual_files, config),
     }
 }
 
@@ -382,13 +205,11 @@ fn output_text(
     verbose: bool,
     config: &Config,
 ) -> Result<()> {
-    // Handle summary-only mode
     if config.summary_only {
         print_summary_only(aggregated_stats, config);
         return Ok(());
     }
 
-    // Handle compact mode
     if config.compact_output {
         print_compact_output(aggregated_stats, config);
         return Ok(());
@@ -396,11 +217,9 @@ fn output_text(
 
     let use_color = !config.no_color && atty::is(atty::Stream::Stdout);
 
-    // Header
     println!();
     println!("=== Code Statistics ===");
 
-    // Basic stats
     println!(
         "Total files: {}",
         format_number(aggregated_stats.basic.total_files, use_color)
@@ -435,13 +254,11 @@ fn output_text(
         );
     }
 
-    // Time estimates
     if config.show_time_estimates {
         println!();
         println!("=== Time Estimates ===");
 
-        // Simple time estimation based on lines of code
-        let hours = (aggregated_stats.basic.code_lines as f64 * 0.5) / 60.0; // ~30 seconds per line
+        let hours = (aggregated_stats.basic.code_lines as f64 * 0.5) / 60.0;
         let days = hours / 8.0;
 
         if days >= 1.0 {
@@ -454,7 +271,6 @@ fn output_text(
         }
     }
 
-    // Enhanced stats from comprehensive analysis
     if config.show_complexity && aggregated_stats.complexity.function_count > 0 {
         println!();
         println!("=== Complexity Analysis ===");
@@ -483,7 +299,6 @@ fn output_text(
         }
     }
 
-    // Quality metrics
     if config.show_quality {
         println!();
         println!("=== Quality Metrics ===");
@@ -495,15 +310,11 @@ fn output_text(
         let quality_color = if use_color {
             if quality_score >= 80.0 {
                 "\x1b[32m"
-            }
-            // Green
-            else if quality_score >= 60.0 {
+            } else if quality_score >= 60.0 {
                 "\x1b[33m"
-            }
-            // Yellow
-            else {
+            } else {
                 "\x1b[31m"
-            } // Red
+            }
         } else {
             ""
         };
@@ -526,7 +337,6 @@ fn output_text(
         );
     }
 
-    // Code ratios
     if config.show_ratios {
         println!();
         println!("=== Code Ratios ===");
@@ -550,36 +360,29 @@ fn output_text(
 
         let mut extensions: Vec<_> = aggregated_stats.basic.stats_by_extension.iter().collect();
 
-        // Sort based on the selected criteria
+        // Sort by extension first so that equal keys resolve identically on
+        // every run; HashMap iteration order is not stable.
+        extensions.sort_by_key(|(a, _)| *a);
+
         match sort_by {
-            SortBy::Files => extensions.sort_by_key(|(_, ext_stats)| ext_stats.file_count),
-            SortBy::Lines => extensions.sort_by_key(|(_, ext_stats)| ext_stats.total_lines),
-            SortBy::Code => extensions.sort_by_key(|(_, ext_stats)| ext_stats.code_lines),
-            SortBy::Comments => extensions.sort_by_key(|(_, ext_stats)| ext_stats.comment_lines),
-            SortBy::Size => extensions.sort_by_key(|(_, ext_stats)| ext_stats.total_size),
-            SortBy::Complexity => extensions.sort_by(|(_, a), (_, b)| {
-                // Sort by complexity if available, otherwise by lines
-                let a_complexity = a.total_lines as f64;
-                let b_complexity = b.total_lines as f64;
-                a_complexity
-                    .partial_cmp(&b_complexity)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            }),
-            SortBy::Quality => extensions.sort_by_key(|(_, ext_stats)| ext_stats.total_lines), // Placeholder
-            SortBy::Functions => extensions.sort_by_key(|(_, ext_stats)| ext_stats.file_count), // Placeholder
+            SortBy::Files => extensions.sort_by_key(|(_, s)| s.file_count),
+            SortBy::Lines => extensions.sort_by_key(|(_, s)| s.total_lines),
+            SortBy::Code => extensions.sort_by_key(|(_, s)| s.code_lines),
+            SortBy::Comments => extensions.sort_by_key(|(_, s)| s.comment_lines),
+            SortBy::Size => extensions.sort_by_key(|(_, s)| s.total_size),
+            SortBy::Complexity => extensions.sort_by_key(|(_, s)| s.total_lines),
+            SortBy::Quality => extensions.sort_by_key(|(_, s)| s.total_lines),
+            SortBy::Functions => extensions.sort_by_key(|(_, s)| s.file_count),
             SortBy::DocRatio => extensions.sort_by(|(_, a), (_, b)| {
-                let a_ratio = if a.total_lines > 0 {
-                    a.doc_lines as f64 / a.total_lines as f64
-                } else {
-                    0.0
+                let ratio = |s: &howmany::core::stats::basic::ExtensionStats| {
+                    if s.total_lines > 0 {
+                        s.doc_lines as f64 / s.total_lines as f64
+                    } else {
+                        0.0
+                    }
                 };
-                let b_ratio = if b.total_lines > 0 {
-                    b.doc_lines as f64 / b.total_lines as f64
-                } else {
-                    0.0
-                };
-                a_ratio
-                    .partial_cmp(&b_ratio)
+                ratio(a)
+                    .partial_cmp(&ratio(b))
                     .unwrap_or(std::cmp::Ordering::Equal)
             }),
         }
@@ -588,7 +391,6 @@ fn output_text(
             extensions.reverse();
         }
 
-        // Apply top-n limit
         if let Some(top_n) = config.top_n {
             extensions.truncate(top_n);
         }
@@ -612,7 +414,6 @@ fn output_text(
 
         let mut files = individual_files.to_vec();
 
-        // Apply top-n limit to individual files too
         if let Some(top_n) = config.top_n {
             files.truncate(top_n);
         }
@@ -628,7 +429,6 @@ fn output_text(
     Ok(())
 }
 
-/// Print summary-only output
 fn print_summary_only(aggregated_stats: &AggregatedStats, config: &Config) {
     println!(
         "Summary: {} files, {} lines ({} code, {} comments)",
@@ -649,7 +449,6 @@ fn print_summary_only(aggregated_stats: &AggregatedStats, config: &Config) {
     }
 }
 
-/// Print compact output
 fn print_compact_output(aggregated_stats: &AggregatedStats, config: &Config) {
     println!(
         "{} files | {} lines | {} code | {} comments",
@@ -670,34 +469,29 @@ fn print_compact_output(aggregated_stats: &AggregatedStats, config: &Config) {
     }
 }
 
-/// Format numbers with optional color
 fn format_number(num: usize, use_color: bool) -> String {
     if use_color && num > 1000 {
-        format!("\x1b[36m{}\x1b[0m", num) // Cyan for large numbers
+        format!("\x1b[36m{}\x1b[0m", num)
     } else {
         num.to_string()
     }
 }
 
-fn output_json(
-    aggregated_stats: &AggregatedStats,
-    _individual_files: &[(String, FileStats)],
-) -> Result<()> {
-    // Use the comprehensive stats serialization
-    let json_output = serde_json::to_string_pretty(aggregated_stats)?;
-    println!("{}", json_output);
+fn output_json(aggregated_stats: &AggregatedStats) -> Result<()> {
+    println!("{}", serde_json::to_string_pretty(aggregated_stats)?);
     Ok(())
 }
 
-fn output_csv(
-    aggregated_stats: &AggregatedStats,
-    _individual_files: &[(String, FileStats)],
-) -> Result<()> {
+fn output_csv(aggregated_stats: &AggregatedStats) -> Result<()> {
     println!(
         "Extension,Files,Total Lines,Code Lines,Comment Lines,Doc Lines,Blank Lines,Size (bytes)"
     );
 
-    for (ext, ext_stats) in &aggregated_stats.basic.stats_by_extension {
+    // Sorted so that the same project always produces the same CSV.
+    let mut rows: Vec<_> = aggregated_stats.basic.stats_by_extension.iter().collect();
+    rows.sort_by_key(|(a, _)| *a);
+
+    for (ext, ext_stats) in rows {
         println!(
             "{},{},{},{},{},{},{},{}",
             ext,
@@ -717,14 +511,16 @@ fn output_csv(
 fn output_html(
     aggregated_stats: &AggregatedStats,
     individual_files: &[(String, FileStats)],
+    config: &Config,
 ) -> Result<()> {
     use howmany::ui::html::HtmlReporter;
 
-    let reporter = HtmlReporter::new();
-    let output_path = Path::new("howmany-report.html");
-
-    // Use comprehensive report generation with real AggregatedStats
-    reporter.generate_comprehensive_report(aggregated_stats, individual_files, output_path)?;
+    let output_path = config.report_path("howmany-report.html");
+    HtmlReporter::new().generate_comprehensive_report(
+        aggregated_stats,
+        individual_files,
+        &output_path,
+    )?;
     println!("HTML report generated: {}", output_path.display());
 
     Ok(())
@@ -733,45 +529,30 @@ fn output_html(
 fn output_sarif(
     aggregated_stats: &AggregatedStats,
     individual_files: &[(String, FileStats)],
+    config: &Config,
 ) -> Result<()> {
     use howmany::ui::sarif::SarifReporter;
 
-    let reporter = SarifReporter::new();
-    let output_path = Path::new("howmany-report.sarif");
-
-    // Use comprehensive report generation with AggregatedStats
-    reporter.generate_comprehensive_report(aggregated_stats, individual_files, output_path)?;
+    let output_path = config.report_path("howmany-report.sarif");
+    SarifReporter::new().generate_comprehensive_report(
+        aggregated_stats,
+        individual_files,
+        &output_path,
+    )?;
     println!("SARIF report generated: {}", output_path.display());
 
     Ok(())
 }
 
-/// Simple CLI output showing just basic file and line counts
-fn simple_cli_output(
-    path: &Path,
-    max_depth: Option<usize>,
-    include_hidden: bool,
-    ignore_patterns: Vec<String>,
-    extensions: Vec<String>,
-    filter_options: FilterOptions,
-) -> Result<()> {
-    // Check if we need enhanced output (requires full analysis)
+/// Simple CLI output showing just basic file and line counts.
+fn simple_cli_output(path: &Path, config: &Config, filter_options: FilterOptions) -> Result<()> {
     let needs_enhanced_output =
         filter_options.show_complexity || filter_options.show_quality || filter_options.show_ratios;
 
     if needs_enhanced_output {
-        // Run full analysis for enhanced output
-        let (mut aggregated_stats, individual_files) = analyze_code_comprehensive(
-            path,
-            max_depth,
-            include_hidden,
-            ignore_patterns.clone(),
-            extensions.clone(),
-            false, // Don't need individual files for CLI output
-            &OutputFormat::Text,
-        )?;
+        let analysis = analyze(path, config, true)?;
+        let mut aggregated_stats = analysis.stats;
 
-        // Apply filters to the aggregated stats
         if !filter_options.include_languages.is_empty()
             || !filter_options.exclude_languages.is_empty()
             || filter_options.min_lines.is_some()
@@ -784,7 +565,6 @@ fn simple_cli_output(
             let filtered_extensions =
                 project_filter.filter_extensions(&aggregated_stats.basic.stats_by_extension);
 
-            // Recalculate totals based on filtered extensions
             let mut total_files = 0;
             let mut total_lines = 0;
             let mut total_code_lines = 0;
@@ -803,7 +583,6 @@ fn simple_cli_output(
                 total_doc_lines += stats.doc_lines;
             }
 
-            // Update the basic stats with filtered totals
             aggregated_stats.basic.total_files = total_files;
             aggregated_stats.basic.total_lines = total_lines;
             aggregated_stats.basic.code_lines = total_code_lines;
@@ -813,7 +592,6 @@ fn simple_cli_output(
             aggregated_stats.basic.doc_lines = total_doc_lines;
             aggregated_stats.basic.stats_by_extension = filtered_extensions;
 
-            // Recalculate ratios based on filtered data
             if total_lines > 0 {
                 aggregated_stats.ratios.code_ratio = total_code_lines as f64 / total_lines as f64;
                 aggregated_stats.ratios.comment_ratio =
@@ -823,114 +601,75 @@ fn simple_cli_output(
             }
         }
 
-        let output = FilteredOutputFormatter::format_enhanced_cli_output(
-            &aggregated_stats,
-            &individual_files,
-            &filter_options,
+        println!(
+            "{}",
+            FilteredOutputFormatter::format_enhanced_cli_output(&aggregated_stats, &filter_options)
         );
-        println!("{}", output);
         return Ok(());
     }
 
-    // Simple counting for basic output
-    let detector = FileDetector::new();
-    let mut filter = FileFilter::new()
-        .respect_hidden(!include_hidden)
-        .respect_gitignore(true);
+    // Per-file records are only retained when a filter needs them; otherwise the
+    // aggregate the engine already computed is the answer. Complexity is parsed
+    // only when a complexity filter is actually in play.
+    let per_file = FileStatsFilter::needs_per_file_stats(&filter_options);
+    let needs_complexity = FileStatsFilter::needs_complexity(&filter_options);
+    let options = AnalysisOptions {
+        compute_complexity: needs_complexity,
+        ..config.analysis_options(per_file)
+    };
+    let analysis = Engine::new().analyze(path, &options)?;
 
-    if let Some(depth) = max_depth {
-        filter = filter.with_max_depth(depth);
-    }
-
-    // Add custom ignore patterns
-    if !ignore_patterns.is_empty() {
-        filter = filter.with_custom_ignores(ignore_patterns);
-    }
-
-    // Collect and filter files
-    let file_stats_filter = FileStatsFilter::new(filter_options.clone());
-    let mut filtered_files = Vec::new();
-    let mut total_lines = 0;
-    let mut counter = CachedCodeCounter::new();
-
-    for entry in filter.walk_directory(path) {
-        let entry_path = entry.path();
-
-        if !entry_path.is_file() {
-            continue;
-        }
-
-        // Check if it's a user-created file
-        if !detector.is_user_created_file(entry_path) {
-            continue;
-        }
-
-        // Check extension filter if specified
-        if !extensions.is_empty() {
-            if let Some(ext) = entry_path.extension() {
-                let ext_str = ext.to_string_lossy().to_lowercase();
-                if !extensions.iter().any(|e| e.to_lowercase() == ext_str) {
-                    continue;
-                }
-            } else {
-                continue;
-            }
-        }
-
-        // Count lines for this file
-        if let Ok(stats) = counter.count_file(entry_path) {
-            // Apply filters
-            if file_stats_filter.passes_filter(&entry_path.to_string_lossy(), &stats) {
-                filtered_files.push(entry_path.to_path_buf());
-                total_lines += stats.total_lines;
-            }
-        }
-    }
+    let (file_count, total_lines, total_size) = if per_file {
+        let file_filter = FileStatsFilter::new(filter_options.clone());
+        let complexity = if needs_complexity {
+            FileComplexity::index(&analysis.stats.complexity.function_complexity_details)
+        } else {
+            Default::default()
+        };
+        analysis
+            .individual_files
+            .iter()
+            .filter(|(path, stats)| {
+                file_filter.passes_filter(path, stats)
+                    && (!needs_complexity
+                        || file_filter.passes_complexity_filter(complexity.get(path.as_str())))
+            })
+            .fold((0, 0, 0u64), |(files, lines, size), (_, stats)| {
+                (files + 1, lines + stats.total_lines, size + stats.file_size)
+            })
+    } else {
+        (
+            analysis.basic.total_files,
+            analysis.basic.total_lines,
+            analysis.basic.total_size,
+        )
+    };
 
     if filter_options.show_size_info {
-        // Calculate total size
-        let total_size: u64 = filtered_files
-            .iter()
-            .filter_map(|path| std::fs::metadata(path).ok())
-            .map(|metadata| metadata.len())
-            .sum();
         let size_mb = total_size as f64 / (1024.0 * 1024.0);
         println!(
             "{} files, {} lines, {:.1} MB",
-            filtered_files.len(),
-            total_lines,
-            size_mb
+            file_count, total_lines, size_mb
         );
     } else {
-        println!("{} files, {} lines", filtered_files.len(), total_lines);
+        println!("{} files, {} lines", file_count, total_lines);
     }
 
     Ok(())
 }
 
-/// Quiet mode output - minimal information only
-fn quiet_output(
-    path: &Path,
-    max_depth: Option<usize>,
-    include_hidden: bool,
-    ignore_patterns: Vec<String>,
-    extensions: Vec<String>,
-    _filter_options: FilterOptions,
-) -> Result<()> {
-    let (aggregated_stats, _) = analyze_code_comprehensive(
-        path,
-        max_depth,
-        include_hidden,
-        ignore_patterns,
-        extensions,
-        false,
-        &OutputFormat::Text,
-    )?;
+/// Quiet mode output - minimal information only.
+fn quiet_output(path: &Path, config: &Config) -> Result<()> {
+    let options = AnalysisOptions {
+        compute_complexity: false,
+        collect_individual_files: false,
+        ..config.analysis_options(false)
+    };
+    let analysis = Engine::new().analyze(path, &options)?;
 
-    // Just print the essential numbers
     println!(
         "{} files, {} lines",
-        aggregated_stats.basic.total_files, aggregated_stats.basic.total_lines
+        analysis.basic.total_files, analysis.basic.total_lines
     );
 
     Ok(())

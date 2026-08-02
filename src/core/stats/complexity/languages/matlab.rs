@@ -20,9 +20,7 @@ impl MatlabAnalyzer {
         }
 
         // Look for function declarations: function [output] = function_name(input)
-        if trimmed.starts_with("function ") {
-            let after_function = &trimmed[9..];
-
+        if let Some(after_function) = trimmed.strip_prefix("function ") {
             // Handle different function patterns
             if let Some(equals_pos) = after_function.find('=') {
                 // Pattern: function [output] = function_name(input)
@@ -101,7 +99,7 @@ impl MatlabAnalyzer {
 
         // Basic control structures
         if line.contains("if ") || line.contains("if(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("elseif ") {
             complexity += 1;
@@ -110,13 +108,13 @@ impl MatlabAnalyzer {
             complexity += 1;
         }
         if line.contains("for ") || line.contains("for(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("while ") || line.contains("while(") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("switch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("case ") {
             complexity += 1;
@@ -136,7 +134,7 @@ impl MatlabAnalyzer {
             complexity += 1;
         }
         if line.contains("catch") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("error(") {
             complexity += 1;
@@ -226,88 +224,6 @@ impl MatlabAnalyzer {
             }
         }
         0
-    }
-
-    /// Determine visibility (MATLAB doesn't have formal visibility)
-    fn get_visibility(&self, _line: &str) -> Visibility {
-        // All MATLAB functions are public by default
-        Visibility::Public
-    }
-
-    /// Check if function uses matrix operations
-    fn uses_matrix_operations(&self, line: &str) -> bool {
-        line.contains("*")
-            || line.contains(".*")
-            || line.contains("\\")
-            || line.contains("./")
-            || line.contains("'")
-            || line.contains(".'")
-            || line.contains("inv(")
-            || line.contains("pinv(")
-            || line.contains("eig(")
-            || line.contains("svd(")
-    }
-
-    /// Check if function uses vectorized operations
-    fn uses_vectorized_operations(&self, line: &str) -> bool {
-        line.contains(".*")
-            || line.contains("./")
-            || line.contains(".^")
-            || line.contains("sum(")
-            || line.contains("mean(")
-            || line.contains("std(")
-            || line.contains("max(")
-            || line.contains("min(")
-    }
-
-    /// Check if function uses cell arrays
-    fn uses_cell_arrays(&self, line: &str) -> bool {
-        line.contains("{")
-            || line.contains("}")
-            || line.contains("cell(")
-            || line.contains("cellfun(")
-            || line.contains("cellstr(")
-    }
-
-    /// Check if function uses structures
-    fn uses_structures(&self, line: &str) -> bool {
-        line.contains("struct(")
-            || line.contains("fieldnames(")
-            || line.contains("isfield(")
-            || line.contains("rmfield(")
-            || line.contains(".")
-    }
-
-    /// Check if function uses plotting
-    fn uses_plotting(&self, line: &str) -> bool {
-        line.contains("plot(")
-            || line.contains("figure(")
-            || line.contains("subplot(")
-            || line.contains("hold ")
-            || line.contains("xlabel(")
-            || line.contains("ylabel(")
-            || line.contains("title(")
-            || line.contains("legend(")
-    }
-
-    /// Check if function uses signal processing
-    fn uses_signal_processing(&self, line: &str) -> bool {
-        line.contains("fft(")
-            || line.contains("ifft(")
-            || line.contains("filter(")
-            || line.contains("conv(")
-            || line.contains("xcorr(")
-            || line.contains("pwelch(")
-    }
-
-    /// Check if function uses image processing
-    fn uses_image_processing(&self, line: &str) -> bool {
-        line.contains("imread(")
-            || line.contains("imwrite(")
-            || line.contains("imshow(")
-            || line.contains("imresize(")
-            || line.contains("rgb2gray(")
-            || line.contains("imadjust(")
     }
 }
 
@@ -534,14 +450,6 @@ impl LanguageAnalyzer for MatlabAnalyzer {
         structures.push(script_structure);
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "MATLAB"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["m"]
     }
 }
 

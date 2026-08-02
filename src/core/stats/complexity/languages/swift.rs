@@ -87,7 +87,7 @@ impl SwiftAnalyzer {
 
         // Basic control structures
         if line.contains("if ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("else if") {
             complexity += 1;
@@ -96,16 +96,16 @@ impl SwiftAnalyzer {
             complexity += 1;
         }
         if line.contains("for ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("while ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("repeat ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("switch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("case ") {
             complexity += 1;
@@ -126,7 +126,7 @@ impl SwiftAnalyzer {
             complexity += 1;
         }
         if line.contains("catch ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         }
         if line.contains("throw ") {
             complexity += 1;
@@ -134,7 +134,7 @@ impl SwiftAnalyzer {
 
         // Swift-specific complexity
         if line.contains("guard ") {
-            complexity += 1 * nesting_multiplier;
+            complexity += nesting_multiplier;
         } // Guard statements
         if line.contains("defer ") {
             complexity += 1;
@@ -497,12 +497,11 @@ impl LanguageAnalyzer for SwiftAnalyzer {
                     }
 
                     // Count protocol requirements
-                    if structure.structure_type == StructureType::Interface {
-                        if self.is_function_declaration(trimmed)
-                            || (trimmed.contains("var ") && !trimmed.contains("="))
-                        {
-                            structure.interface_count += 1;
-                        }
+                    if structure.structure_type == StructureType::Interface
+                        && (self.is_function_declaration(trimmed)
+                            || (trimmed.contains("var ") && !trimmed.contains("=")))
+                    {
+                        structure.interface_count += 1;
                     }
                 }
 
@@ -552,14 +551,6 @@ impl LanguageAnalyzer for SwiftAnalyzer {
         }
 
         Ok(structures)
-    }
-
-    fn language_name(&self) -> &'static str {
-        "Swift"
-    }
-
-    fn supported_extensions(&self) -> Vec<&'static str> {
-        vec!["swift"]
     }
 }
 

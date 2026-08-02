@@ -20,7 +20,12 @@ use std::{
     io::{self, stdout},
     time::Duration,
 };
-use tokio::time::{interval, timeout};
+
+/// How long to wait for a key before redrawing the animation.
+///
+/// This is the frame budget *and* the idle cost: the loop blocks in
+/// `event::poll` for this long, so an open but untouched view uses no CPU.
+const FRAME_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct ModernInteractiveDisplay {
     terminal: Terminal<CrosstermBackend<io::Stdout>>,
@@ -73,99 +78,39 @@ impl ModernInteractiveDisplay {
         Ok(pb)
     }
 
+    /// Draw, then wait for a key or the next animation frame, until asked to quit.
+    ///
+    /// The loop blocks in `event::poll`, so it is idle between keystrokes. The
+    /// previous implementation drove the same three cases through a tokio
+    /// `select!` whose event branch returned immediately, which span the loop at
+    /// full speed and held a core busy for as long as the view was open.
     pub fn run_interactive_mode(
         &mut self,
         stats: CodeStats,
         individual_files: Vec<(String, FileStats)>,
     ) -> Result<()> {
         self.app.set_data(stats, individual_files);
+        self.render_frame()?;
 
-        // Use tokio runtime for async event handling
-        let rt = tokio::runtime::Runtime::new()?;
-        rt.block_on(self.run_interactive_async())
-    }
-
-    async fn run_interactive_async(&mut self) -> Result<()> {
-        let mut animation_interval = interval(Duration::from_millis(100));
-        let mut redraw_needed = true;
-        let mut _frame_count = 0u64;
-        let mut last_fps_check = std::time::Instant::now();
-
-        loop {
-            tokio::select! {
-                // Handle keyboard events with highest priority
-                event_result = self.handle_events_async() => {
-                    match event_result {
-                        Ok(true) => {
-                            redraw_needed = true;
-                        }
-                        Ok(false) => {
-                            // No event or no redraw needed
-                        }
-                        Err(e) => {
-                            eprintln!("Event handling error: {}", e);
+        while !self.app.should_quit {
+            if event::poll(FRAME_INTERVAL)? {
+                // Drain the queue before drawing: held keys and paste-like
+                // bursts must not each cost a frame.
+                while event::poll(Duration::ZERO)? {
+                    if let Event::Key(key) = event::read()? {
+                        if key.kind == KeyEventKind::Press {
+                            self.app.handle_key_event(key.code);
                         }
                     }
                 }
-
-                // Update animation at regular intervals
-                _ = animation_interval.tick() => {
-                    self.app.update_animation();
-                    redraw_needed = true;
-                }
-
-                // Background task: Process any heavy computations
-                _ = tokio::time::sleep(Duration::from_millis(100)) => {
-                    // Background processing completed
-                }
+            } else {
+                self.app.update_animation();
             }
 
-            // Redraw if needed with frame rate limiting
-            if redraw_needed {
-                self.render_frame()?;
-                redraw_needed = false;
-                _frame_count += 1;
-
-                // Optional: FPS monitoring (can be removed in production)
-                if last_fps_check.elapsed() >= Duration::from_secs(1) {
-                    // Reset counters for next second
-                    _frame_count = 0;
-                    last_fps_check = std::time::Instant::now();
-                }
-            }
-
-            // Check if we should quit
-            if self.app.should_quit {
-                break;
-            }
-
-            // Yield control to prevent busy waiting
-            tokio::task::yield_now().await;
+            self.render_frame()?;
         }
 
         Ok(())
-    }
-
-    async fn handle_events_async(&mut self) -> Result<bool> {
-        // Use timeout to make event polling non-blocking
-        let event_timeout = timeout(Duration::from_millis(1), async {
-            // Check if events are available
-            if event::poll(Duration::from_millis(0))? {
-                if let Event::Key(key) = event::read()? {
-                    if key.kind == KeyEventKind::Press {
-                        self.app.handle_key_event(key.code);
-                        return Ok(true); // Redraw needed
-                    }
-                }
-            }
-            Ok(false) // No redraw needed
-        })
-        .await;
-
-        match event_timeout {
-            Ok(result) => result,
-            Err(_) => Ok(false), // Timeout, no events
-        }
     }
 
     fn render_frame(&mut self) -> Result<()> {

@@ -507,7 +507,7 @@ pub fn render_function_complexity_table(
             };
 
             Row::new(vec![
-                Cell::from(format!("{}", ext)),
+                Cell::from(ext.to_string()),
                 Cell::from(format!("{}", complexity.function_count)),
                 Cell::from(format!("{:.1}", complexity.cyclomatic_complexity)),
                 Cell::from(format!("{:.1}", complexity.average_function_length)),
@@ -649,40 +649,6 @@ fn get_structure_color(structure_type: &str) -> Color {
         "Structs" => Color::Green,
         "Modules" => Color::Red,
         _ => Color::Gray,
-    }
-}
-
-fn get_quality_color(score: f64) -> Color {
-    if score >= 80.0 {
-        Color::Green
-    } else if score >= 60.0 {
-        Color::Yellow
-    } else if score >= 40.0 {
-        Color::Red
-    } else {
-        Color::Magenta
-    }
-}
-
-fn get_complexity_color(complexity: f64) -> Color {
-    if complexity <= 5.0 {
-        Color::Green
-    } else if complexity <= 10.0 {
-        Color::Yellow
-    } else if complexity <= 20.0 {
-        Color::Red
-    } else {
-        Color::Magenta
-    }
-}
-
-fn get_parameter_color(params: f64) -> Color {
-    if params <= 3.0 {
-        Color::Green
-    } else if params <= 5.0 {
-        Color::Yellow
-    } else {
-        Color::Red
     }
 }
 
@@ -858,7 +824,7 @@ fn render_second_metrics_row(f: &mut ratatui::Frame, area: Rect, stats: &Aggrega
     let lines_text = vec![
         Line::from(vec![Span::styled("📏", Style::default().fg(lines_color))]),
         Line::from(vec![Span::styled(
-            format!("{}", format_number(total_lines)),
+            format_number(total_lines).to_string(),
             Style::default()
                 .fg(lines_color)
                 .add_modifier(Modifier::BOLD),
@@ -1049,19 +1015,6 @@ fn render_code_breakdown_bars(f: &mut ratatui::Frame, area: Rect, stats: &Aggreg
         .percent(blank_pct)
         .label(format!("{}", stats.basic.blank_lines));
     f.render_widget(blank_gauge, chunks[3]);
-}
-
-/// Get color based on confidence score (0.0 to 1.0)
-fn get_confidence_color(confidence: f64) -> Color {
-    if confidence >= 0.8 {
-        Color::Green
-    } else if confidence >= 0.6 {
-        Color::Yellow
-    } else if confidence >= 0.4 {
-        Color::Rgb(255, 165, 0) // Orange
-    } else {
-        Color::Red
-    }
 }
 
 // Helper structures and functions
@@ -1604,7 +1557,7 @@ fn calculate_language_diversity_score(stats: &AggregatedStats) -> f64 {
 
     // Calculate Shannon diversity index
     let mut entropy = 0.0;
-    for (_, ext_stats) in &stats.basic.stats_by_extension {
+    for ext_stats in stats.basic.stats_by_extension.values() {
         let proportion = ext_stats.total_lines as f64 / total_lines;
         if proportion > 0.0 {
             entropy -= proportion * proportion.ln();
