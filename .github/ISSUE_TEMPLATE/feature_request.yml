@@ -1,0 +1,49 @@
+name: Feature request
+description: Suggest a capability or change in behavior.
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the situation, not the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like howmany to do?
+      description: If it involves the CLI, sketch the flag or subcommand.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Including other tools, and why they did not fit.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this touch?
+      multiple: true
+      options:
+        - Language detection / parsing
+        - Metrics and complexity
+        - Output formats (JSON, HTML, SARIF)
+        - Terminal UI
+        - Configuration
+        - Performance
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions for a duplicate.
+          required: true
