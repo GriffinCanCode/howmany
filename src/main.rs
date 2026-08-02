@@ -6,7 +6,7 @@ use howmany::ui::filters::{
     FileComplexity, FileFilter as FileStatsFilter, FilterOptions, FilteredOutputFormatter,
 };
 use howmany::{Config, InteractiveDisplay, Result};
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::path::Path;
 use std::process;
 
@@ -215,7 +215,7 @@ fn output_text(
         return Ok(());
     }
 
-    let use_color = !config.no_color && atty::is(atty::Stream::Stdout);
+    let use_color = !config.no_color && std::io::stdout().is_terminal();
 
     println!();
     println!("=== Code Statistics ===");
