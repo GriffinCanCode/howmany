@@ -148,6 +148,11 @@ fn read_into(file: &mut fs::File, size: u64, buf: &mut Vec<u8>) -> Result<()> {
     Ok(())
 }
 
+/// The error a caller gets for handing a directory to a file counter.
+fn is_a_directory(path: &Path) -> HowManyError {
+    HowManyError::file_processing(format!("{} is a directory, not a file", path.display()))
+}
+
 /// Counts lines of code, comments, documentation and blanks.
 ///
 /// Construction is free -- all comment tables are process-wide statics -- so one
@@ -185,16 +190,21 @@ impl CodeCounter {
     /// implementation opened the file and then issued a second `stat` for its
     /// length, doubling the syscalls per file.
     pub fn count_file(&self, path: &Path) -> Result<FileStats> {
-        let file = fs::File::open(path)?;
+        // Unix opens a directory happily and fails only on the first read;
+        // Windows refuses the open outright with a permission error. Checking
+        // on the way out of a failed open costs nothing on the happy path and
+        // makes the error identical on every platform.
+        let file = fs::File::open(path).map_err(|err| {
+            if path.is_dir() {
+                is_a_directory(path)
+            } else {
+                err.into()
+            }
+        })?;
         let metadata = file.metadata()?;
 
-        // Opening a directory succeeds on Unix and fails only on the first
-        // read; rejecting it here makes the error identical on every platform.
         if metadata.is_dir() {
-            return Err(HowManyError::file_processing(format!(
-                "{} is a directory, not a file",
-                path.display()
-            )));
+            return Err(is_a_directory(path));
         }
 
         let file_size = metadata.len();

@@ -567,6 +567,19 @@ pub struct PatternMatcher {
     language_build: LanguageBuildPatterns,
 }
 
+/// Put a rendered path in the form the patterns are written in.
+///
+/// Every pattern separates components with `/`, which is what Windows hands
+/// back as `\` and would therefore match nothing. Elsewhere a backslash is a
+/// legal character in a file name, so it must survive untouched.
+fn to_pattern_separators(path: std::borrow::Cow<'_, str>) -> std::borrow::Cow<'_, str> {
+    if cfg!(windows) && path.contains('\\') {
+        std::borrow::Cow::Owned(path.replace('\\', "/"))
+    } else {
+        path
+    }
+}
+
 impl PatternMatcher {
     pub fn new() -> Self {
         Self {
@@ -586,7 +599,7 @@ impl PatternMatcher {
         path: &'a Path,
         root: Option<&Path>,
     ) -> std::borrow::Cow<'a, str> {
-        match root {
+        let rendered = match root {
             Some(root) => match path.strip_prefix(root) {
                 Ok(rel) => rel.to_string_lossy(),
                 Err(_) => path
@@ -595,7 +608,8 @@ impl PatternMatcher {
                     .unwrap_or_else(|| path.to_string_lossy()),
             },
             None => path.to_string_lossy(),
-        }
+        };
+        to_pattern_separators(rendered)
     }
 
     /// True when a directory with this name never contains user-authored

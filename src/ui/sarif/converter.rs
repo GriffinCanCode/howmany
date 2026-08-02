@@ -676,8 +676,11 @@ impl SarifConverter {
             || normalized.starts_with("file://")
         {
             normalized
-        } else if std::path::Path::new(&normalized).is_absolute() {
-            // Convert absolute paths to file URIs
+        } else if normalized.starts_with('/') || std::path::Path::new(&normalized).is_absolute() {
+            // Convert absolute paths to file URIs. A leading slash counts as
+            // absolute even where the host disagrees: Windows calls `/x`
+            // relative because it carries no drive letter, and a consumer
+            // reading the SARIF should see the same URI either way.
             format!("file://{}", normalized)
         } else {
             // Relative paths are kept as-is
