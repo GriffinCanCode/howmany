@@ -20,7 +20,7 @@ mod detector_tests {
     #[test]
     fn test_user_created_rust_files() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Create user Rust files
         let main_rs = project.create_file("src/main.rs", "fn main() {}").unwrap();
@@ -37,7 +37,7 @@ mod detector_tests {
     #[test]
     fn test_ignore_target_directory() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Create files in target directory (should be ignored)
         project.create_directory("target/debug").unwrap();
@@ -55,7 +55,7 @@ mod detector_tests {
     #[test]
     fn test_ignore_node_modules() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Create node_modules structure
         project.create_node_modules().unwrap();
@@ -73,7 +73,7 @@ mod detector_tests {
     #[test]
     fn test_ignore_python_cache() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Create Python cache files
         project.create_directory("__pycache__").unwrap();
@@ -91,7 +91,7 @@ mod detector_tests {
     #[test]
     fn test_ignore_build_artifacts() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Create various build artifacts
         let exe_file = project.create_file("myapp.exe", "executable").unwrap();
@@ -112,7 +112,7 @@ mod detector_tests {
     #[test]
     fn test_ignore_editor_files() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Create editor temporary files
         let vim_swap = project.create_file(".test.rs.swp", "vim swap").unwrap();
@@ -127,7 +127,7 @@ mod detector_tests {
     #[test]
     fn test_ignore_version_control() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Create version control files
         project.create_directory(".git").unwrap();
@@ -146,7 +146,7 @@ mod detector_tests {
     #[test]
     fn test_detect_various_languages() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Test various programming languages
         let rust_file = project.create_file("main.rs", "fn main() {}").unwrap();
@@ -181,7 +181,7 @@ mod detector_tests {
     #[test]
     fn test_detect_config_files() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Test various configuration files
         let cargo_toml = project
@@ -210,7 +210,7 @@ mod detector_tests {
     #[test]
     fn test_detect_web_files() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Test web-related files
         let html_file = project.create_file("index.html", "<html></html>").unwrap();
@@ -239,7 +239,7 @@ mod detector_tests {
     #[test]
     fn test_detect_documentation_files() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Test documentation files
         let readme = project.create_file("README.md", "# Project").unwrap();
@@ -260,7 +260,7 @@ mod detector_tests {
     #[test]
     fn test_script_files_without_extension() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Test script files without extensions
         let makefile = project
@@ -281,7 +281,7 @@ mod detector_tests {
     #[test]
     fn test_ignore_lock_files() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Test lock files (should be ignored)
         let cargo_lock = project.create_file("Cargo.lock", "# Lock file").unwrap();
@@ -298,7 +298,7 @@ mod detector_tests {
     #[test]
     fn test_ignore_log_files() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Test log files
         let error_log = project.create_file("error.log", "Error occurred").unwrap();
@@ -313,7 +313,7 @@ mod detector_tests {
     #[test]
     fn test_ignore_generated_files() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Test generated files
         let proto_gen = project
@@ -336,7 +336,7 @@ mod detector_tests {
     #[test]
     fn test_language_specific_patterns() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Node.js specific ignores
         project.create_node_modules().unwrap();
@@ -424,7 +424,7 @@ mod detector_tests {
     #[test]
     fn test_complex_directory_structure() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Create a complex project structure
         project.create_directory("src/components").unwrap();
@@ -470,7 +470,7 @@ mod detector_tests {
     #[test]
     fn test_edge_cases() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // File with no extension
         let no_ext = project
@@ -502,7 +502,7 @@ mod detector_tests {
     #[test]
     fn test_case_sensitivity() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Test case variations
         let makefile_lower = project
@@ -523,7 +523,7 @@ mod detector_tests {
     #[test]
     fn test_symlinks() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Create a real file
         let real_file = project.create_file("real.rs", "fn main() {}").unwrap();
@@ -538,7 +538,7 @@ mod detector_tests {
     #[test]
     fn test_deeply_nested_ignored_directories() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Create deeply nested ignored structure
         project
@@ -557,7 +557,7 @@ mod detector_tests {
     #[test]
     fn test_multiple_language_project() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Create a polyglot project
         let rust_main = project.create_file("src/main.rs", "fn main() {}").unwrap();
@@ -596,7 +596,7 @@ mod detector_tests {
     #[test]
     fn test_performance_with_many_files() {
         let project = TestProject::new("test_project").unwrap();
-        let detector = FileDetector::new();
+        let detector = FileDetector::new().with_root(project.path());
 
         // Create many files to test performance
         let mut files = Vec::new();
@@ -623,7 +623,7 @@ mod detector_tests {
         use std::thread;
 
         let project = TestProject::new("test_project").unwrap();
-        let detector = Arc::new(FileDetector::new());
+        let detector = Arc::new(FileDetector::new().with_root(project.path()));
 
         // Create files to test
         let files: Vec<_> = (0..20)
