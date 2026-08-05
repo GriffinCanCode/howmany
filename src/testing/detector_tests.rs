@@ -362,6 +362,13 @@ mod detection {
             .create_file("vendor/github.com/pkg/test.go", "package pkg")
             .unwrap();
 
+        // Each of `target/`, `build/` and `vendor/` is an ordinary word that
+        // names a source directory somewhere, so the toolchain that produced
+        // them has to be present for them to count as build output.
+        for manifest in ["pom.xml", "build.gradle", "go.mod"] {
+            project.create_file(manifest, "\n").unwrap();
+        }
+
         assert!(!detector.is_user_created_file(&eslint_cache));
         assert!(!detector.is_user_created_file(&nyc_output));
         assert!(!detector.is_user_created_file(&pycache));
@@ -377,13 +384,14 @@ mod detection {
     fn build_locations_are_recognised_and_source_is_not() {
         let patterns = PatternMatcher::new();
 
+        // Only the unambiguous names can be decided from the path alone;
+        // `target/`, `build/`, `vendor/` and `dist/` need the file system,
+        // which `PatternMatcher::is_build_output` consults.
         for external in [
             "node_modules/express/index.js",
-            "target/debug/myapp",
             "__pycache__/module.pyc",
-            "vendor/package/file.go",
-            "build/classes/Main.class",
-            "dist/bundle.js",
+            "DerivedData/Build/app.o",
+            ".yarn/cache/left-pad.zip",
         ] {
             assert!(
                 patterns.matches_build_cache_pattern(external),
@@ -587,6 +595,7 @@ mod detection {
         // But ignore the generated/dependency files in the same project
         project.create_node_modules().unwrap();
         project.create_target_dir().unwrap();
+        project.create_file("go.mod", "module x\n").unwrap();
         let go_vendor = project
             .create_file("vendor/github.com/pkg/errors/errors.go", "package errors")
             .unwrap();
@@ -662,7 +671,7 @@ mod detection {
 mod classification {
     use super::*;
     use crate::core::detector::{
-        Classification, FileDetector, SherlockLanguage, SherlockResult, SherlockSummary,
+        Classification, FileDetector, SherlockLanguage, SherlockResult, SherlockSummary, SkipReason,
     };
 
     /// A detection result that claims every given path is source.
@@ -703,25 +712,30 @@ mod classification {
         }
     }
 
+    /// A rejection carries why, so the report can account for what it left out
+    /// rather than quietly shrinking the tree.
     #[test]
-    fn build_output_generated_and_boilerplate_are_rejected() {
+    fn build_output_generated_and_boilerplate_are_rejected_with_a_reason() {
         let project = TestProject::new("classify_rejected").unwrap();
         let detector = FileDetector::new().with_root(project.path());
-        for name in [
-            "target/debug/build.rs",
-            "node_modules/dep/index.js",
-            "api.pb.go",
-            "schema.generated.rs",
-            "LICENSE",
-            "LICENSE.md",
-            "COPYING",
-            "NOTICE.txt",
-            "AUTHORS",
+        project.create_file("Cargo.toml", "[package]\n").unwrap();
+        for (name, expected) in [
+            ("target/debug/build.rs", SkipReason::NotAuthoredHere),
+            ("node_modules/dep/index.js", SkipReason::NotAuthoredHere),
+            ("api.pb.go", SkipReason::Generated),
+            ("schema.generated.rs", SkipReason::Generated),
+            ("assets/logo.png", SkipReason::Binary),
+            ("assets/diagram.svg", SkipReason::Binary),
+            ("LICENSE", SkipReason::Boilerplate),
+            ("LICENSE.md", SkipReason::Boilerplate),
+            ("COPYING", SkipReason::Boilerplate),
+            ("NOTICE.txt", SkipReason::Boilerplate),
+            ("AUTHORS", SkipReason::Boilerplate),
         ] {
             let path = project.create_file(name, "x\n").unwrap();
             assert_eq!(
                 detector.classify(&path),
-                Classification::Rejected,
+                Classification::Rejected(expected),
                 "{name} should be rejected outright"
             );
         }

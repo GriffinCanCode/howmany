@@ -1,3 +1,4 @@
+use crate::core::languages;
 use crate::core::stats::aggregation::AggregatedStats;
 use serde::{Deserialize, Serialize};
 
@@ -299,60 +300,14 @@ impl VisualizationGenerator {
         }
     }
 
-    /// Format language label with emoji and proper name
+    /// Format a language label for a chart.
+    ///
+    /// The name comes from [`crate::core::languages`] rather than a table kept
+    /// here. The local copy named forty extensions and called everything else
+    /// "Unknown", so a chart could label a slice `Unknown` while the text
+    /// report named the same files correctly.
     fn format_language_label(&self, ext: &str) -> String {
-        let (emoji, name) = self.get_language_info(ext);
-        format!("{} {}", emoji, name)
-    }
-    /// Get language icon and proper name
-    fn get_language_info(&self, ext: &str) -> (&'static str, &'static str) {
-        match ext {
-            "rs" => ("●", "Rust"),
-            "py" => ("●", "Python"),
-            "js" => ("●", "JavaScript"),
-            "jsx" => ("●", "React JSX"),
-            "ts" => ("●", "TypeScript"),
-            "tsx" => ("●", "React TSX"),
-            "html" => ("●", "HTML"),
-            "css" => ("●", "CSS"),
-            "scss" => ("●", "Sass"),
-            "sass" => ("●", "Sass"),
-            "json" => ("●", "JSON"),
-            "xml" => ("●", "XML"),
-            "yaml" | "yml" => ("●", "YAML"),
-            "toml" => ("●", "TOML"),
-            "md" => ("●", "Markdown"),
-            "txt" => ("●", "Text"),
-            "java" => ("●", "Java"),
-            "c" => ("●", "C"),
-            "cpp" | "cc" | "cxx" => ("●", "C++"),
-            "h" | "hpp" => ("●", "C/C++ Header"),
-            "go" => ("●", "Go"),
-            "php" => ("●", "PHP"),
-            "rb" => ("●", "Ruby"),
-            "swift" => ("●", "Swift"),
-            "kt" => ("●", "Kotlin"),
-            "scala" => ("●", "Scala"),
-            "sh" | "bash" | "zsh" => ("●", "Shell"),
-            "cs" => ("●", "C#"),
-            "vb" | "vbs" => ("●", "Visual Basic"),
-            "dart" => ("●", "Dart"),
-            "r" => ("●", "R"),
-            "sql" => ("●", "SQL"),
-            "hs" | "lhs" | "hsc" => ("●", "Haskell"),
-            "ex" | "exs" | "eex" => ("●", "Elixir"),
-            "erl" | "hrl" => ("●", "Erlang"),
-            "jl" => ("●", "Julia"),
-            "lua" => ("●", "Lua"),
-            "pl" | "pm" | "pod" => ("●", "Perl"),
-            "zig" => ("●", "Zig"),
-            "clj" | "cljs" | "cljc" => ("●", "Clojure"),
-            "ps1" | "psm1" | "psd1" => ("●", "PowerShell"),
-            "bat" | "cmd" => ("●", "Batch"),
-            "mlx" => ("●", "MATLAB"),
-            "rmd" | "Rmd" => ("●", "R Markdown"),
-            _ => ("●", "Unknown"),
-        }
+        format!("● {}", languages::describe(ext).0)
     }
 
     /// Generate colors for chart based on color scheme

@@ -151,7 +151,9 @@ impl FileFilter {
     pub fn should_include_file(&self, path: &Path, root: Option<&Path>) -> bool {
         let relative = self.pattern_matcher.relative_path(path, root);
 
-        if self.pattern_matcher.is_excluded_path(&relative) {
+        if self.pattern_matcher.should_ignore_file(&relative)
+            || self.pattern_matcher.is_build_output(path, root)
+        {
             return false;
         }
 
@@ -203,7 +205,7 @@ fn is_prunable_dir(matcher: &PatternMatcher, entry: &DirEntry) -> bool {
     entry
         .file_name()
         .to_str()
-        .is_some_and(|name| matcher.is_prunable_dir(name))
+        .is_some_and(|name| matcher.is_prunable_dir_at(entry.path(), name))
 }
 
 /// A file discovered by traversal, with the metadata the walk already paid for.
@@ -242,6 +244,8 @@ mod tests {
     fn prunes_build_directories_but_keeps_sources() {
         let project = TestProject::new("prune").unwrap();
         project.create_file("src/main.rs", "fn main() {}").unwrap();
+        // `target/` is Cargo's only when Cargo is here to have made it.
+        project.create_file("Cargo.toml", "[package]\n").unwrap();
         project
             .create_file("node_modules/dep/index.js", "module.exports = 1;")
             .unwrap();

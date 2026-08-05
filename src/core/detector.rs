@@ -1,4 +1,5 @@
 use crate::core::counter::comment_patterns;
+use crate::core::languages;
 use crate::core::patterns::PatternMatcher;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -124,6 +125,42 @@ impl SherlockIndex {
     }
 }
 
+/// Why a path was left out of the analysis.
+///
+/// Carried rather than discarded so the report can say what it skipped. A run
+/// over one monorepo dropped 1.15 million lines of generated protobuf bindings
+/// and said nothing at all, which is indistinguishable from not having found
+/// them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SkipReason {
+    /// Inside build output, a dependency cache, or vendored code.
+    NotAuthoredHere,
+    /// Machine-written: protobuf bindings, minified bundles, codegen output.
+    Generated,
+    /// An image, archive, font or compiled artifact -- not line-oriented text.
+    Binary,
+    /// Legal or credits boilerplate nobody in the project wrote.
+    Boilerplate,
+}
+
+impl SkipReason {
+    pub const ALL: [SkipReason; 4] = [
+        SkipReason::NotAuthoredHere,
+        SkipReason::Generated,
+        SkipReason::Binary,
+        SkipReason::Boilerplate,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            SkipReason::NotAuthoredHere => "build output or vendored",
+            SkipReason::Generated => "generated",
+            SkipReason::Binary => "binary or asset",
+            SkipReason::Boilerplate => "licence boilerplate",
+        }
+    }
+}
+
 /// What the built-in classifier can conclude about a path on its own.
 ///
 /// The distinction between [`Rejected`](Classification::Rejected) and
@@ -136,9 +173,8 @@ impl SherlockIndex {
 pub enum Classification {
     /// Hand-written source, counted whether or not a detector is installed.
     Source,
-    /// Deliberately not counted: build output, generated code, vendored
-    /// dependencies, binary assets, boilerplate. No detector overrides this.
-    Rejected,
+    /// Deliberately not counted. No detector overrides this.
+    Rejected(SkipReason),
     /// Nothing in this build recognizes the name, and no rule rejects it.
     /// Only a language detector can settle it.
     Unknown,
@@ -260,19 +296,31 @@ impl FileDetector {
             .pattern_matcher
             .relative_path(path, self.root.as_deref());
 
-        if self.pattern_matcher.is_excluded_path(&relative) {
-            return Classification::Rejected;
+        if self.pattern_matcher.should_ignore_file(&relative)
+            || self
+                .pattern_matcher
+                .is_build_output(path, self.root.as_deref())
+        {
+            return Classification::Rejected(SkipReason::NotAuthoredHere);
         }
 
-        // Generated and boilerplate files are rejected here rather than only in
-        // the walker, so that every entry point agrees. `api.pb.go` used to be
-        // counted as hand-written Go because this check lived only in the file
-        // filter.
+        // Binary, generated and boilerplate files are rejected here rather than
+        // only in the walker, so that every entry point agrees. `api.pb.go`
+        // used to be counted as hand-written Go because this check lived only
+        // in the file filter -- and for the same reason the engine, which never
+        // calls the filter, counted the "lines" of every `.svg` in the tree.
+        if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
+            if self.pattern_matcher.is_binary_file(extension) {
+                return Classification::Rejected(SkipReason::Binary);
+            }
+        }
+
         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            if self.pattern_matcher.is_generated_file(name)
-                || PatternMatcher::is_boilerplate_file(name)
-            {
-                return Classification::Rejected;
+            if self.pattern_matcher.is_generated_file(name) {
+                return Classification::Rejected(SkipReason::Generated);
+            }
+            if PatternMatcher::is_boilerplate_file(name) {
+                return Classification::Rejected(SkipReason::Boilerplate);
             }
         }
 
@@ -286,7 +334,7 @@ impl FileDetector {
     pub fn is_user_created_file(&self, path: &Path) -> bool {
         match self.classify(path) {
             Classification::Source => true,
-            Classification::Rejected => false,
+            Classification::Rejected(_) => false,
             Classification::Unknown => self.detected_as_source(path),
         }
     }
@@ -413,32 +461,9 @@ impl FileDetector {
         Self::language_name_for_extension(&key)
     }
 
-    /// Built-in extension to language mapping.
+    /// Built-in extension to language mapping, from [`crate::core::languages`].
     pub fn language_name_for_extension(extension: &str) -> Option<String> {
-        let name = match extension.to_lowercase().as_str() {
-            "rs" => "Rust",
-            "py" => "Python",
-            "js" => "JavaScript",
-            "ts" => "TypeScript",
-            "java" => "Java",
-            "cpp" | "cc" | "cxx" => "C++",
-            "c" => "C",
-            "go" => "Go",
-            "rb" => "Ruby",
-            "php" => "PHP",
-            "cs" => "C#",
-            "swift" => "Swift",
-            "kt" => "Kotlin",
-            "html" => "HTML",
-            "css" => "CSS",
-            "scss" | "sass" => "Sass",
-            "json" => "JSON",
-            "yaml" | "yml" => "YAML",
-            "toml" => "TOML",
-            "md" => "Markdown",
-            _ => return None,
-        };
-        Some(name.to_string())
+        languages::lookup(&extension.to_lowercase()).map(|l| l.name.to_string())
     }
 }
 
@@ -519,7 +544,7 @@ mod tests {
         let detector = FileDetector::new().with_root(root);
         for rel in [
             "node_modules/dep/index.js",
-            "target/debug/x.rs",
+            "DerivedData/Build/x.swift",
             "__pycache__/m.py",
             ".git/hooks/pre-commit.sh",
         ] {

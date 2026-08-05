@@ -1,5 +1,7 @@
+use crate::core::languages::Category;
 use crate::core::types::CodeStats;
 use std::cmp::Reverse;
+use std::collections::BTreeMap;
 
 use crate::ui::interactive::app::{AppMode, ExportFormat, InteractiveApp, SearchMode};
 use crate::ui::interactive::charts::{
@@ -734,24 +736,42 @@ fn render_language_toggle_hint(f: &mut ratatui::Frame, area: Rect, app: &Interac
     f.render_widget(hint_paragraph, area);
 }
 
+/// The language chart: source languages get the bars, everything else gets a
+/// total.
+///
+/// Prose and payload files are usually the most numerous thing in a repository
+/// and used to be ranked alongside source, so the top of the chart could be
+/// Markdown and JSON while the languages the project is actually written in
+/// sat below the cut. They are still shown -- a repository's documentation and
+/// fixtures are worth knowing about -- but under their own heading, and the
+/// bar percentages are now a share of source, which is the question the chart
+/// is being asked.
 fn render_language_bar_chart(f: &mut ratatui::Frame, area: Rect, app: &InteractiveApp) {
     let mut chart_data = Vec::new();
     let mut total_lines = 0;
+    let mut other_categories: BTreeMap<Category, (usize, usize)> = BTreeMap::new();
 
-    // Collect data for the chart
-    for (language_name, (language_info, _file_count, file_stats)) in &app.language_stats {
-        chart_data.push((
-            language_name.clone(),
-            language_info.clone(),
-            file_stats.total_lines,
-        ));
-        total_lines += file_stats.total_lines;
+    for (language_name, (language_info, file_count, file_stats)) in &app.language_stats {
+        if language_info.category == Category::Code {
+            chart_data.push((
+                language_name.clone(),
+                language_info.clone(),
+                file_stats.total_lines,
+            ));
+            total_lines += file_stats.total_lines;
+        } else {
+            let entry = other_categories
+                .entry(language_info.category)
+                .or_insert((0, 0));
+            entry.0 += file_count;
+            entry.1 += file_stats.total_lines;
+        }
     }
 
     // Sort by lines descending
     chart_data.sort_by_key(|(_, _, line_count)| Reverse(*line_count));
 
-    let chart_lines = if chart_data.is_empty() {
+    let chart_lines = if chart_data.is_empty() && other_categories.is_empty() {
         vec![Line::from(vec![Span::styled(
             "No languages detected",
             Style::default().fg(Color::Gray),
@@ -759,7 +779,7 @@ fn render_language_bar_chart(f: &mut ratatui::Frame, area: Rect, app: &Interacti
     } else {
         let mut lines = vec![
             Line::from(vec![Span::styled(
-                "📊 Language Distribution",
+                "📊 Source Languages",
                 Style::default()
                     .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),
@@ -822,11 +842,26 @@ fn render_language_bar_chart(f: &mut ratatui::Frame, area: Rect, app: &Interacti
         }
 
         if chart_data.len() > 8 {
-            lines.push(Line::from(""));
             lines.push(Line::from(vec![Span::styled(
-                format!("... and {} more languages", chart_data.len() - 8),
+                format!("   ... and {} more languages", chart_data.len() - 8),
                 Style::default().fg(Color::DarkGray),
             )]));
+        }
+
+        for (category, (file_count, line_count)) in &other_categories {
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled(
+                    format!("{:<12}", category.label()),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("{line_count} lines in {file_count} files"),
+                    Style::default().fg(Color::Gray),
+                ),
+            ]));
         }
 
         lines

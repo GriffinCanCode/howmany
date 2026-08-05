@@ -1,4 +1,6 @@
-use howmany::core::engine::{Analysis, AnalysisOptions, Engine};
+use howmany::core::detector::SkipReason;
+use howmany::core::engine::{Analysis, AnalysisOptions, AnalysisReport, Engine};
+use howmany::core::languages::{Breakdown, Category, LanguageRow};
 use howmany::core::stats::AggregatedStats;
 use howmany::core::types::FileStats;
 use howmany::ui::cli::{OutputFormat, SortBy};
@@ -6,6 +8,7 @@ use howmany::ui::filters::{
     FileComplexity, FileFilter as FileStatsFilter, FilterOptions, FilteredOutputFormatter,
 };
 use howmany::{Config, InteractiveDisplay, Result};
+use std::cmp::Reverse;
 use std::io::{IsTerminal, Write};
 use std::path::Path;
 use std::process;
@@ -49,8 +52,15 @@ fn run(config: Config) -> Result<()> {
         return simple_cli_output(path, &config, config.get_filter_options());
     }
 
-    // Interactive mode (default unless --no-interactive or an explicit format)
-    if config.interactive() && matches!(config.format, OutputFormat::Text) && !config.quiet {
+    // Interactive mode (default unless --no-interactive or an explicit format).
+    // It needs a terminal: without one the TUI cannot start and the run falls
+    // back to a display that lists every file and then blocks on a keypress,
+    // which is not something a pipe or a CI job can answer.
+    if config.interactive()
+        && matches!(config.format, OutputFormat::Text)
+        && !config.quiet
+        && std::io::stdout().is_terminal()
+    {
         // Interactive mode analyses per-file so its drill-down views have data.
         let analysis = analyze(path, &config, true)?;
 
@@ -70,15 +80,7 @@ fn run(config: Config) -> Result<()> {
 
     let analysis = analyze(path, &config, config.show_files)?;
 
-    output_comprehensive_results(
-        &analysis.stats,
-        &analysis.individual_files,
-        config.format.clone(),
-        config.sort_by,
-        config.descending,
-        config.verbose,
-        &config,
-    )
+    output_comprehensive_results(&analysis, &config)
 }
 
 /// Run the analysis pipeline, reporting progress only for human-readable output.
@@ -172,39 +174,22 @@ fn list_files(path: &Path, config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn output_comprehensive_results(
-    aggregated_stats: &AggregatedStats,
-    individual_files: &[(String, FileStats)],
-    format: OutputFormat,
-    sort_by: SortBy,
-    descending: bool,
-    verbose: bool,
-    config: &Config,
-) -> Result<()> {
-    match format {
-        OutputFormat::Text => output_text(
-            aggregated_stats,
-            individual_files,
-            sort_by,
-            descending,
-            verbose,
-            config,
-        ),
-        OutputFormat::Json => output_json(aggregated_stats),
-        OutputFormat::Csv => output_csv(aggregated_stats),
-        OutputFormat::Html => output_html(aggregated_stats, individual_files, config),
-        OutputFormat::Sarif => output_sarif(aggregated_stats, individual_files, config),
+fn output_comprehensive_results(analysis: &Analysis, config: &Config) -> Result<()> {
+    let (stats, files) = (&analysis.stats, &analysis.individual_files[..]);
+    match config.format {
+        OutputFormat::Text => output_text(analysis, config),
+        OutputFormat::Json => output_json(stats),
+        OutputFormat::Csv => output_csv(stats),
+        OutputFormat::Html => output_html(stats, files, config),
+        OutputFormat::Sarif => output_sarif(stats, files, config),
     }
 }
 
-fn output_text(
-    aggregated_stats: &AggregatedStats,
-    individual_files: &[(String, FileStats)],
-    sort_by: SortBy,
-    descending: bool,
-    verbose: bool,
-    config: &Config,
-) -> Result<()> {
+fn output_text(analysis: &Analysis, config: &Config) -> Result<()> {
+    let aggregated_stats = &analysis.stats;
+    let individual_files = &analysis.individual_files[..];
+    let report = &analysis.report;
+    let (sort_by, ascending, verbose) = (config.sort_by, config.ascending, config.verbose);
     if config.summary_only {
         print_summary_only(aggregated_stats, config);
         return Ok(());
@@ -354,59 +339,18 @@ fn output_text(
         );
     }
 
-    if verbose || !aggregated_stats.basic.stats_by_extension.is_empty() {
-        println!();
-        println!("=== Breakdown by Extension ===");
-
-        let mut extensions: Vec<_> = aggregated_stats.basic.stats_by_extension.iter().collect();
-
-        // Sort by extension first so that equal keys resolve identically on
-        // every run; HashMap iteration order is not stable.
-        extensions.sort_by_key(|(a, _)| *a);
-
-        match sort_by {
-            SortBy::Files => extensions.sort_by_key(|(_, s)| s.file_count),
-            SortBy::Lines => extensions.sort_by_key(|(_, s)| s.total_lines),
-            SortBy::Code => extensions.sort_by_key(|(_, s)| s.code_lines),
-            SortBy::Comments => extensions.sort_by_key(|(_, s)| s.comment_lines),
-            SortBy::Size => extensions.sort_by_key(|(_, s)| s.total_size),
-            SortBy::Complexity => extensions.sort_by_key(|(_, s)| s.total_lines),
-            SortBy::Quality => extensions.sort_by_key(|(_, s)| s.total_lines),
-            SortBy::Functions => extensions.sort_by_key(|(_, s)| s.file_count),
-            SortBy::DocRatio => extensions.sort_by(|(_, a), (_, b)| {
-                let ratio = |s: &howmany::core::stats::basic::ExtensionStats| {
-                    if s.total_lines > 0 {
-                        s.doc_lines as f64 / s.total_lines as f64
-                    } else {
-                        0.0
-                    }
-                };
-                ratio(a)
-                    .partial_cmp(&ratio(b))
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            }),
-        }
-
-        if descending {
-            extensions.reverse();
-        }
-
-        if let Some(top_n) = config.top_n {
-            extensions.truncate(top_n);
-        }
-
-        for (ext, ext_stats) in extensions {
-            println!(
-                "  {}: {} files, {} lines ({} code, {} docs, {} comments)",
-                ext,
-                ext_stats.file_count,
-                ext_stats.total_lines,
-                ext_stats.code_lines,
-                ext_stats.doc_lines,
-                ext_stats.comment_lines
-            );
-        }
+    if !aggregated_stats.basic.stats_by_extension.is_empty() {
+        print_language_breakdown(
+            &Breakdown::from_extensions(&aggregated_stats.basic.stats_by_extension),
+            sort_by,
+            ascending,
+            verbose,
+            config,
+            use_color,
+        );
     }
+
+    print_skipped(report, use_color);
 
     if !individual_files.is_empty() && config.show_files {
         println!();
@@ -427,6 +371,149 @@ fn output_text(
     }
 
     Ok(())
+}
+
+/// Print the breakdown, one section per category, biggest language first.
+///
+/// The previous rendering was a single flat list of filename extensions ordered
+/// by ascending file count. On any real repository that put the one-off
+/// extensions at the top and the languages the project is written in at the
+/// bottom, with prose and test fixtures -- the two most numerous file kinds in
+/// a monorepo -- interleaved among them. Splitting by category and leading with
+/// the largest answers the question the reader actually asked.
+fn print_language_breakdown(
+    breakdown: &Breakdown,
+    sort_by: SortBy,
+    ascending: bool,
+    verbose: bool,
+    config: &Config,
+    use_color: bool,
+) {
+    let project_lines = breakdown.total_lines();
+    let name_width = breakdown
+        .rows
+        .iter()
+        .map(|row| row.language.chars().count())
+        .max()
+        .unwrap_or(0)
+        .clamp(12, 28);
+
+    for category in Category::ALL {
+        let category_lines = breakdown.lines_in(category);
+        if category_lines == 0 && breakdown.in_category(category).next().is_none() {
+            continue;
+        }
+
+        let mut rows: Vec<&LanguageRow> = breakdown.in_category(category).collect();
+        sort_rows(&mut rows, sort_by);
+        if ascending {
+            rows.reverse();
+        }
+        if let Some(top_n) = config.top_n {
+            rows.truncate(top_n);
+        }
+
+        println!();
+        println!(
+            "=== {} === {} lines in {} files, {:.1}% of the project",
+            category.label(),
+            format_number(category_lines, use_color),
+            format_number(breakdown.files_in(category), use_color),
+            percentage(category_lines, project_lines),
+        );
+
+        for row in rows {
+            // Code lines are shown next to the total on every row, because the
+            // total is what the percentage is a share of but the code figure is
+            // what `--sort code` orders by; printing only one of them made the
+            // ordering look wrong.
+            print!(
+                "  {:<name_width$} {:>7} files {:>13} lines  {:>5.1}%  {:>13} code",
+                row.language,
+                group_digits(row.file_count),
+                group_digits(row.total_lines),
+                row.share_of(category_lines),
+                group_digits(row.code_lines),
+            );
+            if verbose {
+                print!(
+                    "   ({} docs, {} comments, {} blank)",
+                    group_digits(row.doc_lines),
+                    group_digits(row.comment_lines),
+                    group_digits(row.blank_lines),
+                );
+            }
+            println!();
+        }
+    }
+}
+
+/// Order `rows` largest-first under the requested metric.
+fn sort_rows(rows: &mut [&LanguageRow], sort_by: SortBy) {
+    // Name first, so that rows tied on the metric resolve identically on every
+    // run rather than inheriting whatever order they were collected in.
+    rows.sort_by(|a, b| a.language.cmp(&b.language));
+
+    let doc_ratio = |row: &LanguageRow| {
+        if row.total_lines > 0 {
+            row.doc_lines as f64 / row.total_lines as f64
+        } else {
+            0.0
+        }
+    };
+
+    match sort_by {
+        SortBy::Files | SortBy::Functions => rows.sort_by_key(|r| Reverse(r.file_count)),
+        SortBy::Lines | SortBy::Complexity | SortBy::Quality => {
+            rows.sort_by_key(|r| Reverse(r.total_lines))
+        }
+        SortBy::Code => rows.sort_by_key(|r| Reverse(r.code_lines)),
+        SortBy::Comments => rows.sort_by_key(|r| Reverse(r.comment_lines)),
+        SortBy::Size => rows.sort_by_key(|r| Reverse(r.total_size)),
+        SortBy::DocRatio => rows.sort_by(|a, b| {
+            doc_ratio(b)
+                .partial_cmp(&doc_ratio(a))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }),
+    }
+}
+
+/// `part` as a percentage of `whole`, and zero rather than NaN when empty.
+fn percentage(part: usize, whole: usize) -> f64 {
+    if whole == 0 {
+        0.0
+    } else {
+        100.0 * part as f64 / whole as f64
+    }
+}
+
+/// Report the files the run deliberately left out.
+///
+/// Without this the totals cannot be reconciled with any other tool: on one
+/// monorepo the generated protobuf bindings alone were 1.15 million lines, and
+/// they simply were not in the output and were not mentioned.
+fn print_skipped(report: &AnalysisReport, use_color: bool) {
+    let total: usize = report.skipped.values().sum::<usize>() + report.files_unrecognized;
+    if total == 0 {
+        return;
+    }
+
+    println!();
+    println!(
+        "=== Not counted === {} files",
+        format_number(total, use_color)
+    );
+    for reason in SkipReason::ALL {
+        if let Some(count) = report.skipped.get(&reason).filter(|c| **c > 0) {
+            println!("  {:<24} {:>7}", reason.label(), count);
+        }
+    }
+    if report.files_unrecognized > 0 {
+        println!(
+            "  {:<24} {:>7}",
+            "unrecognized format", report.files_unrecognized
+        );
+    }
 }
 
 fn print_summary_only(aggregated_stats: &AggregatedStats, config: &Config) {
@@ -470,11 +557,28 @@ fn print_compact_output(aggregated_stats: &AggregatedStats, config: &Config) {
 }
 
 fn format_number(num: usize, use_color: bool) -> String {
+    let grouped = group_digits(num);
     if use_color && num > 1000 {
-        format!("\x1b[36m{}\x1b[0m", num)
+        format!("\x1b[36m{grouped}\x1b[0m")
     } else {
-        num.to_string()
+        grouped
     }
+}
+
+/// Render `num` with thousands separators.
+///
+/// A report whose headline figure is `2202324` makes the reader count digits to
+/// find out whether it says two million or two hundred thousand.
+fn group_digits(num: usize) -> String {
+    let digits = num.to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
+    for (index, digit) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(digit);
+    }
+    out
 }
 
 fn output_json(aggregated_stats: &AggregatedStats) -> Result<()> {

@@ -166,7 +166,10 @@ const PATTERN_TABLE: &[(&str, CommentPattern)] = &[
     ("xml", XML_STYLE),
     ("html", XML_STYLE),
     ("htm", XML_STYLE),
-    ("svg", XML_STYLE),
+    // `svg` is deliberately absent: it is listed in `patterns::BINARY_EXTENSIONS`
+    // as the image asset it is. Registering syntax for it here contradicted that
+    // and let the engine -- which classifies without consulting the file filter
+    // -- report thousands of lines of generated path data as source.
     // Stylesheets
     ("css", CommentPattern::new(&[], &["/*"], &["*/"], &["/**"])),
     (

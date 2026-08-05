@@ -1,6 +1,6 @@
 //! Path classification patterns.
 //!
-//! Two invariants govern this module:
+//! Three invariants govern this module:
 //!
 //! 1. **Patterns are matched against a repository-relative path, never an
 //!    absolute one.** `build/`, `tmp/`, `env/`, `bin/` and friends are ordinary
@@ -10,7 +10,14 @@
 //!    to live. Callers are responsible for relativizing; see
 //!    [`PatternMatcher::relative_path`].
 //!
-//! 2. **Matching is one pass, not one pass per pattern.** All patterns in a
+//! 2. **Build patterns match whole path segments.** `log/` names a directory
+//!    called `log`, not any directory whose name merely ends in those letters.
+//!    Left unanchored it also matched `billog/`, `catalog/`, `blog/` and
+//!    `changelog/`, and `out/` matched `layout/`, `rollout/` and `checkout/` --
+//!    so entire hand-written source trees vanished from the report with no
+//!    indication that anything had been skipped. See [`segment_anchored`].
+//!
+//! 3. **Matching is one pass, not one pass per pattern.** All patterns in a
 //!    category are compiled into a single [`RegexSet`], which evaluates every
 //!    alternative in a single scan of the input.
 
@@ -99,16 +106,19 @@ const VCS_PATTERNS: &[&str] = &[r"\.git/", r"\.svn/", r"\.hg/", r"\.bzr/", r"\.g
 
 /// Per-ecosystem build and dependency-cache locations.
 ///
+/// Every entry is anchored to a path-segment boundary when it is compiled (see
+/// [`segment_anchored`]), so it is written as if it began at the start of a
+/// segment. A pattern that must match a segment *suffix* -- an Xcode bundle is
+/// `MyApp.xcodeproj`, never `.xcodeproj` -- says so with an explicit `[^/]*`.
+///
 /// Entries containing a `/` are genuinely multi-segment and can only be decided
 /// from a path; single-segment entries are additionally used to prune whole
-/// directories during traversal (see [`PRUNE_DIRS`]).
+/// directories during traversal (see [`PRUNE_DIR_SET`]).
 const LANGUAGE_BUILD_SPECS: &[(&str, &[&str])] = &[
     (
         "nodejs",
         &[
             r"node_modules/",
-            r"dist/",
-            r"out/",
             r"\.npm/",
             r"\.yarn/",
             r"\.pnpm-store/",
@@ -150,53 +160,22 @@ const LANGUAGE_BUILD_SPECS: &[(&str, &[&str])] = &[
             r"\.ipynb_checkpoints/",
             r"\.eggs/",
             r"\.pip/",
-            r"\.venv/",
-            r"venv/",
-            r"env/",
-            r"\.env/",
-            r"virtualenv/",
         ],
     ),
-    ("rust", &[r"target/", r"\.cargo/", r"\.rustup/"]),
+    ("rust", &[r"\.cargo/", r"\.rustup/"]),
     (
         "java",
-        &[
-            r"target/",
-            r"build/",
-            r"\.gradle/",
-            r"\.m2/",
-            r"\.mvn/",
-            r"\.sbt/",
-            r"\.ivy2/",
-        ],
+        &[r"\.gradle/", r"\.m2/", r"\.mvn/", r"\.sbt/", r"\.ivy2/"],
     ),
-    ("go", &[r"vendor/", r"\.go/pkg/"]),
+    ("go", &[r"\.go/pkg/"]),
     (
         "cpp",
-        &[
-            r"\.ccache/",
-            r"\.sccache/",
-            r"build/",
-            r"cmake-build-",
-            r"CMakeFiles/",
-        ],
+        &[r"\.ccache/", r"\.sccache/", r"cmake-build-", r"CMakeFiles/"],
     ),
-    (
-        "dotnet",
-        &[
-            r"bin/",
-            r"obj/",
-            r"packages/",
-            r"\.nuget/",
-            r"TestResults/",
-            r"publish/",
-            r"\.publish/",
-        ],
-    ),
+    ("dotnet", &[r"\.nuget/", r"TestResults/", r"\.publish/"]),
     (
         "php",
         &[
-            r"vendor/",
             r"bootstrap/cache/",
             r"storage/framework/",
             r"storage/logs/",
@@ -212,9 +191,6 @@ const LANGUAGE_BUILD_SPECS: &[(&str, &[&str])] = &[
             r"\.bundle/",
             r"vendor/bundle/",
             r"\.gem/",
-            r"log/",
-            r"tmp/",
-            r"coverage/",
             r"\.yardoc/",
             r"\.sass-cache/",
             r"\.spring/",
@@ -226,14 +202,240 @@ const LANGUAGE_BUILD_SPECS: &[(&str, &[&str])] = &[
             r"\.build/",
             r"\.swiftpm/",
             r"DerivedData/",
-            r"Pods/",
             r"Carthage/",
-            r"\.xcodeproj/",
-            r"\.xcworkspace/",
-            r"\.xcarchive/",
+            r"[^/]*\.xcodeproj/",
+            r"[^/]*\.xcworkspace/",
+            r"[^/]*\.xcarchive/",
         ],
     ),
 ];
+
+/// What must be true on disk for an ambiguously-named directory to be build
+/// output.
+///
+/// `beside` names files in the directory that *contains* the candidate --
+/// `packages/` is a NuGet restore directory when a solution sits next to it,
+/// and a pnpm workspace otherwise. `within` names files inside the candidate
+/// itself, which is how a virtualenv identifies itself.
+struct Evidence {
+    beside: &'static [&'static str],
+    within: &'static [&'static str],
+}
+
+/// Directory names that mean "build output" only in the right company.
+///
+/// These are ordinary words, and every one of them is a real source directory
+/// somewhere. Treating the name alone as proof deleted hand-written code from
+/// the report with no indication anything had been skipped: `packages/` is the
+/// source root of every pnpm and yarn workspace, and it cost one monorepo its
+/// entire web client -- 588 TypeScript files and 252,000 lines -- because the
+/// name also happens to be where NuGet restores its dependencies. `build/`
+/// took a Go package that builds things, and `vendor/` took a directory of
+/// vendored *source* that was being read, not generated.
+///
+/// So the name only raises the question, and the file system answers it.
+const AMBIGUOUS_BUILD_DIRS: &[(&str, Evidence)] = &[
+    (
+        "packages",
+        Evidence {
+            beside: &["*.sln", "*.csproj", "packages.config", "nuget.config"],
+            within: &[],
+        },
+    ),
+    (
+        "bin",
+        Evidence {
+            beside: &["*.sln", "*.csproj", "*.fsproj", "*.vbproj"],
+            within: &[],
+        },
+    ),
+    (
+        "obj",
+        Evidence {
+            beside: &["*.sln", "*.csproj", "*.fsproj", "*.vbproj"],
+            within: &[],
+        },
+    ),
+    (
+        "publish",
+        Evidence {
+            beside: &["*.sln", "*.csproj", "*.fsproj", "*.vbproj"],
+            within: &[],
+        },
+    ),
+    (
+        "build",
+        Evidence {
+            beside: &[
+                "CMakeLists.txt",
+                "meson.build",
+                "pom.xml",
+                "build.gradle",
+                "build.gradle.kts",
+                "settings.gradle",
+                "settings.gradle.kts",
+            ],
+            within: &[],
+        },
+    ),
+    (
+        "target",
+        Evidence {
+            beside: &["Cargo.toml", "pom.xml", "build.gradle", "build.gradle.kts"],
+            within: &[".rustc_info.json"],
+        },
+    ),
+    (
+        "dist",
+        Evidence {
+            beside: &["package.json", "pyproject.toml", "setup.py", "setup.cfg"],
+            within: &[],
+        },
+    ),
+    (
+        "out",
+        Evidence {
+            beside: &["package.json", "tsconfig.json"],
+            within: &[],
+        },
+    ),
+    (
+        "coverage",
+        Evidence {
+            beside: &["package.json", "Gemfile", "pyproject.toml", ".coveragerc"],
+            within: &[],
+        },
+    ),
+    (
+        "vendor",
+        Evidence {
+            beside: &["go.mod", "composer.json", "Gemfile"],
+            within: &["modules.txt", "autoload.php"],
+        },
+    ),
+    (
+        "Pods",
+        Evidence {
+            beside: &["Podfile"],
+            within: &["Manifest.lock"],
+        },
+    ),
+    (
+        "log",
+        Evidence {
+            beside: &["Gemfile", "config.ru"],
+            within: &[],
+        },
+    ),
+    (
+        "tmp",
+        Evidence {
+            beside: &["Gemfile", "config.ru"],
+            within: &[],
+        },
+    ),
+    (
+        "storage",
+        Evidence {
+            beside: &["composer.json", "artisan"],
+            within: &[],
+        },
+    ),
+    (
+        "env",
+        Evidence {
+            beside: &[],
+            within: VENV_MARKERS,
+        },
+    ),
+    (
+        ".env",
+        Evidence {
+            beside: &[],
+            within: VENV_MARKERS,
+        },
+    ),
+    (
+        "venv",
+        Evidence {
+            beside: &[],
+            within: VENV_MARKERS,
+        },
+    ),
+    (
+        ".venv",
+        Evidence {
+            beside: &[],
+            within: VENV_MARKERS,
+        },
+    ),
+    (
+        "virtualenv",
+        Evidence {
+            beside: &[],
+            within: VENV_MARKERS,
+        },
+    ),
+];
+
+/// How a Python virtual environment identifies itself from the inside.
+const VENV_MARKERS: &[&str] = &["pyvenv.cfg", "bin/activate", "Scripts/activate.bat"];
+
+static AMBIGUOUS_DIR_MAP: LazyLock<HashMap<&'static str, &'static Evidence>> =
+    LazyLock::new(|| AMBIGUOUS_BUILD_DIRS.iter().map(|(n, e)| (*n, e)).collect());
+
+/// True when `directory` contains something matching `marker`.
+///
+/// A marker is either a literal name or `*.ext`; the wildcard form has to read
+/// the directory, so it is tried only after the literal names have missed.
+fn marker_present(directory: &Path, marker: &str) -> bool {
+    match marker.strip_prefix("*.") {
+        None => directory.join(marker).exists(),
+        Some(extension) => std::fs::read_dir(directory).is_ok_and(|entries| {
+            entries.flatten().any(|entry| {
+                Path::new(&entry.file_name())
+                    .extension()
+                    .is_some_and(|found| found.eq_ignore_ascii_case(extension))
+            })
+        }),
+    }
+}
+
+/// The cross-tool convention for "this directory is a cache": a tag file
+/// standardised for exactly this purpose, which Cargo and others write.
+/// Evidence enough on its own, whatever the directory is called.
+const CACHE_TAG: &str = "CACHEDIR.TAG";
+
+/// True when `path` -- a directory whose name is in [`AMBIGUOUS_BUILD_DIRS`] --
+/// is really build output.
+fn is_corroborated_build_dir(path: &Path, name: &str) -> bool {
+    let Some(evidence) = AMBIGUOUS_DIR_MAP.get(name) else {
+        return false;
+    };
+    if marker_present(path, CACHE_TAG) {
+        return true;
+    }
+    evidence
+        .within
+        .iter()
+        .any(|marker| marker_present(path, marker))
+        || path.parent().is_some_and(|parent| {
+            evidence
+                .beside
+                .iter()
+                .any(|marker| marker_present(parent, marker))
+        })
+}
+
+/// Bind `pattern` to the start of a path segment.
+///
+/// Every build pattern names a directory or a file, and a name only means
+/// anything as a whole path component. Without this, matching is by substring:
+/// `log/` swallowed `libs/kernels/billog/`, `out/` swallowed `web/layout/`, and
+/// the files inside were dropped from the analysis entirely.
+fn segment_anchored(pattern: &str) -> String {
+    format!(r"(?:^|/){pattern}")
+}
 
 /// Prunable directories that are not build output: version control metadata and
 /// editor state. The build directories are derived from
@@ -323,6 +525,15 @@ const GENERATED_SUFFIXES: &[&str] = &[
     "_pb2_grpc.py",
     ".pbobjc.h",
     ".pbobjc.m",
+    // protoc-gen-es / protoc-gen-connect-es, the TypeScript equivalents of
+    // the `.pb.go` convention above
+    "_pb.ts",
+    "_pb.js",
+    "_pb.d.ts",
+    "_connect.ts",
+    "_connect.d.ts",
+    "_connectquery.ts",
+    "_connectquery.d.ts",
     // Explicit codegen conventions. `*.generated.*` is handled structurally in
     // `is_generated_file`, so only the underscore and abbreviated spellings
     // need listing here.
@@ -384,12 +595,12 @@ static IGNORE_SET: LazyLock<RegexSet> = LazyLock::new(|| {
 
 /// Every build/cache pattern across all ecosystems, evaluated in a single scan.
 static BUILD_SET: LazyLock<RegexSet> = LazyLock::new(|| {
-    let all: Vec<&str> = LANGUAGE_BUILD_SPECS
+    let all: Vec<String> = LANGUAGE_BUILD_SPECS
         .iter()
         .flat_map(|(_, pats)| pats.iter())
-        .copied()
+        .map(|p| segment_anchored(p))
         .collect();
-    compile_set(&all)
+    RegexSet::new(&all).expect("built-in patterns must compile")
 });
 
 static LANGUAGE_BUILD_PATTERNS: LazyLock<HashMap<&'static str, Vec<Regex>>> = LazyLock::new(|| {
@@ -398,7 +609,7 @@ static LANGUAGE_BUILD_PATTERNS: LazyLock<HashMap<&'static str, Vec<Regex>>> = La
         .map(|(lang, pats)| {
             let compiled = pats
                 .iter()
-                .map(|p| Regex::new(p).expect("built-in patterns must compile"))
+                .map(|p| Regex::new(&segment_anchored(p)).expect("built-in patterns must compile"))
                 .collect();
             (*lang, compiled)
         })
@@ -618,6 +829,42 @@ impl PatternMatcher {
         PRUNE_DIR_SET.contains(dir_name)
     }
 
+    /// True when `path` can be skipped: either its name is unconditionally
+    /// build output, or its name is ambiguous and the surrounding files say it
+    /// is. See [`AMBIGUOUS_BUILD_DIRS`].
+    pub fn is_prunable_dir_at(&self, path: &Path, dir_name: &str) -> bool {
+        self.is_prunable_dir(dir_name) || is_corroborated_build_dir(path, dir_name)
+    }
+
+    /// True when `path` lies inside a build output or dependency cache.
+    ///
+    /// Unlike [`Self::matches_build_cache_pattern`] this can also decide the
+    /// ambiguously-named directories, because it is given the real path and
+    /// can look for the toolchain that would have produced them.
+    pub fn is_build_output(&self, path: &Path, root: Option<&Path>) -> bool {
+        let relative = self.relative_path(path, root);
+        if self.matches_build_cache_pattern(&relative) {
+            return true;
+        }
+
+        // Only pay for filesystem checks when a segment name asks for them.
+        let mut prefix = root.map(Path::to_path_buf).unwrap_or_default();
+        let mut ancestors = Path::new(relative.as_ref()).components().peekable();
+        while let Some(component) = ancestors.next() {
+            prefix.push(component);
+            if ancestors.peek().is_none() {
+                break; // The file itself, not a directory containing it.
+            }
+            let name = component.as_os_str().to_string_lossy();
+            if AMBIGUOUS_DIR_MAP.contains_key(name.as_ref())
+                && is_corroborated_build_dir(&prefix, &name)
+            {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Every prunable directory name, for tests and diagnostics.
     pub fn prunable_dirs(&self) -> impl Iterator<Item = &'static str> {
         PRUNE_DIR_SET.iter().map(String::as_str)
@@ -761,12 +1008,43 @@ mod tests {
         assert_eq!(prunable_dir_name(r"\.coverage"), None);
     }
 
+    /// Lay out `paths` (a trailing `/` makes a directory) under a temp root.
+    fn tree(paths: &[&str]) -> tempfile::TempDir {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        for path in paths {
+            let full = dir.path().join(path.trim_end_matches('/'));
+            if path.ends_with('/') {
+                std::fs::create_dir_all(&full).expect("mkdir");
+            } else {
+                if let Some(parent) = full.parent() {
+                    std::fs::create_dir_all(parent).expect("mkdir");
+                }
+                std::fs::write(&full, "x\n").expect("write");
+            }
+        }
+        dir
+    }
+
     /// `dist/` is the most common build output name in the JavaScript and
     /// Python ecosystems; leaving it out silently doubled the reported size of
     /// any project that ships a bundle.
     #[test]
     fn common_build_output_directories_are_excluded() {
         let m = PatternMatcher::new();
+        let project = tree(&[
+            "Cargo.toml",
+            "package.json",
+            "CMakeLists.txt",
+            "dist/bundle.js",
+            "out/index.html",
+            "node_modules/left-pad/index.js",
+            "target/debug/deps/x.rs",
+            "build/classes/A.class",
+            "src/distance.rs",
+            "src/outbox/handler.rs",
+        ]);
+        let root = project.path();
+
         for probe in [
             "dist/bundle.js",
             "out/index.html",
@@ -774,18 +1052,151 @@ mod tests {
             "target/debug/deps/x.rs",
             "build/classes/A.class",
         ] {
+            assert!(
+                m.is_build_output(&root.join(probe), Some(root)),
+                "{probe:?} should be excluded"
+            );
+        }
+        for probe in ["src/distance.rs", "src/outbox/handler.rs"] {
+            assert!(!m.is_build_output(&root.join(probe), Some(root)));
+        }
+    }
+
+    /// An ambiguously-named directory is build output only when the toolchain
+    /// that would have produced it is there too. Without that check, `packages/`
+    /// -- the source root of every pnpm and yarn workspace -- was deleted from
+    /// the report because it is also where NuGet restores dependencies.
+    #[test]
+    fn ambiguous_directory_names_need_a_toolchain_to_be_build_output() {
+        let m = PatternMatcher::new();
+        let project = tree(&[
+            "packages/ui/src/button.ts",
+            "build/pipeline.go",
+            "vendor/graphify/main.go",
+            "out/render.go",
+            "internal/log/logger.go",
+            "env/settings.py",
+        ]);
+        let root = project.path();
+
+        for probe in [
+            "packages/ui/src/button.ts",
+            "build/pipeline.go",
+            "vendor/graphify/main.go",
+            "out/render.go",
+            "internal/log/logger.go",
+            "env/settings.py",
+        ] {
+            assert!(
+                !m.is_build_output(&root.join(probe), Some(root)),
+                "{probe:?} was discarded as build output, but nothing in the \
+                 project produces build output under that name"
+            );
+        }
+    }
+
+    /// A cache may also identify itself, whatever it is called: `CACHEDIR.TAG`
+    /// is the cross-tool convention for saying so.
+    #[test]
+    fn a_directory_that_tags_itself_as_a_cache_is_build_output() {
+        let m = PatternMatcher::new();
+        let project = tree(&["out/CACHEDIR.TAG", "out/app.js", "venv/pyvenv.cfg"]);
+        let root = project.path();
+
+        assert!(m.is_build_output(&root.join("out/app.js"), Some(root)));
+        assert!(m.is_prunable_dir_at(&root.join("venv"), "venv"));
+        assert!(!m.is_prunable_dir_at(&root.join("out/nope"), "nope"));
+    }
+
+    /// A build pattern names a whole path segment. Matching it as a substring
+    /// deleted entire source trees: `log/` claimed `libs/kernels/billog/`,
+    /// `catalog/`, `blog/` and `changelog/`; `out/` claimed `layout/`,
+    /// `rollout/` and `scout/`. On one monorepo that silently discarded 272
+    /// hand-written files, including every Zig source in the project.
+    #[test]
+    fn build_patterns_do_not_match_partial_segment_names() {
+        let m = PatternMatcher::new();
+        for probe in [
+            "libs/kernels/billog/src/root.zig",
+            "api/handler/admin/catalog/routes.go",
+            "site/blog/post.md",
+            "docs/changelog/2024.md",
+            "web/components/layout/Grid.tsx",
+            "ops/rollout/plan.py",
+            "tools/scout/main.rs",
+            "src/distance/metric.rs",
+            "src/binary/search.c",
+            "src/environment/setup.py",
+            "third_party/vendored_notes.md",
+        ] {
+            assert!(
+                !m.is_excluded_path(probe),
+                "{probe:?} was excluded because a directory name merely contains \
+                 a build word as a substring"
+            );
+        }
+    }
+
+    /// The other half of the same rule: a genuine build directory must still be
+    /// excluded wherever it appears in the path.
+    #[test]
+    fn build_patterns_still_match_whole_segments_at_any_depth() {
+        let m = PatternMatcher::new();
+        let project = tree(&[
+            "var/Gemfile",
+            "var/log/app.txt",
+            "packages/ui/package.json",
+            "packages/ui/out/index.html",
+            "services/web/node_modules/left-pad/index.js",
+            "crates/core/Cargo.toml",
+            "crates/core/target/debug/x.rs",
+            "apps/api/__pycache__/m.pyc",
+        ]);
+        let root = project.path();
+        for probe in [
+            "var/log/app.txt",
+            "packages/ui/out/index.html",
+            "services/web/node_modules/left-pad/index.js",
+            "crates/core/target/debug/x.rs",
+            "apps/api/__pycache__/m.pyc",
+        ] {
+            assert!(
+                m.is_build_output(&root.join(probe), Some(root)),
+                "{probe:?} should be excluded"
+            );
+        }
+    }
+
+    /// An Xcode bundle is `MyApp.xcodeproj`, so its pattern has to match a
+    /// segment *suffix*. Anchoring every pattern to a segment start without
+    /// saying so would have stopped excluding them.
+    #[test]
+    fn segment_suffix_patterns_still_match_their_bundles() {
+        let m = PatternMatcher::new();
+        for probe in [
+            "MyApp.xcodeproj/project.pbxproj",
+            "ios/MyApp.xcworkspace/contents.xcworkspacedata",
+            "build/MyApp.xcarchive/Info.plist",
+        ] {
             assert!(m.is_excluded_path(probe), "{probe:?} should be excluded");
         }
-        assert!(!m.is_excluded_path("src/distance.rs"));
-        assert!(!m.is_excluded_path("src/outbox/handler.rs"));
+    }
+
+    #[test]
+    fn segment_anchoring_binds_to_a_component_boundary() {
+        let anchored = Regex::new(&segment_anchored("log/")).unwrap();
+        assert!(anchored.is_match("log/x"));
+        assert!(anchored.is_match("var/log/x"));
+        assert!(!anchored.is_match("billog/x"));
+        assert!(!anchored.is_match("catalog/x"));
     }
 
     #[test]
     fn build_patterns_match_relative_locations() {
         let m = PatternMatcher::new();
         assert!(m.matches_build_cache_pattern("node_modules/left-pad/index.js"));
-        assert!(m.matches_build_cache_pattern("target/debug/build.rs"));
         assert!(m.matches_build_cache_pattern("__pycache__/mod.pyc"));
+        assert!(m.matches_build_cache_pattern("DerivedData/Build/x.o"));
         assert!(!m.matches_build_cache_pattern("src/main.rs"));
     }
 
@@ -823,8 +1234,8 @@ mod tests {
     #[test]
     fn absolute_paths_would_be_excluded_without_relativization() {
         let m = PatternMatcher::new();
-        assert!(m.is_excluded_path("/tmp/checkout/src/main.rs"));
-        assert!(m.is_excluded_path("/build/ci/workspace/src/main.rs"));
+        assert!(m.is_excluded_path("/home/dev/node_modules/repo/src/main.rs"));
+        assert!(m.is_excluded_path("/srv/DerivedData/workspace/src/main.rs"));
     }
 
     #[test]

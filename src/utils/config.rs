@@ -62,7 +62,7 @@ impl Default for OutputPreferences {
     fn default() -> Self {
         Self {
             default_format: "interactive".to_string(),
-            default_sort_by: "files".to_string(),
+            default_sort_by: "lines".to_string(),
             show_progress: true,
             use_colors: true,
         }

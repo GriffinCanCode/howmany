@@ -4,6 +4,7 @@ pub mod core {
     pub mod detector;
     pub mod engine;
     pub mod filters;
+    pub mod languages;
     pub mod patterns;
     pub mod stats;
     pub mod types;
@@ -38,6 +39,7 @@ pub use core::engine::{
     Analysis, AnalysisOptions, AnalysisReport, DetectionMode, Engine, Parallelism,
 };
 pub use core::filters::FileFilter;
+pub use core::languages::{Category, Language};
 pub use core::patterns::PatternMatcher;
 pub use core::stats::StatsCalculator;
 pub use core::types::{CodeStats, FileStats};

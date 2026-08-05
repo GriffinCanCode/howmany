@@ -42,6 +42,9 @@ impl Project {
         project.write("app/main.py", "def main():\n    pass\n");
         project.write("README.md", "# Title\n\nProse.\n");
         project.write("node_modules/dep/index.js", "module.exports = 1;\n");
+        // Cargo's own tag file, which is what makes `target/` build output
+        // rather than a directory that happens to be called that.
+        project.write("target/CACHEDIR.TAG", "Signature: 8a477f597d28d172\n");
         project.write("target/debug/gen.rs", "fn gen() {}\n");
         project.write("package-lock.json", "{}\n");
         project

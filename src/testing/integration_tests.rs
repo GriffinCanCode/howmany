@@ -69,6 +69,11 @@ fn golden_project() -> TestProject {
     project
         .create_file("node_modules/dep/index.js", "module.exports = 1;\n")
         .unwrap();
+    // `target/` is Cargo output because Cargo says so, in the tag file it
+    // writes there; the name alone is not evidence.
+    project
+        .create_file("target/CACHEDIR.TAG", "Signature: 8a477f597d28d172\n")
+        .unwrap();
     project
         .create_file("target/debug/gen.rs", "fn gen() {}\n")
         .unwrap();

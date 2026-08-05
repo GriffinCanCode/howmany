@@ -71,12 +71,18 @@ fn sources_are_found_and_noise_is_not() {
     }
 }
 
+/// Ambiguously-named build directories are excluded only when the toolchain
+/// that produces them is present, so the project has to declare one -- see
+/// [`crate::core::patterns`].
 #[test]
 fn build_output_and_dependency_caches_are_excluded() {
     let project = TestProject::new("filters_build").unwrap();
     project
         .create_file("src/lib.rs", "pub fn f() {}\n")
         .unwrap();
+    for manifest in ["Cargo.toml", "package.json", "go.mod", "CMakeLists.txt"] {
+        project.create_file(manifest, "\n").unwrap();
+    }
     for noise in [
         "node_modules/express/index.js",
         "target/debug/build.rs",
@@ -93,10 +99,35 @@ fn build_output_and_dependency_caches_are_excluded() {
     }
 
     let found = discovered(project.path(), &options());
+    assert!(found.contains("src/lib.rs"), "the source was dropped");
+    let leaked: Vec<_> = found
+        .iter()
+        .filter(|name| name.contains('/') && !name.starts_with("src/"))
+        .collect();
+    assert!(leaked.is_empty(), "build output leaked: {leaked:?}");
+}
+
+/// The other half of the same rule: a directory that merely *shares a name*
+/// with build output, in a project with no such toolchain, holds source.
+#[test]
+fn directories_named_like_build_output_are_kept_without_a_toolchain() {
+    let project = TestProject::new("filters_ambiguous").unwrap();
+    for source in [
+        "packages/ui/src/button.ts",
+        "build/pipeline.go",
+        "vendor/graphify/main.go",
+        "internal/log/logger.go",
+        "cmd/out/render.go",
+    ] {
+        project.create_file(source, "// source\n").unwrap();
+    }
+
+    let found = discovered(project.path(), &options());
     assert_eq!(
-        found,
-        BTreeSet::from(["src/lib.rs".to_string()]),
-        "build output leaked into the results"
+        found.len(),
+        5,
+        "hand-written source was discarded because a directory shares a name \
+         with some toolchain's output: {found:?}"
     );
 }
 

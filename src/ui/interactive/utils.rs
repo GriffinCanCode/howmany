@@ -1,3 +1,4 @@
+use crate::core::languages::{self, Category};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 pub fn format_size(size: u64) -> String {
@@ -71,6 +72,8 @@ pub struct LanguageInfo {
     pub name: String,
     pub icon: String,
     pub color: String,
+    /// What the language is for: source, configuration, data, or prose.
+    pub category: Category,
     pub extensions: Vec<String>,
 }
 
@@ -94,6 +97,7 @@ pub fn get_language_from_extension_with_sherlock(
                             name: language.name.clone(),
                             icon: get_language_icon(&language.name),
                             color: language.color.clone(),
+                            category: languages::describe(ext).1,
                             extensions: vec![ext.to_string()],
                         };
                     }
@@ -134,283 +138,82 @@ fn get_language_icon(language_name: &str) -> String {
     }
 }
 
-/// Fallback language detection for when SherlockIO data is not available
+/// Language identity for `ext` when Sherlock is not available.
+///
+/// The name comes from [`crate::core::languages`], the same registry the text
+/// report reads. This used to be a second table of its own, and everything it
+/// had not been taught -- Zig, Lua, Protocol Buffers, Rego, every schema and
+/// template format -- collapsed into one "Unknown" row, which then merged into
+/// a single bucket large enough to outrank the languages it was hiding.
 fn get_language_from_extension_fallback(ext: &str) -> LanguageInfo {
-    match ext {
-        "rs" => LanguageInfo {
-            name: "Rust".to_string(),
-            icon: "🦀".to_string(),
-            color: "#dea584".to_string(),
-            extensions: vec!["rs".to_string()],
-        },
-        "py" => LanguageInfo {
-            name: "Python".to_string(),
-            icon: "🐍".to_string(),
-            color: "#3776ab".to_string(),
-            extensions: vec!["py".to_string()],
-        },
-        "js" => LanguageInfo {
-            name: "JavaScript".to_string(),
-            icon: "📜".to_string(),
-            color: "#f7df1e".to_string(),
-            extensions: vec!["js".to_string()],
-        },
-        "jsx" => LanguageInfo {
-            name: "React JSX".to_string(),
-            icon: "⚛️".to_string(),
-            color: "#61dafb".to_string(),
-            extensions: vec!["jsx".to_string()],
-        },
-        "ts" => LanguageInfo {
-            name: "TypeScript".to_string(),
-            icon: "📘".to_string(),
-            color: "#3178c6".to_string(),
-            extensions: vec!["ts".to_string()],
-        },
-        "tsx" => LanguageInfo {
-            name: "React TSX".to_string(),
-            icon: "⚛️".to_string(),
-            color: "#61dafb".to_string(),
-            extensions: vec!["tsx".to_string()],
-        },
-        "html" => LanguageInfo {
-            name: "HTML".to_string(),
-            icon: "🌐".to_string(),
-            color: "#e34f26".to_string(),
-            extensions: vec!["html".to_string()],
-        },
-        "css" => LanguageInfo {
-            name: "CSS".to_string(),
-            icon: "🎨".to_string(),
-            color: "#1572b6".to_string(),
-            extensions: vec!["css".to_string()],
-        },
-        "scss" | "sass" => LanguageInfo {
-            name: "Sass".to_string(),
-            icon: "🎨".to_string(),
-            color: "#cf649a".to_string(),
-            extensions: vec!["scss".to_string(), "sass".to_string()],
-        },
-        "java" => LanguageInfo {
-            name: "Java".to_string(),
-            icon: "☕".to_string(),
-            color: "#ed8b00".to_string(),
-            extensions: vec!["java".to_string()],
-        },
-        "c" => LanguageInfo {
-            name: "C".to_string(),
-            icon: "⚡".to_string(),
-            color: "#00599c".to_string(),
-            extensions: vec!["c".to_string()],
-        },
-        "cpp" | "cc" | "cxx" => LanguageInfo {
-            name: "C++".to_string(),
-            icon: "⚡".to_string(),
-            color: "#00599c".to_string(),
-            extensions: vec!["cpp".to_string(), "cc".to_string(), "cxx".to_string()],
-        },
-        "h" | "hpp" => LanguageInfo {
-            name: "C/C++ Header".to_string(),
-            icon: "📎".to_string(),
-            color: "#00599c".to_string(),
-            extensions: vec!["h".to_string(), "hpp".to_string()],
-        },
-        "go" => LanguageInfo {
-            name: "Go".to_string(),
-            icon: "🐹".to_string(),
-            color: "#00add8".to_string(),
-            extensions: vec!["go".to_string()],
-        },
-        "php" => LanguageInfo {
-            name: "PHP".to_string(),
-            icon: "🐘".to_string(),
-            color: "#777bb4".to_string(),
-            extensions: vec!["php".to_string()],
-        },
-        "rb" => LanguageInfo {
-            name: "Ruby".to_string(),
-            icon: "💎".to_string(),
-            color: "#cc342d".to_string(),
-            extensions: vec!["rb".to_string()],
-        },
-        "swift" => LanguageInfo {
-            name: "Swift".to_string(),
-            icon: "🍎".to_string(),
-            color: "#fa7343".to_string(),
-            extensions: vec!["swift".to_string()],
-        },
-        "kt" => LanguageInfo {
-            name: "Kotlin".to_string(),
-            icon: "🎯".to_string(),
-            color: "#7f52ff".to_string(),
-            extensions: vec!["kt".to_string()],
-        },
-        "scala" => LanguageInfo {
-            name: "Scala".to_string(),
-            icon: "🎭".to_string(),
-            color: "#dc322f".to_string(),
-            extensions: vec!["scala".to_string()],
-        },
-        "cs" => LanguageInfo {
-            name: "C#".to_string(),
-            icon: "🔷".to_string(),
-            color: "#239120".to_string(),
-            extensions: vec!["cs".to_string()],
-        },
-        "sh" | "bash" | "zsh" => LanguageInfo {
-            name: "Shell".to_string(),
-            icon: "🐚".to_string(),
-            color: "#89e051".to_string(),
-            extensions: vec!["sh".to_string(), "bash".to_string(), "zsh".to_string()],
-        },
-        "json" => LanguageInfo {
-            name: "JSON".to_string(),
-            icon: "📋".to_string(),
-            color: "#000000".to_string(),
-            extensions: vec!["json".to_string()],
-        },
-        "xml" => LanguageInfo {
-            name: "XML".to_string(),
-            icon: "📄".to_string(),
-            color: "#e37933".to_string(),
-            extensions: vec!["xml".to_string()],
-        },
-        "yaml" | "yml" => LanguageInfo {
-            name: "YAML".to_string(),
-            icon: "⚙️".to_string(),
-            color: "#cb171e".to_string(),
-            extensions: vec!["yaml".to_string(), "yml".to_string()],
-        },
-        "toml" => LanguageInfo {
-            name: "TOML".to_string(),
-            icon: "🔧".to_string(),
-            color: "#9c4221".to_string(),
-            extensions: vec!["toml".to_string()],
-        },
-        "md" => LanguageInfo {
-            name: "Markdown".to_string(),
-            icon: "📝".to_string(),
-            color: "#083fa1".to_string(),
-            extensions: vec!["md".to_string()],
-        },
-        "txt" => LanguageInfo {
-            name: "Text".to_string(),
-            icon: "📄".to_string(),
-            color: "#6c757d".to_string(),
-            extensions: vec!["txt".to_string()],
-        },
-        "sql" => LanguageInfo {
-            name: "SQL".to_string(),
-            icon: "🗃️".to_string(),
-            color: "#e38c00".to_string(),
-            extensions: vec!["sql".to_string()],
-        },
-        "r" => LanguageInfo {
-            name: "R".to_string(),
-            icon: "📊".to_string(),
-            color: "#198ce7".to_string(),
-            extensions: vec!["r".to_string()],
-        },
-        "dart" => LanguageInfo {
-            name: "Dart".to_string(),
-            icon: "🎯".to_string(),
-            color: "#0175c2".to_string(),
-            extensions: vec!["dart".to_string()],
-        },
-        "hs" | "lhs" | "hsc" => LanguageInfo {
-            name: "Haskell".to_string(),
-            icon: "λ".to_string(),
-            color: "#5e5086".to_string(),
-            extensions: vec!["hs".to_string(), "lhs".to_string(), "hsc".to_string()],
-        },
-        "ex" | "exs" | "eex" => LanguageInfo {
-            name: "Elixir".to_string(),
-            icon: "💧".to_string(),
-            color: "#6e4a7e".to_string(),
-            extensions: vec!["ex".to_string(), "exs".to_string(), "eex".to_string()],
-        },
-        "erl" | "hrl" => LanguageInfo {
-            name: "Erlang".to_string(),
-            icon: "📞".to_string(),
-            color: "#b83998".to_string(),
-            extensions: vec!["erl".to_string(), "hrl".to_string()],
-        },
-        "jl" => LanguageInfo {
-            name: "Julia".to_string(),
-            icon: "🔬".to_string(),
-            color: "#9558b2".to_string(),
-            extensions: vec!["jl".to_string()],
-        },
-        "lua" => LanguageInfo {
-            name: "Lua".to_string(),
-            icon: "🌙".to_string(),
-            color: "#000080".to_string(),
-            extensions: vec!["lua".to_string()],
-        },
-        "pl" | "pm" | "pod" => LanguageInfo {
-            name: "Perl".to_string(),
-            icon: "🐪".to_string(),
-            color: "#0298c3".to_string(),
-            extensions: vec!["pl".to_string(), "pm".to_string(), "pod".to_string()],
-        },
-        "m" => LanguageInfo {
-            name: "MATLAB".to_string(),
-            icon: "📊".to_string(),
-            color: "#e16737".to_string(),
-            extensions: vec!["m".to_string()],
-        },
-        "zig" => LanguageInfo {
-            name: "Zig".to_string(),
-            icon: "⚡".to_string(),
-            color: "#ec915c".to_string(),
-            extensions: vec!["zig".to_string()],
-        },
-        "clj" | "cljs" | "cljc" => LanguageInfo {
-            name: "Clojure".to_string(),
-            icon: "🔄".to_string(),
-            color: "#db5855".to_string(),
-            extensions: vec!["clj".to_string(), "cljs".to_string(), "cljc".to_string()],
-        },
-        "ps1" | "psm1" | "psd1" => LanguageInfo {
-            name: "PowerShell".to_string(),
-            icon: "⚡".to_string(),
-            color: "#012456".to_string(),
-            extensions: vec!["ps1".to_string(), "psm1".to_string(), "psd1".to_string()],
-        },
-        "bat" | "cmd" => LanguageInfo {
-            name: "Batch".to_string(),
-            icon: "⚙️".to_string(),
-            color: "#c1f12e".to_string(),
-            extensions: vec!["bat".to_string(), "cmd".to_string()],
-        },
-        "vb" | "vbs" => LanguageInfo {
-            name: "Visual Basic".to_string(),
-            icon: "🔷".to_string(),
-            color: "#945db7".to_string(),
-            extensions: vec!["vb".to_string(), "vbs".to_string()],
-        },
-        "mlx" => LanguageInfo {
-            name: "MATLAB".to_string(),
-            icon: "📊".to_string(),
-            color: "#e16737".to_string(),
-            extensions: vec!["m".to_string(), "mlx".to_string()],
-        },
-        "rmd" | "Rmd" => LanguageInfo {
-            name: "R Markdown".to_string(),
-            icon: "📊".to_string(),
-            color: "#198ce7".to_string(),
-            extensions: vec![
-                "r".to_string(),
-                "R".to_string(),
-                "rmd".to_string(),
-                "Rmd".to_string(),
-            ],
-        },
-        _ => LanguageInfo {
-            name: "Unknown".to_string(),
-            icon: "📄".to_string(),
-            color: "#6c757d".to_string(),
-            extensions: vec![ext.to_string()],
+    let (name, category) = languages::describe(ext);
+    let (icon, color) = decoration(&name, category);
+    LanguageInfo {
+        name,
+        icon: icon.to_string(),
+        color: color.to_string(),
+        category,
+        extensions: vec![ext.to_string()],
+    }
+}
+/// An icon and a hex colour for a language, by name.
+///
+/// Only the decoration is decided here. Anything this table has not been
+/// taught still gets a sensible look from its category, so an unfamiliar
+/// format stays legible instead of turning grey and nameless.
+fn decoration(name: &str, category: Category) -> (&'static str, &'static str) {
+    match name {
+        "Rust" => ("🦀", "#dea584"),
+        "Python" | "Python Stubs" => ("🐍", "#3776ab"),
+        "JavaScript" => ("📜", "#f7df1e"),
+        "TypeScript" => ("📘", "#3178c6"),
+        "TypeScript (React)" | "JavaScript (React)" => ("⚛️", "#61dafb"),
+        "HTML" => ("🌐", "#e34f26"),
+        "CSS" | "Textual CSS" => ("🎨", "#1572b6"),
+        "Sass" | "Less" => ("🎨", "#cf649a"),
+        "Java" => ("☕", "#ed8b00"),
+        "C" | "C++" => ("⚡", "#00599c"),
+        "C/C++ Header" => ("📎", "#00599c"),
+        "Go" => ("🐹", "#00add8"),
+        "Go Template" => ("🐹", "#3d8fb0"),
+        "PHP" => ("🐘", "#777bb4"),
+        "Ruby" => ("💎", "#cc342d"),
+        "Swift" => ("🍎", "#fa7343"),
+        "Kotlin" => ("🎯", "#7f52ff"),
+        "Dart" => ("🎯", "#0175c2"),
+        "Scala" => ("🎭", "#dc322f"),
+        "C#" => ("🔷", "#239120"),
+        "Visual Basic" => ("🔷", "#945db7"),
+        "Shell" => ("🐚", "#89e051"),
+        "JSON" | "JSON Lines" | "JSON5" => ("📋", "#7a7a7a"),
+        "XML" => ("📄", "#e37933"),
+        "YAML" => ("⚙️", "#cb171e"),
+        "TOML" => ("🔧", "#9c4221"),
+        "Markdown" | "MDX" => ("📝", "#083fa1"),
+        "SQL" => ("🗃️", "#e38c00"),
+        "Protocol Buffers" | "Cap'n Proto" => ("🔌", "#4a90d9"),
+        "R" | "R Markdown" => ("📊", "#198ce7"),
+        "MATLAB" => ("📊", "#e16737"),
+        "Haskell" => ("λ", "#5e5086"),
+        "Scheme" | "Racket" | "Lisp" => ("λ", "#22228f"),
+        "Elixir" => ("💧", "#6e4a7e"),
+        "Erlang" => ("📞", "#b83998"),
+        "Julia" => ("🔬", "#9558b2"),
+        "Lua" => ("🌙", "#000080"),
+        "Perl" => ("🐪", "#0298c3"),
+        "Zig" => ("⚡", "#ec915c"),
+        "PowerShell" => ("⚡", "#012456"),
+        "Clojure" => ("🔄", "#db5855"),
+        "Batch" => ("⚙️", "#c1f12e"),
+        "Dockerfile" => ("🐳", "#2496ed"),
+        "Makefile" => ("🔨", "#427819"),
+        "Jinja" => ("🧩", "#b41717"),
+        "Rego" | "Cedar" => ("🛡️", "#7d5bbe"),
+        _ => match category {
+            Category::Code => ("📄", "#8fb8de"),
+            Category::Config => ("⚙️", "#9c4221"),
+            Category::Data => ("📋", "#7a7a7a"),
+            Category::Docs => ("📝", "#083fa1"),
         },
     }
 }

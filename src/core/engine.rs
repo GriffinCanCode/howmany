@@ -23,13 +23,14 @@
 //!   produces byte-identical statistics.
 
 use crate::core::counter::{self, CodeCounter};
-use crate::core::detector::{Classification, DetectionJob, FileDetector};
+use crate::core::detector::{Classification, DetectionJob, FileDetector, SkipReason};
 use crate::core::filters::FileFilter;
 use crate::core::stats::{AggregatedStats, StatsCalculator};
 use crate::core::types::{CodeStats, FileStats};
 use crate::utils::cache::{CacheKey, FileCache};
 use crate::utils::errors::Result;
 use rayon::prelude::*;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -149,6 +150,15 @@ pub struct AnalysisReport {
     pub cache_hits: usize,
     pub cache_misses: usize,
     pub bytes_read: u64,
+    /// Files the classifier deliberately left out, by reason.
+    ///
+    /// Reported rather than dropped in silence: on a large monorepo the
+    /// generated bucket alone is bigger than the hand-written source, and a
+    /// total that omits it without saying so is impossible to reconcile against
+    /// any other tool.
+    pub skipped: BTreeMap<SkipReason, usize>,
+    /// Files no rule recognized and no detector could name.
+    pub files_unrecognized: usize,
     /// True when language detection was requested but unavailable, so the
     /// extension fallback was used.
     pub detection_unavailable: bool,
@@ -280,13 +290,14 @@ impl Engine {
     ) -> Vec<Candidate> {
         let detector = FileDetector::new().with_root(root);
 
+        // A rejection is carried through with its reason rather than filtered
+        // away here, so the run can report what it left out instead of silently
+        // shrinking the tree.
         let classify = |candidate: Candidate| -> Option<(Candidate, Classification)> {
-            matches_extension_filter(&candidate.path, &options.extensions)
-                .then(|| (detector.classify(&candidate.path), candidate))
-                .and_then(|(class, candidate)| match class {
-                    Classification::Rejected => None,
-                    class => Some((candidate, class)),
-                })
+            matches_extension_filter(&candidate.path, &options.extensions).then(|| {
+                let class = detector.classify(&candidate.path);
+                (candidate, class)
+            })
         };
 
         let threads = options.parallelism.threads();
@@ -303,26 +314,36 @@ impl Engine {
         for (candidate, class) in classified {
             match class {
                 Classification::Source => selected.push(candidate),
-                _ => unknown.push(candidate),
+                Classification::Rejected(reason) => {
+                    *report.skipped.entry(reason).or_default() += 1;
+                }
+                Classification::Unknown => unknown.push(candidate),
             }
         }
+
+        // A file no rule recognizes is not the same as one a rule rejected, so
+        // it is counted under its own heading rather than folded into the
+        // deliberate exclusions.
+        let mut unrecognized = unknown.len();
 
         match detection {
             Some(job) if unknown.is_empty() => job.cancel(),
             Some(job) => match job.finish() {
                 Ok(result) => {
                     let detector = detector.with_sherlock_result(result);
-                    selected.extend(
-                        unknown
-                            .into_iter()
-                            .filter(|c| detector.detected_as_source(&c.path)),
-                    );
+                    let admitted: Vec<Candidate> = unknown
+                        .into_iter()
+                        .filter(|c| detector.detected_as_source(&c.path))
+                        .collect();
+                    unrecognized -= admitted.len();
+                    selected.extend(admitted);
                 }
                 Err(_) => report.detection_unavailable = true,
             },
             None => {}
         }
 
+        report.files_unrecognized = unrecognized;
         selected
     }
 
@@ -606,6 +627,8 @@ mod tests {
         project
             .create_file("node_modules/dep/index.js", "module.exports = 1;\n")
             .unwrap();
+        // `target/` counts as Cargo output only alongside a manifest.
+        project.create_file("Cargo.toml", "[package]\n").unwrap();
         project
             .create_file("target/debug/gen.rs", "fn gen() {}\n")
             .unwrap();

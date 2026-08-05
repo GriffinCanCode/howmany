@@ -439,12 +439,27 @@ impl CachedCodeCounter {
     }
 }
 
-/// Extension key used for per-extension aggregation.
+/// The bucket a file is reported under.
+///
+/// This is [`classify_key`] narrowed to keys that mean something to a reader.
+/// Two differences from the raw extension it replaced:
+///
+/// *Case is normalized*, so a tree containing both `Foo.RS` and `bar.rs` is one
+/// language rather than two rows that do not visibly differ.
+///
+/// *A recognized extension-less file keeps its name.* Every `Dockerfile` and
+/// `Makefile` used to aggregate into a single anonymous `no_ext` bucket
+/// alongside whatever else had no suffix, even though the counter had already
+/// identified them well enough to apply their comment syntax. An extension-less
+/// file that nothing recognizes still falls back to `no_ext`, so a tree of
+/// one-off scripts cannot fan the report out into a row per filename.
 pub fn extension_key(path: &Path) -> String {
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .unwrap_or("no_ext")
-        .to_string()
+    let key = classify_key(path);
+    if path.extension().is_some() || comment_patterns::is_known(&key) {
+        key.into_owned()
+    } else {
+        "no_ext".to_string()
+    }
 }
 
 #[cfg(test)]

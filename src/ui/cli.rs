@@ -45,12 +45,12 @@ pub struct Config {
     pub include_hidden: bool,
 
     /// Sort results by: files, lines, code, comments, size, complexity, quality, functions
-    #[arg(short = 's', long = "sort", default_value = "files")]
+    #[arg(short = 's', long = "sort", default_value = "lines")]
     pub sort_by: SortBy,
 
-    /// Sort in descending order
-    #[arg(long = "desc")]
-    pub descending: bool,
+    /// Sort smallest first (the breakdown leads with the largest by default)
+    #[arg(long = "asc")]
+    pub ascending: bool,
 
     /// Additional patterns to ignore (comma-separated: node_modules,target,dist)
     #[arg(long = "ignore")]

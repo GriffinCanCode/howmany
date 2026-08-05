@@ -1,3 +1,4 @@
+use crate::core::languages;
 use crate::core::stats::aggregation::AggregatedStats;
 use std::cmp::Reverse;
 
@@ -572,50 +573,46 @@ pub fn render_function_complexity_table(
     f.render_widget(insight_list, chunks[1]);
 }
 
-/// Get language info (emoji and name)
-fn get_language_info(ext: &str) -> (&'static str, &'static str) {
-    match ext {
-        "rs" => ("🦀", "Rust"),
-        "py" => ("🐍", "Python"),
-        "js" => ("🟨", "JavaScript"),
-        "ts" => ("🔷", "TypeScript"),
-        "jsx" => ("⚛️", "React"),
-        "tsx" => ("⚛️", "React TS"),
-        "java" => ("☕", "Java"),
-        "cpp" | "cc" | "cxx" => ("⚡", "C++"),
-        "c" => ("🔧", "C"),
-        "h" | "hpp" => ("📄", "Header"),
-        "go" => ("🐹", "Go"),
-        "cs" => ("🔷", "C#"),
-        "php" => ("🐘", "PHP"),
-        "rb" => ("💎", "Ruby"),
-        "swift" => ("🍎", "Swift"),
-        "kt" => ("🎯", "Kotlin"),
-        "html" => ("🌐", "HTML"),
-        "css" => ("🎨", "CSS"),
-        "scss" => ("🎨", "SCSS"),
-        "sql" => ("🗃️", "SQL"),
-        "sh" => ("🐚", "Shell"),
-        "md" => ("📝", "Markdown"),
-        "json" => ("📋", "JSON"),
-        "xml" => ("📄", "XML"),
-        "yaml" | "yml" => ("⚙️", "YAML"),
-        "toml" => ("⚙️", "TOML"),
-        "hs" | "lhs" | "hsc" => ("λ", "Haskell"),
-        "ex" | "exs" | "eex" => ("💧", "Elixir"),
-        "erl" | "hrl" => ("📞", "Erlang"),
-        "jl" => ("🔬", "Julia"),
-        "lua" => ("🌙", "Lua"),
-        "pl" | "pm" | "pod" => ("🐪", "Perl"),
-        "zig" => ("⚡", "Zig"),
-        "clj" | "cljs" | "cljc" => ("🔄", "Clojure"),
-        "ps1" | "psm1" | "psd1" => ("⚡", "PowerShell"),
-        "bat" | "cmd" => ("⚙️", "Batch"),
-        "vb" | "vbs" => ("🔷", "Visual Basic"),
-        "mlx" => ("📊", "MATLAB"),
-        "rmd" | "Rmd" => ("📊", "R Markdown"),
-        _ => ("📄", "Unknown"),
-    }
+/// An icon and a display name for a classification key.
+///
+/// Only the icon is decided here. The name comes from
+/// [`crate::core::languages`], so a chart cannot disagree with the text report
+/// about what a file is -- this table used to answer "Unknown" for every
+/// format it had not been taught, including ones the counter handles fine.
+fn get_language_info(ext: &str) -> (&'static str, String) {
+    let icon = match ext {
+        "rs" => "🦀",
+        "py" | "pyi" => "🐍",
+        "js" | "mjs" | "cjs" => "🟨",
+        "ts" | "mts" | "cts" | "cs" => "🔷",
+        "jsx" | "tsx" => "⚛️",
+        "java" => "☕",
+        "cpp" | "cc" | "cxx" => "⚡",
+        "c" => "🔧",
+        "go" => "🐹",
+        "php" => "🐘",
+        "rb" | "rake" => "💎",
+        "swift" => "🍎",
+        "kt" | "kts" => "🎯",
+        "html" | "htm" => "🌐",
+        "css" | "scss" | "sass" | "less" => "🎨",
+        "sql" => "🗃️",
+        "sh" | "bash" | "zsh" | "fish" => "🐚",
+        "md" | "markdown" | "mdx" => "📝",
+        "json" | "jsonl" => "📋",
+        "yaml" | "yml" | "toml" | "ini" | "bat" | "cmd" => "⚙️",
+        "hs" | "lhs" => "λ",
+        "ex" | "exs" => "💧",
+        "erl" | "hrl" => "📞",
+        "jl" => "🔬",
+        "lua" => "🌙",
+        "pl" | "pm" | "pod" => "🐪",
+        "zig" | "ps1" | "psm1" => "⚡",
+        "clj" | "cljs" | "cljc" => "🔄",
+        "m" | "mlx" | "rmd" => "📊",
+        _ => "📄",
+    };
+    (icon, languages::describe(ext).0)
 }
 
 fn get_language_color(ext: &str) -> Color {

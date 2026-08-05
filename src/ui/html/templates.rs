@@ -1,4 +1,5 @@
 use super::utils::{escape_html, escape_js_string, FileUtils};
+use crate::core::languages;
 use crate::core::stats::aggregation::AggregatedStats;
 use crate::core::stats::basic::BasicStats;
 use crate::core::stats::complexity::ComplexityStatsCalculator;
@@ -888,23 +889,7 @@ impl TemplateGenerator {
             }
         }
 
-        // Fallback to hardcoded mapping
-        match ext {
-            "rs" => "Rust".to_string(),
-            "py" => "Python".to_string(),
-            "js" => "JavaScript".to_string(),
-            "ts" => "TypeScript".to_string(),
-            "java" => "Java".to_string(),
-            "cpp" | "cc" | "cxx" => "C++".to_string(),
-            "c" => "C".to_string(),
-            "go" => "Go".to_string(),
-            "rb" => "Ruby".to_string(),
-            "php" => "PHP".to_string(),
-            "cs" => "C#".to_string(),
-            "swift" => "Swift".to_string(),
-            "kt" => "Kotlin".to_string(),
-            _ => "Unknown".to_string(),
-        }
+        languages::describe(ext).0
     }
 
     /// A path shortened for display and escaped for embedding in the report.
