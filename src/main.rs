@@ -7,7 +7,7 @@ use howmany::ui::cli::{OutputFormat, SortBy};
 use howmany::ui::filters::{
     FileComplexity, FileFilter as FileStatsFilter, FilterOptions, FilteredOutputFormatter,
 };
-use howmany::{Config, InteractiveDisplay, Result};
+use howmany::{Command, Config, InteractiveDisplay, Result};
 use std::cmp::Reverse;
 use std::io::{IsTerminal, Write};
 use std::path::Path;
@@ -20,13 +20,30 @@ fn main() {
     config.apply_output_preset();
     config.apply_advanced_filter_shortcuts();
 
+    // A report the user is reading is the one moment we may interrupt to offer
+    // the editor setup; a subcommand, a pipe or a machine format is not.
+    let may_offer =
+        config.command.is_none() && !config.quiet && matches!(config.format, OutputFormat::Text);
+
     if let Err(e) = run(config) {
         eprintln!("Error: {}", e);
         process::exit(1);
     }
+
+    if may_offer {
+        howmany::ui::setup::offer_once();
+    }
 }
 
 fn run(config: Config) -> Result<()> {
+    match &config.command {
+        // The server owns stdout for the duration: every byte written there is
+        // a protocol message, so nothing else in this file may print.
+        Some(Command::Lsp) => return howmany::ui::lsp::serve(),
+        Some(Command::Init(args)) => return howmany::ui::setup::run(args),
+        None => {}
+    }
+
     let path = config.path.as_deref().unwrap_or_else(|| Path::new("."));
 
     // A path that does not exist is a typo, not an empty project. Reporting

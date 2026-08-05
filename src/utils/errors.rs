@@ -29,6 +29,9 @@ pub enum HowManyError {
     #[error("Display error: {message}")]
     Display { message: String },
 
+    #[error("Language server error: {message}")]
+    LanguageServer { message: String },
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 
@@ -63,6 +66,12 @@ impl HowManyError {
 
     pub fn display(message: impl Into<String>) -> Self {
         Self::Display {
+            message: message.into(),
+        }
+    }
+
+    pub fn language_server(message: impl Into<String>) -> Self {
+        Self::LanguageServer {
             message: message.into(),
         }
     }

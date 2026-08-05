@@ -16,7 +16,9 @@ pub mod ui {
     pub mod filters;
     pub mod html;
     pub mod interactive;
+    pub mod lsp;
     pub mod sarif;
+    pub mod setup;
 }
 
 // Utility modules
@@ -44,10 +46,11 @@ pub use core::patterns::PatternMatcher;
 pub use core::stats::StatsCalculator;
 pub use core::types::{CodeStats, FileStats};
 
-pub use ui::cli::Config;
+pub use ui::cli::{Command, Config, InitArgs};
 pub use ui::html::HtmlReporter;
 pub use ui::interactive::InteractiveDisplay;
 pub use ui::sarif::SarifReporter;
+pub use ui::setup::EditorId;
 pub use utils::cache::FileCache;
 pub use utils::config::HowManyConfig;
 pub use utils::errors::{HowManyError, Result};

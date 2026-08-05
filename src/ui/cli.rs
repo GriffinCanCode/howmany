@@ -1,4 +1,5 @@
-use clap::Parser;
+use crate::ui::setup::EditorId;
+use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -7,7 +8,14 @@ use std::path::PathBuf;
 // Taken from the manifest so `--version` cannot disagree with the crate that
 // was actually built, or with the version stamped into every report.
 #[command(version = env!("CARGO_PKG_VERSION"))]
+// Without this, every analysis flag declared below is offered to `howmany init`
+// as well, and `--depth` on a setup command is a promise the command cannot
+// keep.
+#[command(args_conflicts_with_subcommands = true)]
 pub struct Config {
+    #[command(subcommand)]
+    pub command: Option<Command>,
+
     /// Directory to analyze (defaults to current directory)
     #[arg(value_name = "PATH")]
     pub path: Option<PathBuf>,
@@ -208,6 +216,39 @@ pub struct Config {
     /// Reproducible mode: no language detection, no cache, single threaded
     #[arg(long = "reproducible")]
     pub reproducible: bool,
+}
+
+// The things howmany does that are not counting a directory.
+//
+// A subcommand shadows a directory of the same name, so `howmany ./lsp` still
+// counts the directory while `howmany lsp` starts the server. Documented in
+// comments rather than doc comments: clap would lift the text onto the parent
+// command and replace its description with this one.
+#[derive(Subcommand)]
+pub enum Command {
+    /// Connect howmany to your editors (run once after installing)
+    Init(InitArgs),
+
+    /// Speak the Language Server Protocol on stdin and stdout
+    ///
+    /// Editors start this themselves once `howmany init` has run; there is
+    /// rarely a reason to type it.
+    Lsp,
+}
+
+#[derive(Args, Default)]
+pub struct InitArgs {
+    /// Only set up these editors (comma-separated)
+    #[arg(long = "editor", value_delimiter = ',')]
+    pub editors: Vec<EditorId>,
+
+    /// Show what would change without writing anything
+    #[arg(long = "dry-run")]
+    pub dry_run: bool,
+
+    /// Rewrite settings howmany has already written
+    #[arg(long = "force")]
+    pub force: bool,
 }
 
 #[derive(Clone)]

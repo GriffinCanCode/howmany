@@ -578,6 +578,119 @@ fn a_file_can_be_analyzed_directly() {
     );
 }
 
+/// A subcommand takes precedence over a path of the same name, so a directory
+/// called `lsp` needs the explicit form. Both halves of that have to hold, or
+/// one of them silently shadows the other.
+#[test]
+fn a_directory_named_after_a_subcommand_is_still_reachable() {
+    let project = Project::new();
+    project.write("lsp/thing.rs", "fn thing() {}\n");
+
+    let output = howmany()
+        .arg("./lsp")
+        .args(["--cli", "--reproducible"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    assert_success(&output, "a directory named lsp");
+    assert!(stdout_of(&output).contains("1 file"), "{output:?}");
+}
+
+/// The editor setup must be safe to run anywhere: it reports what it would do
+/// and touches nothing until asked.
+#[test]
+fn init_can_rehearse_without_writing() {
+    let home = tempfile::tempdir().unwrap();
+
+    let output = howmany()
+        .args(["init", "--dry-run", "--editor", "vscode,neovim"])
+        .env("HOME", home.path())
+        .env("XDG_CONFIG_HOME", home.path().join(".config"))
+        // No editor launcher on PATH, so nothing can be installed for real.
+        .env("PATH", "")
+        .output()
+        .unwrap();
+
+    assert_success(&output, "init --dry-run");
+    let text = stdout_of(&output);
+    assert!(text.contains("VS Code"), "{text}");
+    assert!(text.contains("Neovim"), "{text}");
+    assert!(text.contains("Nothing was written"), "{text}");
+
+    assert!(
+        !home.path().join(".config/nvim").exists(),
+        "a rehearsal created files"
+    );
+}
+
+/// Naming an editor that is not installed must report on it rather than
+/// silently doing nothing, which is indistinguishable from success.
+#[test]
+fn init_reports_on_an_editor_it_was_asked_about() {
+    let home = tempfile::tempdir().unwrap();
+
+    let output = howmany()
+        .args(["init", "--editor", "neovim"])
+        .env("HOME", home.path())
+        .env("XDG_CONFIG_HOME", home.path().join(".config"))
+        .env("PATH", "")
+        .output()
+        .unwrap();
+
+    assert_success(&output, "init --editor neovim");
+    assert!(stdout_of(&output).contains("Neovim"), "{output:?}");
+}
+
+/// The language server has to answer a handshake on stdin and stdout and say
+/// what it can do. Everything the editors are wired to rests on this.
+#[test]
+fn the_language_server_completes_a_handshake() {
+    use std::io::{Read, Write};
+
+    let mut server = howmany()
+        .arg("lsp")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("the server should start");
+
+    let frame = |message: &str| format!("Content-Length: {}\r\n\r\n{message}", message.len());
+    let initialize = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"processId":null,"rootUri":null,"capabilities":{}}}"#;
+    let initialized = r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#;
+    let shutdown = r#"{"jsonrpc":"2.0","id":2,"method":"shutdown","params":null}"#;
+    let exit = r#"{"jsonrpc":"2.0","method":"exit","params":null}"#;
+
+    let mut stdin = server.stdin.take().unwrap();
+    for message in [initialize, initialized, shutdown, exit] {
+        stdin.write_all(frame(message).as_bytes()).unwrap();
+    }
+    stdin.flush().unwrap();
+    drop(stdin);
+
+    let mut spoken = String::new();
+    server
+        .stdout
+        .take()
+        .unwrap()
+        .read_to_string(&mut spoken)
+        .unwrap();
+    server.wait().unwrap();
+
+    assert!(
+        spoken.contains("Content-Length"),
+        "unframed reply: {spoken}"
+    );
+    assert!(
+        spoken.contains("codeLensProvider"),
+        "the server must advertise code lenses: {spoken}"
+    );
+    assert!(
+        spoken.contains("textDocumentSync"),
+        "the server must advertise document sync: {spoken}"
+    );
+}
+
 /// Unreadable files must be reported without aborting the run.
 #[cfg(unix)]
 #[test]

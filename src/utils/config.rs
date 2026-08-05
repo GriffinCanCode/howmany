@@ -18,6 +18,26 @@ pub struct HowManyConfig {
     pub language_extensions: HashMap<String, Vec<String>>,
     pub output_preferences: OutputPreferences,
     pub performance: PerformanceConfig,
+    pub lsp: LspPreferences,
+}
+
+/// What the editor integration shows while you type.
+///
+/// The thresholds are opinions, and an opinion nobody asked for is noise, so
+/// each one is switched off by setting it to zero rather than by having to
+/// learn a separate enable flag.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct LspPreferences {
+    /// Show the line breakdown above the first line of every file.
+    pub code_lens: bool,
+    /// Warn once a file passes this many lines. Zero never warns.
+    pub max_file_lines: usize,
+    /// Warn when documentation falls below this share of a file's code.
+    /// Zero never warns.
+    pub min_doc_ratio: f64,
+    /// Files with fewer code lines than this are never called undocumented.
+    pub documented_from_lines: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +74,21 @@ impl Default for HowManyConfig {
             language_extensions: Self::default_language_extensions(),
             output_preferences: OutputPreferences::default(),
             performance: PerformanceConfig::default(),
+            lsp: LspPreferences::default(),
+        }
+    }
+}
+
+impl Default for LspPreferences {
+    fn default() -> Self {
+        Self {
+            code_lens: true,
+            // Well above where most projects sit, so the warning means a file
+            // has genuinely got away from someone rather than firing on the
+            // ordinary module and being tuned out.
+            max_file_lines: 800,
+            min_doc_ratio: 0.05,
+            documented_from_lines: 200,
         }
     }
 }

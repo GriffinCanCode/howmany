@@ -58,6 +58,52 @@ cargo build --release
 
 This will build the project and create a symlink in `/usr/local/bin/howmany` for system-wide access.
 
+## Editor Setup
+
+```bash
+howmany init
+```
+
+One command, whichever way you installed. It finds the editors you actually
+have, installs the VS Code extension for you, and points everything at the
+binary you just installed. The first time you run `howmany` by hand it offers to
+do this for you, so there is nothing to remember.
+
+```
+howmany 3.0.0
+using /opt/homebrew/bin/howmany
+
+VS Code
+  + installed the GriffinCanCode.howmany extension
+  + set howmany.binaryPath in ~/Library/Application Support/Code/User/settings.json
+
+Neovim
+  + wrote ~/.config/nvim/after/plugin/howmany.lua
+```
+
+Afterwards every file carries its own breakdown above the first line —
+`412 TypeScript · 305 code · 47 doc · 60 blank` — recounted as you type, from
+the unsaved buffer, by the same classifier that produces the report. Files that
+cross a threshold get a warning in the problems panel.
+
+`--dry-run` shows what would change without writing anything, `--force`
+overwrites a setting you have pointed elsewhere, and `--editor vscode,neovim`
+narrows it down. Nothing already set correctly is written twice.
+
+The server is `howmany lsp`, which speaks LSP over stdin and stdout, so any
+client can start it directly. Zed and Helix cannot register an arbitrary server
+from their settings, so `init` does not pretend to configure them.
+
+Thresholds live in `howmany.toml` next to the rest of the configuration:
+
+```toml
+[lsp]
+code_lens = true          # the breakdown above each file
+max_file_lines = 800      # warn past this; 0 never warns
+min_doc_ratio = 0.05      # documentation as a share of code; 0 never warns
+documented_from_lines = 200   # never call a file smaller than this undocumented
+```
+
 ## GitHub Actions Integration
 
 HowMany can be integrated directly into your GitHub workflows using the official GitHub Action:
@@ -125,11 +171,12 @@ HowMany has a dedicated VS Code extension that brings code analysis directly int
 ### HowMany VS Code Extension
 
 ```bash
-# Install from VS Code Marketplace
+# `howmany init` does this for you; this is the manual equivalent
 code --install-extension GriffinCanCode.howmany
 ```
 
 **Features:**
+- **Live Line Counts**: Each file's breakdown above its first line, recounted as you type
 - **Smart Status Bar**: Live metrics display with quality color-coding
 - **Interactive Reports**: Detailed analysis with complexity metrics and quality scores
 - **Command Integration**: Full command palette and context menu support
@@ -137,8 +184,8 @@ code --install-extension GriffinCanCode.howmany
 - **Real-time Analysis**: Instant feedback without leaving your editor
 
 **Quick Start:**
-1. Install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=GriffinCanCode.howmany)
-2. Install HowMany CLI (using any method above)
+1. Install HowMany CLI (using any method above)
+2. Run `howmany init`, which installs the extension and points it at the binary
 3. Open a project and click the HowMany status bar item
 4. View detailed reports and quality metrics
 
