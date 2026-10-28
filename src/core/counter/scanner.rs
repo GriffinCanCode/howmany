@@ -144,6 +144,8 @@ impl BlockOpener {
 enum Dialect {
     Ordinary,
     JavaScript,
+    Jsx,
+    Tsx,
     Lisp,
     Markup,
     Backticks,
@@ -183,6 +185,8 @@ impl Dialect {
 
     fn for_key(key: &str, pattern: CommentPattern) -> Self {
         match key {
+            "jsx" => Self::Jsx,
+            "tsx" => Self::Tsx,
             "sh" | "bash" | "zsh" | "fish" | "r" | "pl" | "pm" | "rb" => Self::Backticks,
             "swift" | "java" | "kt" | "kts" | "cs" | "dart" | "ex" | "exs" | "toml" => {
                 Self::TripleQuotes
@@ -479,6 +483,9 @@ impl Classifier {
         if Dialect::for_pattern(pattern) == Dialect::Sql {
             comment_initials.push(b'$');
         }
+        if matches!(dialect, Dialect::Jsx | Dialect::Tsx) {
+            comment_initials.extend_from_slice(b"<{}");
+        }
         Self {
             pattern,
             openers: BlockOpener::prepare(pattern),
@@ -488,7 +495,12 @@ impl Classifier {
                 .any(|doc| pattern.single_line.contains(doc)),
             dialect,
             python: (dialect == Dialect::Python).then(PythonContext::new),
-            javascript: (dialect == Dialect::JavaScript).then(JavaScript::new),
+            javascript: match dialect {
+                Dialect::JavaScript => Some(JavaScript::new()),
+                Dialect::Jsx => Some(JavaScript::with_jsx(false)),
+                Dialect::Tsx => Some(JavaScript::with_jsx(true)),
+                _ => None,
+            },
             markup_tag: false,
             literal: None,
             block_depth: 0,
@@ -528,6 +540,10 @@ impl Classifier {
         // it cannot open a block that changes the following lines.
         if self.block_depth == 0
             && self.literal.is_none()
+            && self
+                .javascript
+                .as_ref()
+                .is_none_or(JavaScript::comments_allowed)
             && starts_with_any(line, self.pattern.single_line)
             && !self
                 .openers
@@ -642,6 +658,14 @@ impl Classifier {
                 continue;
             }
 
+            if let Some(javascript) = self.javascript.as_mut() {
+                if let Some(end) = javascript.jsx_step(line, at) {
+                    code = true;
+                    at = end;
+                    continue;
+                }
+            }
+
             if line[at].is_ascii_whitespace() {
                 at += 1;
                 continue;
@@ -730,7 +754,12 @@ impl Classifier {
                 }
                 b'`' => matches!(
                     self.dialect,
-                    Dialect::JavaScript | Dialect::Go | Dialect::Backticks | Dialect::Julia
+                    Dialect::JavaScript
+                        | Dialect::Jsx
+                        | Dialect::Tsx
+                        | Dialect::Go
+                        | Dialect::Backticks
+                        | Dialect::Julia
                 ),
                 _ => false,
             };
@@ -777,7 +806,11 @@ impl Classifier {
                     self.literal = Some(Literal::Quoted {
                         quote,
                         triple,
-                        escapes: self.dialect != Dialect::Sql,
+                        escapes: self.dialect != Dialect::Sql
+                            && !self
+                                .javascript
+                                .as_ref()
+                                .is_some_and(JavaScript::attribute_string),
                         documentation: false,
                     });
                 }
@@ -1493,6 +1526,54 @@ mod tests {
             assert_eq!(tally.code_lines, code, "{extension}: {tally:?}");
             assert_eq!(tally.comment_lines, 1, "{extension}: {tally:?}");
             assert_eq!(tally.doc_lines, 0);
+        }
+    }
+
+    #[test]
+    fn jsx_text_attributes_and_embedded_javascript_have_distinct_quoting() {
+        for extension in ["jsx", "tsx"] {
+            for (source, code, comments) in [
+                ("const view = <p>Don't panic</p>;\n// ordinary comment\nconst result = 1;\n", 2, 1),
+                (
+                    "const view = (\n  <Panel title=\"Don't /* hide */\" note='a \" quote'>\n    <span>It's `literal` // text</span>\n    <Child />\n  </Panel>\n);\n// actual\nconst result = 1;\n",
+                    7, 1,
+                ),
+                (
+                    "const view = (\n  <Panel\n    value={\n      /* attr comment */\n      {x: \"}\"}\n    }\n  >\n    {\n      /* child comment */\n      /\"/.test(value) ? <b>It's safe</b> : null\n    }\n  </Panel>\n);\n// actual\n",
+                    11, 3,
+                ),
+                ("const view = <><span>Don't</span><Child value={{x: 1}} /></>;\n// actual\nconst result = /\"/.test(value);\n", 2, 1),
+                ("const view = <Child /\n>;\n// actual\nconst result = 1;\n", 3, 1),
+                ("const view = <Child / >;\n// actual\nconst result = 1;\n", 2, 1),
+                ("const view = <p>\n  // visible text\n  /* visible text */\n</p>;\n// actual\n", 4, 1),
+                ("const view = <p>{\n  /* actual expression comment */\n}</p>;\n// actual\n", 2, 2),
+                ("const view = <Panel>{items.map(item => <span>{item.name} won't</span>)}</Panel>;\n// actual\n", 1, 1),
+                ("const less = x < value;\nconst view = less ? <p>Don't</p> : <p>Won't</p>;\n// actual\nconst result = /\"/.test(value);\n", 3, 1),
+                ("const view = <Component extends=\"yes\">Don't</Component>;\n// actual\nconst result = 1;\n", 2, 1),
+                (concat!(r#"const view = <Panel title="C:\">Don't panic</Panel>;"#, "\n// actual\nconst result = 1;\n"), 2, 1),
+            ] {
+                let tally = scan(source, extension);
+                assert_eq!(tally.code_lines, code, "{extension}: {source:?}: {tally:?}");
+                assert_eq!(tally.comment_lines, comments, "{extension}: {source:?}: {tally:?}");
+                assert!(tally.is_partitioned());
+            }
+        }
+    }
+
+    #[test]
+    fn tsx_generic_arrow_heads_do_not_open_unclosed_jsx_elements() {
+        for (source, code, comments) in [
+            ("const identity = <T,>(value: T) => value;\nconst constrained = <T extends unknown>(value: T) => value;\n// actual\nconst result = 1;\n", 3, 1),
+            ("const identity = <T\n  extends\n  unknown\n>(value: T) => value;\n// actual\nconst result = 1;\n", 5, 1),
+            ("const identity = <T\n  /* type comment */\n  ,\n>(value: T) => value;\n// actual\nconst result = 1;\n", 4, 2),
+            ("const f = <const T extends {x: string}>(value: T) => value;\nconst g = <T = unknown>(value: T) => value;\n// actual\n", 2, 1),
+            ("const view = <Component<Record<string, number>> title=\"Don't\" />;\n// actual\nconst result = 1;\n", 2, 1),
+            ("const render = <T,>(value: T) => <p>Don't panic</p>;\n// actual\nconst result = 1;\n", 2, 1),
+        ] {
+            let tally = scan(source, "tsx");
+            assert_eq!(tally.code_lines, code, "{source:?}: {tally:?}");
+            assert_eq!(tally.comment_lines, comments, "{source:?}: {tally:?}");
+            assert!(tally.is_partitioned());
         }
     }
 

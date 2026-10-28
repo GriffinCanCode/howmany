@@ -48,6 +48,7 @@ pub(super) struct JavaScript {
     parentheses: Option<Parentheses>,
     bodies: Vec<PendingBody>,
     restricted_statement: bool,
+    jsx: Option<Jsx>,
 }
 
 impl JavaScript {
@@ -58,6 +59,47 @@ impl JavaScript {
             parentheses: None,
             bodies: Vec::new(),
             restricted_statement: false,
+            jsx: None,
+        }
+    }
+
+    pub(super) fn with_jsx(typescript: bool) -> Self {
+        Self {
+            jsx: Some(Jsx::new(typescript)),
+            ..Self::new()
+        }
+    }
+
+    pub(super) fn comments_allowed(&self) -> bool {
+        self.jsx.as_ref().is_none_or(Jsx::comments_allowed)
+    }
+
+    pub(super) fn attribute_string(&self) -> bool {
+        self.jsx
+            .as_ref()
+            .is_some_and(|jsx| matches!(jsx.mode, JsxMode::Tag(tag) if tag.type_arguments == 0))
+    }
+
+    /// JSX text and attributes are not JavaScript token streams. Embedded
+    /// braces temporarily restore JavaScript, including its regex goal.
+    pub(super) fn jsx_step(&mut self, line: &[u8], at: usize) -> Option<usize> {
+        let allowed = matches!(self.goal, Goal::Statement | Goal::Expression);
+        let step = self.jsx.as_mut()?.step(line, at, allowed);
+        match step {
+            JsxStep::JavaScript => None,
+            JsxStep::ResumeGeneric => {
+                self.goal = Goal::Expression;
+                None
+            }
+            JsxStep::Code { end, event } => {
+                match event {
+                    JsxEvent::None => {}
+                    JsxEvent::Value => self.literal(),
+                    JsxEvent::EnterExpression => self.tokens(b"{"),
+                    JsxEvent::ExitExpression => self.tokens(b"}"),
+                }
+                Some(end)
+            }
         }
     }
 
@@ -305,4 +347,264 @@ fn identifier_start(byte: u8) -> bool {
 
 fn identifier_part(byte: u8) -> bool {
     identifier_start(byte) || byte.is_ascii_digit()
+}
+
+#[derive(Clone, Copy)]
+enum JsxMode {
+    JavaScript,
+    Text,
+    Tag(Tag),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TypeParameter {
+    NotAmbiguous,
+    NameAfterConst,
+    AfterName,
+    AfterExtends,
+}
+
+#[derive(Clone, Copy)]
+struct Tag {
+    closing: bool,
+    self_closing: bool,
+    type_parameter: TypeParameter,
+    type_arguments: usize,
+}
+
+struct JsxExpression {
+    depth: usize,
+    return_mode: JsxMode,
+}
+
+struct Jsx {
+    mode: JsxMode,
+    elements: Vec<JsxMode>,
+    expressions: Vec<JsxExpression>,
+    typescript: bool,
+}
+
+enum JsxEvent {
+    None,
+    Value,
+    EnterExpression,
+    ExitExpression,
+}
+
+enum JsxStep {
+    JavaScript,
+    ResumeGeneric,
+    Code { end: usize, event: JsxEvent },
+}
+
+impl Jsx {
+    fn new(typescript: bool) -> Self {
+        Self {
+            mode: JsxMode::JavaScript,
+            elements: Vec::new(),
+            expressions: Vec::new(),
+            typescript,
+        }
+    }
+
+    fn comments_allowed(&self) -> bool {
+        match self.mode {
+            JsxMode::JavaScript => true,
+            JsxMode::Text => false,
+            JsxMode::Tag(tag) => {
+                tag.type_parameter != TypeParameter::NotAmbiguous || tag.type_arguments > 0
+            }
+        }
+    }
+
+    fn begin_tag(&mut self, line: &[u8], at: usize) -> Option<JsxStep> {
+        let closing = line.get(at + 1) == Some(&b'/');
+        let start = at + if closing { 2 } else { 1 };
+        let &first = line.get(start)?;
+        if first != b'>' && !identifier_start(first) {
+            return None;
+        }
+        let length = line[start..]
+            .iter()
+            .take_while(|byte| identifier_part(**byte) || matches!(byte, b'-' | b'.' | b':'))
+            .count();
+        let name = &line[start..start + length];
+        let type_parameter = if self.typescript
+            && matches!(self.mode, JsxMode::JavaScript)
+            && !closing
+            && !name.is_empty()
+            && name.iter().all(|byte| identifier_part(*byte))
+        {
+            if name == b"const" {
+                TypeParameter::NameAfterConst
+            } else {
+                TypeParameter::AfterName
+            }
+        } else {
+            TypeParameter::NotAmbiguous
+        };
+        if !closing {
+            self.elements.push(self.mode);
+        }
+        self.mode = JsxMode::Tag(Tag {
+            closing,
+            self_closing: false,
+            type_parameter,
+            type_arguments: 0,
+        });
+        Some(JsxStep::Code {
+            end: start + length,
+            event: JsxEvent::Value,
+        })
+    }
+
+    fn expression(&mut self, at: usize) -> JsxStep {
+        self.expressions.push(JsxExpression {
+            depth: 0,
+            return_mode: self.mode,
+        });
+        self.mode = JsxMode::JavaScript;
+        JsxStep::Code {
+            end: at + 1,
+            event: JsxEvent::EnterExpression,
+        }
+    }
+
+    fn finish_tag(&mut self, end: usize, closing: bool) -> JsxStep {
+        self.mode = if closing {
+            self.elements.pop().unwrap_or(JsxMode::JavaScript)
+        } else {
+            JsxMode::Text
+        };
+        JsxStep::Code {
+            end,
+            event: JsxEvent::Value,
+        }
+    }
+
+    fn generic(&mut self) -> JsxStep {
+        self.mode = self.elements.pop().unwrap_or(JsxMode::JavaScript);
+        JsxStep::ResumeGeneric
+    }
+
+    fn step(&mut self, line: &[u8], at: usize, expression_allowed: bool) -> JsxStep {
+        match self.mode {
+            JsxMode::JavaScript => {
+                if line[at] == b'<' && expression_allowed {
+                    if let Some(step) = self.begin_tag(line, at) {
+                        return step;
+                    }
+                }
+                if let Some(expression) = self.expressions.last_mut() {
+                    match line[at] {
+                        b'{' => expression.depth += 1,
+                        b'}' if expression.depth > 0 => expression.depth -= 1,
+                        b'}' => {
+                            self.mode = self
+                                .expressions
+                                .pop()
+                                .map_or(JsxMode::JavaScript, |expression| expression.return_mode);
+                            return JsxStep::Code {
+                                end: at + 1,
+                                event: JsxEvent::ExitExpression,
+                            };
+                        }
+                        _ => {}
+                    }
+                }
+                JsxStep::JavaScript
+            }
+            JsxMode::Text => {
+                if line[at] == b'{' {
+                    return self.expression(at);
+                }
+                if line[at] == b'<' {
+                    if let Some(step) = self.begin_tag(line, at) {
+                        return step;
+                    }
+                }
+                let next = memchr::memchr2(b'<', b'{', &line[at + 1..])
+                    .map_or(line.len(), |offset| at + offset + 1);
+                JsxStep::Code {
+                    end: next,
+                    event: JsxEvent::None,
+                }
+            }
+            JsxMode::Tag(mut tag) => {
+                let byte = line[at];
+                if byte.is_ascii_whitespace() {
+                    return JsxStep::Code {
+                        end: at + 1,
+                        event: JsxEvent::None,
+                    };
+                }
+                if tag.type_arguments > 0
+                    && (line[at..].starts_with(b"//") || line[at..].starts_with(b"/*"))
+                {
+                    return JsxStep::JavaScript;
+                }
+                // TypeScript's TSX grammar distinguishes a type-parameter
+                // head by comma/default/constraint tokens, including across
+                // physical lines. Ordinary JSX attribute names remain tags.
+                if tag.type_parameter != TypeParameter::NotAmbiguous {
+                    if line[at..].starts_with(b"//") || line[at..].starts_with(b"/*") {
+                        return JsxStep::JavaScript;
+                    }
+                    let length = line[at..]
+                        .iter()
+                        .take_while(|byte| identifier_part(**byte))
+                        .count();
+                    let word = &line[at..at + length];
+                    match tag.type_parameter {
+                        TypeParameter::NameAfterConst if length > 0 => {
+                            tag.type_parameter = TypeParameter::AfterName;
+                            self.mode = JsxMode::Tag(tag);
+                            return JsxStep::Code {
+                                end: at + length,
+                                event: JsxEvent::None,
+                            };
+                        }
+                        TypeParameter::AfterName if matches!(byte, b',' | b'=') => {
+                            return self.generic()
+                        }
+                        TypeParameter::AfterName if word == b"extends" => {
+                            tag.type_parameter = TypeParameter::AfterExtends;
+                            self.mode = JsxMode::Tag(tag);
+                            return JsxStep::Code {
+                                end: at + length,
+                                event: JsxEvent::None,
+                            };
+                        }
+                        TypeParameter::AfterExtends if !matches!(byte, b'=' | b'>' | b'/') => {
+                            return self.generic()
+                        }
+                        _ => tag.type_parameter = TypeParameter::NotAmbiguous,
+                    }
+                }
+                if byte == b'<' {
+                    tag.type_arguments += 1;
+                } else if byte == b'>' && tag.type_arguments > 0 {
+                    tag.type_arguments -= 1;
+                } else if byte == b'>' {
+                    return self.finish_tag(at + 1, tag.closing || tag.self_closing);
+                } else if byte == b'/' && line.get(at + 1) == Some(&b'>') && tag.type_arguments == 0
+                {
+                    return self.finish_tag(at + 2, true);
+                } else if byte == b'/' && tag.type_arguments == 0 {
+                    tag.self_closing = true;
+                } else if byte == b'{' && tag.type_arguments == 0 {
+                    self.mode = JsxMode::Tag(tag);
+                    return self.expression(at);
+                } else if matches!(byte, b'\'' | b'"') {
+                    self.mode = JsxMode::Tag(tag);
+                    return JsxStep::JavaScript;
+                }
+                self.mode = JsxMode::Tag(tag);
+                JsxStep::Code {
+                    end: at + 1,
+                    event: JsxEvent::None,
+                }
+            }
+        }
+    }
 }
