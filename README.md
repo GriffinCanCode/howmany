@@ -70,7 +70,7 @@ binary you just installed. The first time you run `howmany` by hand it offers to
 do this for you, so there is nothing to remember.
 
 ```
-howmany 3.0.0
+howmany 3.1.0
 using /opt/homebrew/bin/howmany
 
 VS Code
@@ -232,7 +232,7 @@ howmany /path/to/project --source-only --tracked-only --ignore research,vendor
 
 `--tracked-only` includes tracked hidden and ignored files, excludes untracked
 scratch output, and requires a Git working tree. These explicit counting scopes
-fail if an input cannot be read rather than publishing a partial total.
+fail if a selected input cannot be read rather than publishing a partial total.
 
 Generated filename conventions, explicit generator banners and Git's
 `linguist-generated`/`linguist-vendored` attributes exclude machine output and

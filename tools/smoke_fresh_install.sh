@@ -10,6 +10,7 @@
 #
 # Usage: tools/smoke_fresh_install.sh
 set -euo pipefail
+export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}"
 
 crate_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 work="$(mktemp -d)"
@@ -35,7 +36,15 @@ check() {
 }
 
 echo "==> packaging and installing from the crate, not the working tree"
-cargo install --path "$crate_dir" --root "$root" --locked --force >/dev/null 2>&1
+cargo package --manifest-path "$crate_dir/Cargo.toml" --locked
+package_archive=$(cargo metadata --manifest-path "$crate_dir/Cargo.toml" --no-deps --format-version 1 | \
+    python3 -c 'import json,pathlib,sys; m=json.load(sys.stdin); p=m["packages"][0]; print(pathlib.Path(m["target_directory"])/"package"/(p["name"]+"-"+p["version"]+".crate"))')
+mkdir -p "$work/package"
+tar -xzf "$package_archive" -C "$work/package"
+package_source="$work/package/$(basename "$package_archive" .crate)"
+# Reuse compiled dependencies while installing the unpacked release artifact.
+export CARGO_TARGET_DIR="$(dirname "$(dirname "$package_archive")")"
+cargo install --path "$package_source" --root "$root" --locked --force >/dev/null 2>&1
 binary="$root/bin/howmany"
 test -x "$binary"
 
@@ -47,6 +56,7 @@ printf '# Title\n\nProse.\n' >"$project/README.md"
 printf 'MIT License\n\nboilerplate\n' >"$project/LICENSE"
 printf 'module.exports = 1;\n' >"$project/node_modules/dep/index.js"
 printf 'fn generated() {}\n' >"$project/target/debug/gen.rs"
+printf 'Signature: 8a477f597d28d172\n' >"$project/target/CACHEDIR.TAG"
 
 # A PATH with nothing on it but the installed binary: no `sherlock`, no shell
 # utilities the tool might have been leaning on without saying so.
