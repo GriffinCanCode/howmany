@@ -24,16 +24,41 @@ jobs:
   # that expires. When it lapsed, `update-homebrew-formula` failed on its own
   # while the tag, the binaries, and crates.io all published — v2.1.0, v2.2.0 and
   # v3.0.0 shipped with the tap frozen on v2.0.0 before anyone noticed. Checking
-  # the credential before anything is published makes a lapse cost a re-run
-  # instead of a version that exists everywhere except Homebrew.
+  # a writer or the already-published tag and archive checksum prevents another
+  # version from existing everywhere except Homebrew.
   preflight:
     name: Preflight
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.tap.outputs.version }}
+      tap_published: ${{ steps.tap.outputs.published }}
     steps:
-      - name: Check the Homebrew tap credential
+      - name: Verify Homebrew publication or its writer
+        id: tap
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          RELEASE_VERSION: ${{ github.event.inputs.version || github.ref_name }}
         run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)*$ ]]; then
+            echo "::error::Expected a version tag such as v3.1.0."
+            exit 1
+          fi
+          echo "version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          # The documented local publishing path can complete the tap first.
+          # Verify its actual effect before accepting it in place of a writer.
+          URL="https://github.com/GriffinCanCode/howmany/archive/refs/tags/$RELEASE_VERSION.tar.gz"
+          if curl -fsSL --max-time 30 \
+               https://raw.githubusercontent.com/GriffinCanCode/homebrew-howmany/main/Formula/howmany.rb -o formula.rb \
+             && grep -Fqx "  url \"$URL\"" formula.rb; then
+            SHA256=$(curl -fsSL --max-time 60 "$URL" | sha256sum | cut -d' ' -f1)
+            if grep -Fqx "  sha256 \"$SHA256\"" formula.rb; then
+              echo "published=true" >> "$GITHUB_OUTPUT"
+              echo "Homebrew already publishes this exact tag and archive checksum."
+              exit 0
+            fi
+          fi
+          echo "published=false" >> "$GITHUB_OUTPUT"
           if [ -z "$GH_TOKEN" ]; then
             echo "::error::HOMEBREW_TAP_TOKEN is unset. Add a token with write access to GriffinCanCode/homebrew-howmany, then re-run."
             exit 1
@@ -63,15 +88,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.preflight.outputs.version }}
 
       - name: Get version from tag
         id: get_version
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          fi
+          echo "version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create Release
         id: create_release
@@ -83,11 +108,8 @@ jobs:
           name: Release ${{ steps.get_version.outputs.version }}
           draft: false
           prerelease: false
+          generate_release_notes: true
           body: |
-            ## Changes in ${{ steps.get_version.outputs.version }}
-
-            - See [CHANGELOG.md](https://github.com/GriffinCanCode/howmany/blob/main/CHANGELOG.md) for detailed changes
-
             ## Installation
 
             ### Homebrew (macOS/Linux)
@@ -120,6 +142,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.create-release.outputs.version }}
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
@@ -180,25 +204,29 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.create-release.outputs.version }}
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
 
-      - name: Login to crates.io
-        run: cargo login ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
       - name: Publish to crates.io
-        run: cargo publish --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --locked
 
   update-homebrew-formula:
     name: Update Homebrew Formula
     runs-on: ubuntu-latest
-    needs: [create-release, build-and-test]
+    needs: [preflight, create-release, build-and-test]
+    if: needs.preflight.outputs.tap_published != 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.create-release.outputs.version }}
 
       - name: Checkout homebrew-howmany
         uses: actions/checkout@v7
@@ -221,7 +249,7 @@ jobs:
               -e "s|^  sha256 \".*\"|  sha256 \"$SHA256\"|" \
               packaging/howmany.rb > homebrew-tap/Formula/howmany.rb
           ruby -c homebrew-tap/Formula/howmany.rb
-          echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
 
       - name: Commit and push changes
         run: |
@@ -236,8 +264,12 @@ jobs:
   notify-success:
     name: Notify Success
     runs-on: ubuntu-latest
-    needs: [create-release, build-and-test, publish-cargo, update-homebrew-formula]
-    if: success()
+    needs: [preflight, create-release, build-and-test, publish-cargo, update-homebrew-formula]
+    if: >-
+      always() && needs.create-release.result == 'success' &&
+      needs.build-and-test.result == 'success' && needs.publish-cargo.result == 'success' &&
+      (needs.update-homebrew-formula.result == 'success' ||
+       (needs.update-homebrew-formula.result == 'skipped' && needs.preflight.outputs.tap_published == 'true'))
     steps:
       - name: Success notification
         run: |

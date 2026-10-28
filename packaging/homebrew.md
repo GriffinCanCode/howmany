@@ -23,13 +23,14 @@ file into the tap, stamps in the tag's tarball url and its sha256, checks the
 result parses as Ruby, and pushes. Nothing in the tap is hand-maintained, so
 the published formula cannot drift from the crate.
 
-The job authenticates to the tap with the `HOMEBREW_TAP_TOKEN` secret, a
-personal access token with write access to `homebrew-howmany`. **This is the
-single point of failure.** When that token expires the job fails with
-`Bad credentials`, the release itself still succeeds, and the tap silently
-freezes at the last version that got through — which is exactly how the tap sat
-on v2.0.0 while v2.1.0, v2.2.0, and v3.0.0 shipped. If a release's Homebrew job
-goes red, rotate the token before assuming the formula published.
+The job authenticates with `HOMEBREW_TAP_TOKEN`, a token with write access to
+the tap. When it expired, the tap stayed on v2.0.0 while three newer releases
+shipped. Preflight now requires a working writer or proof that the tap already
+publishes the requested tag with its exact archive checksum.
+
+The second route supports local publication when the CI credential expires.
+Preflight reads the live formula and hashes the tagged archive before accepting
+that route. Build and publishing jobs always check out the requested tag.
 
 ## Testing a formula change
 
@@ -49,7 +50,7 @@ brew audit --strict --formula GriffinCanCode/howmany/howmany
 If CI cannot publish and the formula has to go out by hand:
 
 ```bash
-VERSION=v3.0.0
+VERSION=v3.1.0
 URL="https://github.com/GriffinCanCode/howmany/archive/refs/tags/$VERSION.tar.gz"
 SHA=$(curl -fsSL "$URL" | shasum -a 256 | cut -d' ' -f1)
 
@@ -60,6 +61,14 @@ sed -e "s|^  url \".*\"|  url \"$URL\"|" \
 git -C /tmp/tap commit -am "howmany ${VERSION#v}" && git -C /tmp/tap push
 ```
 
-That is the same transformation the workflow performs. Prefer fixing the token.
+That is the same transformation the workflow performs. After publishing the
+formula, resume the release with the workflow on `main`; its builds remain pinned
+to the requested tag:
+
+```bash
+gh workflow run release.yml --ref main -f version=v3.1.0
+```
+
+Rotate the CI token before the next automatic tap update.
 
 [tap]: https://github.com/GriffinCanCode/homebrew-howmany
