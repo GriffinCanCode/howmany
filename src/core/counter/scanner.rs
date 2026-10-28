@@ -483,8 +483,11 @@ impl Classifier {
         if Dialect::for_pattern(pattern) == Dialect::Sql {
             comment_initials.push(b'$');
         }
+        if matches!(dialect, Dialect::JavaScript | Dialect::Jsx | Dialect::Tsx) {
+            comment_initials.extend_from_slice(b"{}");
+        }
         if matches!(dialect, Dialect::Jsx | Dialect::Tsx) {
-            comment_initials.extend_from_slice(b"<{}");
+            comment_initials.push(b'<');
         }
         Self {
             pattern,
@@ -659,7 +662,7 @@ impl Classifier {
             }
 
             if let Some(javascript) = self.javascript.as_mut() {
-                if let Some(end) = javascript.jsx_step(line, at) {
+                if let Some(end) = javascript.step(line, at) {
                     code = true;
                     at = end;
                     continue;
@@ -1545,6 +1548,8 @@ mod tests {
                 ("const view = <><span>Don't</span><Child value={{x: 1}} /></>;\n// actual\nconst result = /\"/.test(value);\n", 2, 1),
                 ("const view = <Child /\n>;\n// actual\nconst result = 1;\n", 3, 1),
                 ("const view = <Child / >;\n// actual\nconst result = 1;\n", 2, 1),
+                ("const view = <Comp\n// attribute comment\nvalue={1}\n/>;\n", 3, 1),
+                ("const view = <Comp\n/* attribute comment\n body */\nvalue={1}\n/>;\n", 3, 2),
                 ("const view = <p>\n  // visible text\n  /* visible text */\n</p>;\n// actual\n", 4, 1),
                 ("const view = <p>{\n  /* actual expression comment */\n}</p>;\n// actual\n", 2, 2),
                 ("const view = <Panel>{items.map(item => <span>{item.name} won't</span>)}</Panel>;\n// actual\n", 1, 1),
@@ -1574,6 +1579,30 @@ mod tests {
             assert_eq!(tally.code_lines, code, "{source:?}: {tally:?}");
             assert_eq!(tally.comment_lines, comments, "{source:?}: {tally:?}");
             assert!(tally.is_partitioned());
+        }
+    }
+
+    #[test]
+    fn javascript_nested_templates_restore_interpolation_and_comment_context() {
+        for extension in ["js", "ts", "jsx", "tsx"] {
+            for (source, code, comments) in [
+                ("const x = `${flag ? `a` : `</b>`}</c>`;\n/* probe */\nconst end = 1;\n", 2, 1),
+                ("const x = `a${(() => ({x: `b${value}`}))().x}c`;\n/* probe */\nconst end = 1;\n", 2, 1),
+                ("const x = `start\n// literal\n${ /* actual start\n actual */\nvalue }\nend`;\n/* probe */\nconst end = 1;\n", 6, 2),
+            ] {
+                let tally = scan(source, extension);
+                assert_eq!(tally.code_lines, code, "{extension}: {source:?}: {tally:?}");
+                assert_eq!(tally.comment_lines, comments, "{extension}: {source:?}: {tally:?}");
+                assert!(tally.is_partitioned());
+            }
+        }
+        for source in [
+            "const view = <Panel>{`${flag ? <b>{`x${value}`}</b> : `y${value}`}`}</Panel>;\n/* probe */\nconst end = 1;\n",
+            "const x = `${<Panel value={{x: `${value}`}}>Don't</Panel>}`;\n/* probe */\nconst end = 1;\n",
+        ] {
+            let tally = scan(source, "tsx");
+            assert_eq!(tally.code_lines, 2, "{source:?}: {tally:?}");
+            assert_eq!(tally.comment_lines, 1, "{source:?}: {tally:?}");
         }
     }
 

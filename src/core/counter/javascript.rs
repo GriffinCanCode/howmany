@@ -41,6 +41,12 @@ struct PendingBody {
     depth: usize,
 }
 
+#[derive(Clone, Copy)]
+enum Template {
+    Text,
+    Expression { braces: usize, jsx_level: usize },
+}
+
 /// Token context shared across physical lines. Comments do not alter it.
 pub(super) struct JavaScript {
     goal: Goal,
@@ -49,6 +55,7 @@ pub(super) struct JavaScript {
     bodies: Vec<PendingBody>,
     restricted_statement: bool,
     jsx: Option<Jsx>,
+    templates: Vec<Template>,
 }
 
 impl JavaScript {
@@ -60,6 +67,7 @@ impl JavaScript {
             bodies: Vec::new(),
             restricted_statement: false,
             jsx: None,
+            templates: Vec::new(),
         }
     }
 
@@ -71,7 +79,8 @@ impl JavaScript {
     }
 
     pub(super) fn comments_allowed(&self) -> bool {
-        self.jsx.as_ref().is_none_or(Jsx::comments_allowed)
+        !matches!(self.templates.last(), Some(Template::Text))
+            && self.jsx.as_ref().is_none_or(Jsx::comments_allowed)
     }
 
     pub(super) fn attribute_string(&self) -> bool {
@@ -80,26 +89,84 @@ impl JavaScript {
             .is_some_and(|jsx| matches!(jsx.mode, JsxMode::Tag(tag) if tag.type_arguments == 0))
     }
 
-    /// JSX text and attributes are not JavaScript token streams. Embedded
-    /// braces temporarily restore JavaScript, including its regex goal.
-    pub(super) fn jsx_step(&mut self, line: &[u8], at: usize) -> Option<usize> {
-        let allowed = matches!(self.goal, Goal::Statement | Goal::Expression);
-        let step = self.jsx.as_mut()?.step(line, at, allowed);
-        match step {
-            JsxStep::JavaScript => None,
-            JsxStep::ResumeGeneric => {
-                self.goal = Goal::Expression;
-                None
-            }
-            JsxStep::Code { end, event } => {
-                match event {
-                    JsxEvent::None => {}
-                    JsxEvent::Value => self.literal(),
-                    JsxEvent::EnterExpression => self.tokens(b"{"),
-                    JsxEvent::ExitExpression => self.tokens(b"}"),
+    /// Raw template/JSX text is not a JavaScript token stream. Interpolation
+    /// braces restore JavaScript with their own nesting and delimiter owner.
+    pub(super) fn step(&mut self, line: &[u8], at: usize) -> Option<usize> {
+        if matches!(self.templates.last(), Some(Template::Text)) {
+            return Some(self.template_text(line, at));
+        }
+        let level = self.jsx.as_ref().map_or(Some(0), Jsx::javascript_level);
+        if let Some(Template::Expression { braces, jsx_level }) = self.templates.last().copied() {
+            // Nested JSX and template expressions each own their closing
+            // brace; an interpolation must not close a surrounding JSX frame.
+            if level == Some(jsx_level) {
+                if line[at] == b'}' && braces == 0 {
+                    if let Some(template) = self.templates.last_mut() {
+                        *template = Template::Text;
+                    }
+                    self.tokens(b"}");
+                    return Some(at + 1);
                 }
-                Some(end)
+                let braces = match line[at] {
+                    b'{' => braces + 1,
+                    b'}' => braces - 1,
+                    _ => braces,
+                };
+                if let Some(template) = self.templates.last_mut() {
+                    *template = Template::Expression { braces, jsx_level };
+                }
             }
+        }
+        let allowed = matches!(self.goal, Goal::Statement | Goal::Expression);
+        if let Some(jsx) = self.jsx.as_mut() {
+            match jsx.step(line, at, allowed) {
+                JsxStep::JavaScript => {}
+                JsxStep::ResumeGeneric => self.goal = Goal::Expression,
+                JsxStep::Code { end, event } => {
+                    match event {
+                        JsxEvent::None => {}
+                        JsxEvent::Value => self.literal(),
+                        JsxEvent::EnterExpression => self.tokens(b"{"),
+                        JsxEvent::ExitExpression => self.tokens(b"}"),
+                    }
+                    return Some(end);
+                }
+            }
+        }
+        if line[at] == b'`' {
+            self.templates.push(Template::Text);
+            self.literal();
+            Some(at + 1)
+        } else {
+            None
+        }
+    }
+
+    fn template_text(&mut self, line: &[u8], at: usize) -> usize {
+        match line[at] {
+            b'\\' => (at + 2).min(line.len()),
+            b'`' => {
+                self.templates.pop();
+                self.literal();
+                at + 1
+            }
+            b'$' if line.get(at + 1) == Some(&b'{') => {
+                let jsx_level = self
+                    .jsx
+                    .as_ref()
+                    .and_then(Jsx::javascript_level)
+                    .unwrap_or(0);
+                if let Some(template) = self.templates.last_mut() {
+                    *template = Template::Expression {
+                        braces: 0,
+                        jsx_level,
+                    };
+                }
+                self.tokens(b"{");
+                at + 2
+            }
+            _ => memchr::memchr3(b'`', b'$', b'\\', &line[at + 1..])
+                .map_or(line.len(), |offset| at + offset + 1),
         }
     }
 
@@ -409,12 +476,13 @@ impl Jsx {
 
     fn comments_allowed(&self) -> bool {
         match self.mode {
-            JsxMode::JavaScript => true,
+            JsxMode::JavaScript | JsxMode::Tag(_) => true,
             JsxMode::Text => false,
-            JsxMode::Tag(tag) => {
-                tag.type_parameter != TypeParameter::NotAmbiguous || tag.type_arguments > 0
-            }
         }
+    }
+
+    fn javascript_level(&self) -> Option<usize> {
+        matches!(self.mode, JsxMode::JavaScript).then_some(self.expressions.len())
     }
 
     fn begin_tag(&mut self, line: &[u8], at: usize) -> Option<JsxStep> {
@@ -538,18 +606,13 @@ impl Jsx {
                         event: JsxEvent::None,
                     };
                 }
-                if tag.type_arguments > 0
-                    && (line[at..].starts_with(b"//") || line[at..].starts_with(b"/*"))
-                {
+                if line[at..].starts_with(b"//") || line[at..].starts_with(b"/*") {
                     return JsxStep::JavaScript;
                 }
                 // TypeScript's TSX grammar distinguishes a type-parameter
                 // head by comma/default/constraint tokens, including across
                 // physical lines. Ordinary JSX attribute names remain tags.
                 if tag.type_parameter != TypeParameter::NotAmbiguous {
-                    if line[at..].starts_with(b"//") || line[at..].starts_with(b"/*") {
-                        return JsxStep::JavaScript;
-                    }
                     let length = line[at..]
                         .iter()
                         .take_while(|byte| identifier_part(**byte))
