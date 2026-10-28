@@ -128,6 +128,7 @@ const PATTERN_TABLE: &[(&str, CommentPattern)] = &[
     ("h", C_STYLE),
     ("hpp", C_STYLE),
     ("hxx", C_STYLE),
+    ("metal", C_STYLE),
     ("mm", JAVADOC_STYLE),
     ("cs", TRIPLE_SLASH_STYLE),
     // PHP
@@ -161,11 +162,25 @@ const PATTERN_TABLE: &[(&str, CommentPattern)] = &[
     ("yml", HASH_ONLY),
     ("toml", HASH_ONLY),
     ("ini", CommentPattern::new(&[";", "#"], &[], &[], &[";;"])),
-    ("json", CommentPattern::new(&["//"], &["/*"], &["*/"], &[])),
+    // JSON has strings but no comment syntax; JSONC deliberately has both.
+    ("json", CommentPattern::EMPTY),
     ("jsonc", CommentPattern::new(&["//"], &["/*"], &["*/"], &[])),
     ("xml", XML_STYLE),
     ("html", XML_STYLE),
     ("htm", XML_STYLE),
+    ("astro", WEB_COMPONENT_STYLE),
+    (
+        "j2",
+        CommentPattern::new(&[], &["{#", "<!--"], &["#}", "-->"], &[]),
+    ),
+    (
+        "jinja",
+        CommentPattern::new(&[], &["{#", "<!--"], &["#}", "-->"], &[]),
+    ),
+    (
+        "jinja2",
+        CommentPattern::new(&[], &["{#", "<!--"], &["#}", "-->"], &[]),
+    ),
     // `svg` is deliberately absent: it is listed in `patterns::BINARY_EXTENSIONS`
     // as the image asset it is. Registering syntax for it here contradicted that
     // and let the engine -- which classifies without consulting the file filter
@@ -202,6 +217,7 @@ const PATTERN_TABLE: &[(&str, CommentPattern)] = &[
     ("clj", LISP_STYLE),
     ("cljs", LISP_STYLE),
     ("cljc", LISP_STYLE),
+    ("scm", CommentPattern::new(&[";"], &["#|"], &["|#"], &[])),
     ("erl", CommentPattern::new(&["%"], &[], &[], &["%%"])),
     ("hrl", CommentPattern::new(&["%"], &[], &[], &["%%"])),
     ("ex", ELIXIR_STYLE),
@@ -236,10 +252,7 @@ const PATTERN_TABLE: &[(&str, CommentPattern)] = &[
     ("bat", BATCH_STYLE),
     ("cmd", BATCH_STYLE),
     // Others
-    (
-        "sql",
-        CommentPattern::new(&["--"], &["/*"], &["*/"], &["--"]),
-    ),
+    ("sql", CommentPattern::new(&["--"], &["/*"], &["*/"], &[])),
     ("dart", TRIPLE_SLASH_STYLE),
     (
         "zig",
@@ -247,6 +260,8 @@ const PATTERN_TABLE: &[(&str, CommentPattern)] = &[
     ),
     ("proto", JAVADOC_STYLE),
     ("tf", HASH_ONLY),
+    ("rego", HASH_ONLY),
+    ("cedar", CommentPattern::new(&["//"], &["/*"], &["*/"], &[])),
     ("nix", HASH_ONLY),
     ("gradle", JAVADOC_STYLE),
     // Extension-less project files, keyed by their lowercase file name (see

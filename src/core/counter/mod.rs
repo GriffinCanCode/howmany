@@ -455,10 +455,28 @@ impl CachedCodeCounter {
 /// one-off scripts cannot fan the report out into a row per filename.
 pub fn extension_key(path: &Path) -> String {
     let key = classify_key(path);
-    if path.extension().is_some() || comment_patterns::is_known(&key) {
+    if comment_patterns::is_known(&key) {
         key.into_owned()
     } else {
-        "no_ext".to_string()
+        // Classification already recognizes extension-less scripts by their
+        // shebang; retain that language in reports instead of `no_ext`.
+        // Named languages never pay for an extra open or content read.
+        let mut head = [0; 128];
+        let shebang = fs::File::open(path).ok().and_then(|mut file| {
+            use std::io::Read;
+            let length = file.read(&mut head).ok()?;
+            shebang_key(&head[..length])
+        });
+        shebang.map_or_else(
+            || {
+                if path.extension().is_some() {
+                    key.into_owned()
+                } else {
+                    "no_ext".to_string()
+                }
+            },
+            str::to_string,
+        )
     }
 }
 
