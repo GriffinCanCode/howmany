@@ -44,7 +44,13 @@ tar -xzf "$package_archive" -C "$work/package"
 package_source="$work/package/$(basename "$package_archive" .crate)"
 # Reuse compiled dependencies while installing the unpacked release artifact.
 export CARGO_TARGET_DIR="$(dirname "$(dirname "$package_archive")")"
-cargo install --path "$package_source" --root "$root" --locked --force >/dev/null 2>&1
+if cargo install --path "$package_source" --root "$root" --locked --force >"$work/install.log" 2>&1; then
+    :
+else
+    install_status=$?
+    cat "$work/install.log" >&2
+    exit "$install_status"
+fi
 binary="$root/bin/howmany"
 test -x "$binary"
 
