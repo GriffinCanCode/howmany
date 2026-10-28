@@ -235,36 +235,46 @@ impl Engine {
     /// Analyze `root` under `options`.
     pub fn analyze(&self, root: &Path, options: &AnalysisOptions) -> Result<Analysis> {
         std::fs::metadata(root)?;
-        let started = Instant::now();
-        let mut report = AnalysisReport::default();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(options.parallelism.threads())
+            .build()
+            .map_err(|error| {
+                crate::utils::errors::HowManyError::counter(format!(
+                    "could not start worker pool: {error}"
+                ))
+            })?;
+        pool.install(|| {
+            let started = Instant::now();
+            let mut report = AnalysisReport::default();
 
-        // Sherlock is a separate process that walks the tree itself, so its cost
-        // overlaps with our own traversal instead of preceding it.
-        let detection = self.spawn_detection(root, options, &mut report);
+            // Sherlock is a separate process that walks the tree itself, so its cost
+            // overlaps with our own traversal instead of preceding it.
+            let detection = self.spawn_detection(root, options, &mut report);
 
-        let discovery_start = Instant::now();
-        let filter = self.build_filter(options);
-        let candidates = self.discover(&filter, root, options)?;
-        report.discovery_time = discovery_start.elapsed();
+            let discovery_start = Instant::now();
+            let filter = self.build_filter(options);
+            let candidates = self.discover(&filter, root, options)?;
+            report.discovery_time = discovery_start.elapsed();
 
-        let mut candidates = self.select(candidates, root, options, detection, &mut report)?;
+            let mut candidates = self.select(candidates, root, options, detection, &mut report)?;
 
-        // Sorting makes the report independent of directory order and of how
-        // work happened to be distributed across threads.
-        candidates.sort_unstable_by(|a, b| a.path.cmp(&b.path));
-        report.files_discovered = candidates.len();
+            // Sorting makes the report independent of directory order and of how
+            // work happened to be distributed across threads.
+            candidates.sort_unstable_by(|a, b| a.path.cmp(&b.path));
+            report.files_discovered = candidates.len();
 
-        let counting_start = Instant::now();
-        let counted = self.count_all(root, &candidates, options, &mut report)?;
-        report.counting_time = counting_start.elapsed();
+            let counting_start = Instant::now();
+            let counted = self.count_all(root, &candidates, options, &mut report)?;
+            report.counting_time = counting_start.elapsed();
 
-        let aggregation_start = Instant::now();
-        let analysis = self.aggregate(counted, options, report, started)?;
-        let mut analysis = analysis;
-        analysis.report.aggregation_time = aggregation_start.elapsed();
-        analysis.report.total_time = started.elapsed();
+            let aggregation_start = Instant::now();
+            let analysis = self.aggregate(counted, options, report, started)?;
+            let mut analysis = analysis;
+            analysis.report.aggregation_time = aggregation_start.elapsed();
+            analysis.report.total_time = started.elapsed();
 
-        Ok(analysis)
+            Ok(analysis)
+        })
     }
 
     /// The paths `analyze` would count, in the same order.
@@ -531,17 +541,9 @@ impl Engine {
         let outcomes: Vec<CountOutcome> = if threads <= 1 {
             candidates.iter().map(count_one).collect()
         } else {
-            let pool = rayon::ThreadPoolBuilder::new()
-                .num_threads(threads)
-                .build()
-                .map_err(|e| {
-                    crate::utils::errors::HowManyError::counter(format!(
-                        "could not start worker pool: {e}"
-                    ))
-                })?;
             // `collect` preserves input order regardless of scheduling, so the
             // result does not depend on the number of threads.
-            pool.install(|| candidates.par_iter().map(count_one).collect())
+            candidates.par_iter().map(count_one).collect()
         };
 
         let mut counted = Vec::with_capacity(candidates.len());
