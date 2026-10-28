@@ -130,6 +130,7 @@ const PATTERN_TABLE: &[(&str, CommentPattern)] = &[
     ("hxx", C_STYLE),
     ("metal", C_STYLE),
     ("mm", JAVADOC_STYLE),
+    ("objc", TRIPLE_SLASH_STYLE),
     ("cs", TRIPLE_SLASH_STYLE),
     // PHP
     (

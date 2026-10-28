@@ -1,4 +1,5 @@
 pub mod comment_patterns;
+mod javascript;
 pub mod scanner;
 
 pub use comment_patterns::CommentPattern;
@@ -84,39 +85,95 @@ pub fn shebang_key(head: &[u8]) -> Option<&'static str> {
     )
 }
 
+/// Resolve the shared `.m` suffix from its leading language syntax. Objective-C
+/// preprocessor/declaration tokens are not MATLAB statements. Only leading
+/// comments are skipped, so a directive inside a later string is not evidence.
+fn content_key<'a>(key: &'a str, mut head: &[u8]) -> &'a str {
+    if key == "m" {
+        head = &head[..head.len().min(8192)];
+        head = head.strip_prefix(b"\xef\xbb\xbf").unwrap_or(head);
+        loop {
+            head = head.trim_ascii_start();
+            if head.starts_with(b"%{") {
+                let Some(end) = memchr::memmem::find(&head[2..], b"%}") else {
+                    break;
+                };
+                head = &head[end + 4..];
+            } else if head.starts_with(b"//") || head.starts_with(b"%") {
+                head = memchr::memchr(b'\n', head).map_or(&[], |at| &head[at + 1..]);
+            } else if head.starts_with(b"/*") {
+                let Some(end) = memchr::memmem::find(&head[2..], b"*/") else {
+                    break;
+                };
+                head = &head[end + 4..];
+            } else {
+                break;
+            }
+        }
+        if let Some(prefix) = head.first().filter(|byte| matches!(byte, b'#' | b'@')) {
+            let rest = head[1..].trim_ascii_start();
+            let length = rest
+                .iter()
+                .take_while(|byte| byte.is_ascii_alphanumeric() || **byte == b'_')
+                .count();
+            let directive = &rest[..length];
+            let objective_c = match prefix {
+                b'#' => matches!(
+                    directive,
+                    b"import" | b"include" | b"define" | b"if" | b"ifdef" | b"ifndef" | b"pragma"
+                ),
+                b'@' => matches!(
+                    directive,
+                    b"interface" | b"implementation" | b"protocol" | b"class" | b"import"
+                ),
+                _ => false,
+            };
+            if objective_c {
+                return "objc";
+            }
+        }
+    }
+    if comment_patterns::is_known(key) {
+        key
+    } else {
+        shebang_key(head).unwrap_or(key)
+    }
+}
+
 /// Classify `reader` under the syntax registered for `key`.
 ///
-/// When `key` is unknown the reader's buffered head is consulted for a shebang.
+/// Unknown keys use a shebang; ambiguous `.m` files use their leading syntax.
 /// `fill_buf` peeks, so this costs no extra syscall and consumes nothing.
 fn classify_with<R: std::io::BufRead>(reader: &mut R, key: &str) -> Result<scanner::LineTally> {
-    let resolved = if comment_patterns::is_known(key) {
-        Cow::Borrowed(key)
+    let resolved = if key != "m" && comment_patterns::is_known(key) {
+        key
     } else {
-        match shebang_key(reader.fill_buf()?) {
-            Some(from_shebang) => Cow::Borrowed(from_shebang),
-            None => Cow::Borrowed(key),
-        }
+        content_key(key, reader.fill_buf()?)
     };
 
-    Ok(if comment_patterns::is_prose_format(&resolved) {
+    Ok(if comment_patterns::is_prose_format(resolved) {
         scanner::classify_markdown(reader)?
     } else {
-        scanner::classify(reader, comment_patterns::lookup_or_empty(&resolved))?
+        scanner::classify_for_key(
+            reader,
+            comment_patterns::lookup_or_empty(resolved),
+            resolved,
+        )?
     })
 }
 
 /// Classify `bytes` under the syntax registered for `key`.
 fn classify_bytes_with(bytes: &[u8], key: &str) -> scanner::LineTally {
-    let resolved = if comment_patterns::is_known(key) {
-        Cow::Borrowed(key)
-    } else {
-        Cow::Borrowed(shebang_key(bytes).unwrap_or(key))
-    };
+    let resolved = content_key(key, bytes);
 
-    if comment_patterns::is_prose_format(&resolved) {
+    if comment_patterns::is_prose_format(resolved) {
         scanner::classify_markdown_bytes(bytes)
     } else {
-        scanner::classify_bytes(bytes, comment_patterns::lookup_or_empty(&resolved))
+        scanner::classify_bytes_for_key(
+            bytes,
+            comment_patterns::lookup_or_empty(resolved),
+            resolved,
+        )
     }
 }
 
@@ -455,28 +512,27 @@ impl CachedCodeCounter {
 /// one-off scripts cannot fan the report out into a row per filename.
 pub fn extension_key(path: &Path) -> String {
     let key = classify_key(path);
-    if comment_patterns::is_known(&key) {
+    if key != "m" && comment_patterns::is_known(&key) {
         key.into_owned()
     } else {
         // Classification already recognizes extension-less scripts by their
         // shebang; retain that language in reports instead of `no_ext`.
-        // Named languages never pay for an extra open or content read.
-        let mut head = [0; 128];
-        let shebang = fs::File::open(path).ok().and_then(|mut file| {
+        // Unambiguous named languages never pay for an extra content read.
+        let mut head = [0; 8192];
+        let resolved = fs::File::open(path).ok().and_then(|mut file| {
             use std::io::Read;
-            let length = file.read(&mut head).ok()?;
-            shebang_key(&head[..length])
+            let limit = if key == "m" { head.len() } else { 128 };
+            let length = file.read(&mut head[..limit]).ok()?;
+            let resolved = content_key(&key, &head[..length]);
+            (resolved != key).then(|| resolved.to_string())
         });
-        shebang.map_or_else(
-            || {
-                if path.extension().is_some() {
-                    key.into_owned()
-                } else {
-                    "no_ext".to_string()
-                }
-            },
-            str::to_string,
-        )
+        resolved.unwrap_or_else(|| {
+            if path.extension().is_some() {
+                key.into_owned()
+            } else {
+                "no_ext".to_string()
+            }
+        })
     }
 }
 
@@ -485,6 +541,26 @@ mod tests {
     use super::*;
     use crate::testing::test_utils::TestProject;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn objective_c_and_matlab_share_a_suffix_not_comment_syntax() {
+        let counter = CodeCounter::new();
+        let objc = "// header\n#import <Foundation/Foundation.h>\n/* ordinary */\n@implementation Example\n@end\n";
+        let stats = counter.count_bytes(objc.as_bytes(), "m").unwrap();
+        assert_eq!(stats.code_lines, 3);
+        assert_eq!(stats.comment_lines, 2);
+        let project = TestProject::new("objective_c_suffix").unwrap();
+        let path = project.create_file("example.m", objc).unwrap();
+        assert_eq!(extension_key(&path), "objc");
+        assert_eq!(counter.count_file(&path).unwrap(), stats);
+
+        let matlab = "% MATLAB header\ntext = '#import is only text';\nvalue = 1;\n";
+        let stats = counter.count_bytes(matlab.as_bytes(), "m").unwrap();
+        assert_eq!(stats.code_lines, 2);
+        assert_eq!(stats.comment_lines, 1);
+        let path = project.create_file("matlab.m", matlab).unwrap();
+        assert_eq!(extension_key(&path), "m");
+    }
 
     #[test]
     fn test_rust_file_counting() {

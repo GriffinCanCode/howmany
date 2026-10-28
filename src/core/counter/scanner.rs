@@ -13,6 +13,7 @@
 //! comparison classifies such files correctly instead of discarding them.
 
 use super::comment_patterns::CommentPattern;
+use super::javascript::JavaScript;
 use crate::core::types::FileStats;
 use std::io::{self, BufRead};
 
@@ -142,6 +143,14 @@ impl BlockOpener {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Dialect {
     Ordinary,
+    JavaScript,
+    Lisp,
+    Markup,
+    Backticks,
+    Characters,
+    TripleQuotes,
+    Julia,
+    Matlab,
     Python,
     Rust,
     Go,
@@ -152,6 +161,12 @@ impl Dialect {
     fn for_pattern(pattern: CommentPattern) -> Self {
         if pattern.multi_line_start.contains(&"\"\"\"") {
             Self::Python
+        } else if pattern.doc_patterns == ["/**", "//!"] {
+            Self::JavaScript
+        } else if pattern.single_line == [";"] {
+            Self::Lisp
+        } else if pattern.single_line.is_empty() && pattern.multi_line_start.contains(&"<!--") {
+            Self::Markup
         } else if pattern.doc_patterns.contains(&"//!")
             && pattern.doc_patterns.contains(&"///")
             && pattern.multi_line_start.contains(&"/*")
@@ -163,6 +178,19 @@ impl Dialect {
             Self::Sql
         } else {
             Self::Ordinary
+        }
+    }
+
+    fn for_key(key: &str, pattern: CommentPattern) -> Self {
+        match key {
+            "sh" | "bash" | "zsh" | "fish" | "r" | "pl" | "pm" | "rb" => Self::Backticks,
+            "swift" | "java" | "kt" | "kts" | "cs" | "dart" | "ex" | "exs" | "toml" => {
+                Self::TripleQuotes
+            }
+            "jl" => Self::Julia,
+            "m" => Self::Matlab,
+            "hs" | "lhs" | "ml" | "mli" | "fs" | "fsx" | "fsi" => Self::Characters,
+            _ => Self::for_pattern(pattern),
         }
     }
 }
@@ -427,6 +455,8 @@ struct Classifier {
     doc_marker_is_ambiguous: bool,
     dialect: Dialect,
     python: Option<PythonContext>,
+    javascript: Option<JavaScript>,
+    markup_tag: bool,
     literal: Option<Literal>,
     block_depth: usize,
     block_start: &'static str,
@@ -437,7 +467,7 @@ struct Classifier {
 }
 
 impl Classifier {
-    fn new(pattern: CommentPattern) -> Self {
+    fn with_dialect(pattern: CommentPattern, dialect: Dialect) -> Self {
         let mut comment_initials = Vec::new();
         for marker in pattern.single_line.iter().chain(pattern.multi_line_start) {
             if let Some(&byte) = marker.as_bytes().first() {
@@ -456,8 +486,10 @@ impl Classifier {
                 .doc_patterns
                 .iter()
                 .any(|doc| pattern.single_line.contains(doc)),
-            dialect: Dialect::for_pattern(pattern),
-            python: (Dialect::for_pattern(pattern) == Dialect::Python).then(PythonContext::new),
+            dialect,
+            python: (dialect == Dialect::Python).then(PythonContext::new),
+            javascript: (dialect == Dialect::JavaScript).then(JavaScript::new),
+            markup_tag: false,
             literal: None,
             block_depth: 0,
             block_start: "",
@@ -477,6 +509,9 @@ impl Classifier {
 
         if line.is_empty() {
             self.tally.blank_lines += 1;
+            if let Some(javascript) = self.javascript.as_mut() {
+                javascript.line_terminator();
+            }
             return;
         }
 
@@ -502,6 +537,9 @@ impl Classifier {
             let is_doc = starts_with_any(line, self.pattern.doc_patterns)
                 && !(self.doc_marker_is_ambiguous && indented);
             self.count_comment(is_doc);
+            if let Some(javascript) = self.javascript.as_mut() {
+                javascript.line_terminator();
+            }
             return;
         }
 
@@ -566,6 +604,9 @@ impl Classifier {
                         if let Some(close) = find_sub(&line[at..], end) {
                             at += close + end.len();
                             self.literal = None;
+                            if let Some(javascript) = self.javascript.as_mut() {
+                                javascript.literal();
+                            }
                         } else {
                             break;
                         }
@@ -589,6 +630,9 @@ impl Classifier {
                             } else {
                                 at += width;
                                 self.literal = None;
+                                if let Some(javascript) = self.javascript.as_mut() {
+                                    javascript.literal();
+                                }
                             }
                         } else {
                             at += 1;
@@ -622,6 +666,12 @@ impl Classifier {
                         }
                     }
                 }
+                if let Some(javascript) = self.javascript.as_mut() {
+                    javascript.tokens(tokens);
+                }
+                if self.dialect == Dialect::Markup && tokens.contains(&b'>') {
+                    self.markup_tag = false;
+                }
                 at += next;
                 continue;
             }
@@ -648,6 +698,14 @@ impl Classifier {
                 break;
             }
 
+            if line[at] == b'/' {
+                if let Some(javascript) = self.javascript.as_mut() {
+                    code = true;
+                    at = javascript.slash(line, at);
+                    continue;
+                }
+            }
+
             if self.dialect == Dialect::Sql
                 && line[at] == b'$'
                 && (at == 0
@@ -664,7 +722,19 @@ impl Classifier {
 
             let quote_at = at;
             let quote = line[at];
-            if matches!(quote, b'\'' | b'"' | b'`') {
+            let quote_allowed = match quote {
+                b'"' => self.dialect != Dialect::Markup || self.markup_tag,
+                b'\'' => {
+                    self.dialect != Dialect::Lisp
+                        && (self.dialect != Dialect::Markup || self.markup_tag)
+                }
+                b'`' => matches!(
+                    self.dialect,
+                    Dialect::JavaScript | Dialect::Go | Dialect::Backticks | Dialect::Julia
+                ),
+                _ => false,
+            };
+            if quote_allowed {
                 if quote == b'"' && self.dialect == Dialect::Rust {
                     if let Some(end) = rust_raw_quote(line, at) {
                         code = true;
@@ -683,7 +753,7 @@ impl Classifier {
                 }
                 // A Rust lifetime has no closing quote; consuming it as a
                 // character literal would hide the rest of the declaration.
-                if self.dialect == Dialect::Rust
+                if matches!(self.dialect, Dialect::Rust | Dialect::Characters)
                     && quote == b'\''
                     && !rust_character(&line[quote_at..])
                 {
@@ -691,7 +761,11 @@ impl Classifier {
                     at += 1;
                     continue;
                 }
-                let triple = quote != b'`' && line.get(quote_at..quote_at + 3) == Some(&[quote; 3]);
+                let triple = matches!(
+                    self.dialect,
+                    Dialect::Python | Dialect::TripleQuotes | Dialect::Julia
+                ) && quote != b'`'
+                    && line.get(quote_at..quote_at + 3) == Some(&[quote; 3]);
                 code = true;
                 if let Some(python) = self.python.as_mut() {
                     python.last_token = Some(quote);
@@ -714,11 +788,31 @@ impl Classifier {
             if let Some(python) = self.python.as_mut() {
                 python.token(line[at]);
             }
+            if let Some(javascript) = self.javascript.as_mut() {
+                javascript.tokens(&line[at..at + 1]);
+            }
+            if self.dialect == Dialect::Markup
+                && line[at] == b'<'
+                && line.get(at + 1).is_some_and(|byte| {
+                    byte.is_ascii_alphabetic() || matches!(byte, b'/' | b'!' | b'?')
+                })
+            {
+                self.markup_tag = true;
+            }
             at += 1;
         }
 
         if let Some(python) = self.python.as_mut() {
             python.finish(self.literal.is_some());
+        }
+        // MATLAB's apostrophe is also postfix transpose. Character vectors
+        // cannot span physical lines, so a transpose cannot open a string
+        // state that hides the following line's `%` comment.
+        if self.dialect == Dialect::Matlab {
+            self.literal = None;
+        }
+        if let Some(javascript) = self.javascript.as_mut() {
+            javascript.line_terminator();
         }
         if code {
             self.tally.code_lines += 1;
@@ -745,7 +839,23 @@ impl Classifier {
 
 /// Classify every line of `reader` using `pattern`.
 pub fn classify<R: BufRead>(reader: &mut R, pattern: CommentPattern) -> io::Result<LineTally> {
-    let mut classifier = Classifier::new(pattern);
+    classify_with_dialect(reader, pattern, Dialect::for_pattern(pattern))
+}
+
+pub(super) fn classify_for_key<R: BufRead>(
+    reader: &mut R,
+    pattern: CommentPattern,
+    key: &str,
+) -> io::Result<LineTally> {
+    classify_with_dialect(reader, pattern, Dialect::for_key(key, pattern))
+}
+
+fn classify_with_dialect<R: BufRead>(
+    reader: &mut R,
+    pattern: CommentPattern,
+    dialect: Dialect,
+) -> io::Result<LineTally> {
+    let mut classifier = Classifier::with_dialect(pattern, dialect);
     let mut buf = Vec::with_capacity(256);
     while next_line(reader, &mut buf)? {
         classifier.feed(&buf);
@@ -761,7 +871,23 @@ pub fn classify<R: BufRead>(reader: &mut R, pattern: CommentPattern) -> io::Resu
 /// directly. That removed the allocator contention which made counting on all
 /// sixteen threads of this machine slower than counting on four.
 pub fn classify_bytes(bytes: &[u8], pattern: CommentPattern) -> LineTally {
-    let mut classifier = Classifier::new(pattern);
+    classify_bytes_with_dialect(bytes, pattern, Dialect::for_pattern(pattern))
+}
+
+pub(super) fn classify_bytes_for_key(
+    bytes: &[u8],
+    pattern: CommentPattern,
+    key: &str,
+) -> LineTally {
+    classify_bytes_with_dialect(bytes, pattern, Dialect::for_key(key, pattern))
+}
+
+fn classify_bytes_with_dialect(
+    bytes: &[u8],
+    pattern: CommentPattern,
+    dialect: Dialect,
+) -> LineTally {
+    let mut classifier = Classifier::with_dialect(pattern, dialect);
     for line in split_lines(bytes) {
         classifier.feed(line);
     }
@@ -914,8 +1040,8 @@ mod tests {
     /// exercises both rather than trusting whichever one it happened to call.
     fn scan_bytes(source: &[u8], ext: &str) -> LineTally {
         let pattern = comment_patterns::lookup_or_empty(ext);
-        let streamed = classify(&mut &source[..], pattern).unwrap();
-        let in_memory = classify_bytes(source, pattern);
+        let streamed = classify_for_key(&mut &source[..], pattern, ext).unwrap();
+        let in_memory = classify_bytes_for_key(source, pattern, ext);
         assert_eq!(
             streamed,
             in_memory,
@@ -1277,6 +1403,119 @@ mod tests {
             assert_eq!(tally.code_lines, 4, "{ext}: {tally:?}");
             assert_eq!(tally.comment_lines + tally.doc_lines, 1);
         }
+    }
+
+    #[test]
+    fn javascript_regex_literals_protect_quotes_escapes_and_character_classes() {
+        for extension in ["js", "ts", "jsx", "tsx", "mjs", "cjs"] {
+            for (source, code, comments) in [
+                ("const pattern = /\"/;\n// ordinary comment\nconst result = 1;\n", 2, 1),
+                (
+                    "const double = /\"/;\nconst single = /'/;\nconst slash = /[/\"']/;\nconst escaped = /\\/\\*not-comment\\*\\//;\n/* actual\n comment */\n// actual\n",
+                    4, 3,
+                ),
+                (
+                    "if (ready) /\"/.test(value);\nwhile (ready) /[/\"']/.test(value);\nconst result = call() / '\"' /* actual\n body\n*/ / 2;\n// actual\n",
+                    4, 2,
+                ),
+                (
+                    "function f() {\n return /\"/.test(value);\n}\nfunction g() {\n throw /[/\"']/;\n}\n/* actual\n comment */\nconst done = true;\n",
+                    7, 2,
+                ),
+                (
+                    "for (; ready;) /\"/.test(value);\nconst result = call() / 2;\n// actual\n",
+                    2, 1,
+                ),
+            ] {
+                let tally = scan(source, extension);
+                assert_eq!(tally.code_lines, code, "{extension}: {source:?}: {tally:?}");
+                assert_eq!(tally.comment_lines, comments, "{extension}: {source:?}: {tally:?}");
+                assert!(tally.is_partitioned());
+            }
+        }
+    }
+
+    #[test]
+    fn javascript_division_and_statement_boundaries_preserve_real_comments() {
+        for (source, code, comments) in [
+            (
+                "let value = 18;\nvalue /= 3;\nconst ratio = value / 2 / 3;\n/* actual\n comment */\nconst final = value / '\"' / 2;\n",
+                4, 2,
+            ),
+            (
+                "{ const value = 1; }\n/\"/.test(value);\nfunction declared() {}\n/\"/.test(value);\nconst result = function () {} / '\"' /* actual\n body\n*/ / 2;\n// actual\nconst done = true;\n",
+                7, 2,
+            ),
+            (
+                "const result = object.return / '\"' /* actual\n body\n*/ / 2;\n// actual\nconst done = true;\n",
+                3, 2,
+            ),
+            (
+                "const result = { value: 8 } / '\"' /* actual\n body\n*/ / 2;\n// actual\nconst done = true;\n",
+                3, 2,
+            ),
+            (
+                "const value = 12\n/ '\"' /* actual\n body\n*/ / 2;\n// actual\nconst done = true;\n",
+                4, 2,
+            ),
+            (
+                "let value = 2;\nvalue++ / '\"' /* actual\n body\n*/ / 2;\n// actual\n",
+                3, 2,
+            ),
+            (
+                "class Declared {}\n/\"/.test(value);\nconst result = class {} / '\"' /* actual\n body\n*/ / 2;\n// actual\n",
+                4, 2,
+            ),
+            (
+                "class Declared extends mixin({}) {}\n/\"/.test(value);\nclass Nested extends class {} {}\n/\"/.test(value);\n// actual\nconst done = true;\n",
+                5, 1,
+            ),
+            (
+                "outer: while (ready) {\n break outer\n /\"/.test(value);\n}\n/* actual\n comment */\nconst done = true;\n",
+                5, 2,
+            ),
+        ] {
+            let tally = scan(source, "js");
+            assert_eq!(tally.code_lines, code, "{source:?}: {tally:?}");
+            assert_eq!(tally.comment_lines, comments, "{source:?}: {tally:?}");
+        }
+    }
+
+    #[test]
+    fn scheme_quote_forms_and_html_prose_do_not_open_string_literals() {
+        for (extension, source, code) in [
+            ("scm", "(define x '(a b))\n; comment\n(display x)\n", 2),
+            ("scm", "(define x `(a ,value))\n; comment\n(display x)\n", 2),
+            ("html", "<p>Don't panic</p>\n<!-- comment -->\n<div>Done</div>\n", 2),
+            ("html", "<p title=\"<!-- literal -->\">Don't panic</p>\n<!-- comment -->\n<div>Done</div>\n", 2),
+        ] {
+            let tally = scan(source, extension);
+            assert_eq!(tally.code_lines, code, "{extension}: {tally:?}");
+            assert_eq!(tally.comment_lines, 1, "{extension}: {tally:?}");
+            assert_eq!(tally.doc_lines, 0);
+        }
+    }
+
+    #[test]
+    fn triple_quotes_are_language_specific_not_adjacent_c_or_sql_strings() {
+        for (extension, source) in [
+            (
+                "c",
+                "const char *text = \"\"\"/*\";\n/* actual */\nint value = 1;\n",
+            ),
+            ("sql", "SELECT '''quoted''';\n-- actual\nSELECT 1;\n"),
+            ("m", "value = values';\n% actual\nresult = value;\n"),
+        ] {
+            let tally = scan(source, extension);
+            assert_eq!(tally.code_lines, 2, "{extension}: {tally:?}");
+            assert_eq!(tally.comment_lines, 1, "{extension}: {tally:?}");
+        }
+        let swift = scan(
+            "let value = \"\"\"\n// literal body\n\"\"\"\n// actual\n",
+            "swift",
+        );
+        assert_eq!(swift.code_lines, 3);
+        assert_eq!(swift.comment_lines, 1);
     }
 
     /// An unterminated block comment must not swallow the rest of the file in
