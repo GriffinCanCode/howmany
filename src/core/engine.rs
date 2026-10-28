@@ -25,6 +25,8 @@
 use crate::core::counter::{self, CodeCounter};
 use crate::core::detector::{Classification, DetectionJob, FileDetector, SkipReason};
 use crate::core::filters::FileFilter;
+use crate::core::languages::{self, Category};
+use crate::core::repository::{has_generated_banner, Repository};
 use crate::core::stats::{AggregatedStats, StatsCalculator};
 use crate::core::types::{CodeStats, FileStats};
 use crate::utils::cache::{CacheKey, FileCache};
@@ -86,6 +88,10 @@ impl Parallelism {
 /// Inputs to an analysis run.
 #[derive(Debug, Clone)]
 pub struct AnalysisOptions {
+    /// Count source languages, excluding prose, configuration and data files.
+    pub source_only: bool,
+    /// Select Git-tracked working-tree files, including hidden/ignored paths.
+    pub tracked_only: bool,
     pub max_depth: Option<usize>,
     pub include_hidden: bool,
     pub ignore_patterns: Vec<String>,
@@ -104,6 +110,8 @@ pub struct AnalysisOptions {
 impl Default for AnalysisOptions {
     fn default() -> Self {
         Self {
+            source_only: false,
+            tracked_only: false,
             max_depth: None,
             include_hidden: false,
             ignore_patterns: Vec::new(),
@@ -226,6 +234,8 @@ impl Engine {
 
     /// Analyze `root` under `options`.
     pub fn analyze(&self, root: &Path, options: &AnalysisOptions) -> Result<Analysis> {
+        let root = root.canonicalize()?;
+        let root = root.as_path();
         let started = Instant::now();
         let mut report = AnalysisReport::default();
 
@@ -238,7 +248,7 @@ impl Engine {
         let candidates = self.discover(&filter, root, options)?;
         report.discovery_time = discovery_start.elapsed();
 
-        let mut candidates = self.select(candidates, root, options, detection, &mut report);
+        let mut candidates = self.select(candidates, root, options, detection, &mut report)?;
 
         // Sorting makes the report independent of directory order and of how
         // work happened to be distributed across threads.
@@ -263,11 +273,13 @@ impl Engine {
     /// `--list` uses this so that what it prints is exactly what gets counted,
     /// rather than a second, separately-maintained traversal that could drift.
     pub fn discover_files(&self, root: &Path, options: &AnalysisOptions) -> Result<Vec<PathBuf>> {
+        let root = root.canonicalize()?;
+        let root = root.as_path();
         let mut report = AnalysisReport::default();
         let detection = self.spawn_detection(root, options, &mut report);
         let filter = self.build_filter(options);
         let candidates = self.discover(&filter, root, options)?;
-        let selected = self.select(candidates, root, options, detection, &mut report);
+        let selected = self.select(candidates, root, options, detection, &mut report)?;
 
         let mut paths: Vec<PathBuf> = selected.into_iter().map(|c| c.path).collect();
         paths.sort_unstable();
@@ -287,8 +299,18 @@ impl Engine {
         options: &AnalysisOptions,
         detection: Option<DetectionJob>,
         report: &mut AnalysisReport,
-    ) -> Vec<Candidate> {
+    ) -> Result<Vec<Candidate>> {
         let detector = FileDetector::new().with_root(root);
+        let repository = Repository::discover(root)?;
+        let attributes = match repository {
+            Some(repository) => repository.exclusions(
+                &candidates
+                    .iter()
+                    .map(|candidate| candidate.path.clone())
+                    .collect::<Vec<_>>(),
+            )?,
+            None => Default::default(),
+        };
 
         // A rejection is carried through with its reason rather than filtered
         // away here, so the run can report what it left out instead of silently
@@ -300,20 +322,33 @@ impl Engine {
             })
         };
 
-        let threads = options.parallelism.threads();
-        let classified: Vec<(Candidate, Classification)> = if threads <= 1 {
-            candidates.into_iter().filter_map(classify).collect()
-        } else {
-            // Classification touches the filesystem for extension-less files
-            // (the shebang probe), so it is worth spreading over the pool.
-            candidates.into_par_iter().filter_map(classify).collect()
-        };
+        // Do not borrow Rayon's unbounded global pool for discovery. Counting
+        // below uses the worker budget the caller actually requested.
+        let classified: Vec<(Candidate, Classification)> =
+            candidates.into_iter().filter_map(classify).collect();
 
         let mut selected = Vec::with_capacity(classified.len());
         let mut unknown = Vec::new();
         for (candidate, class) in classified {
+            if let Some(reason) = attributes.get(&candidate.path) {
+                *report.skipped.entry(*reason).or_default() += 1;
+                continue;
+            }
+            if options.source_only
+                && languages::of_path(&candidate.path)
+                    .is_some_and(|language| language.category != Category::Code)
+            {
+                *report.skipped.entry(SkipReason::NonSource).or_default() += 1;
+                continue;
+            }
             match class {
-                Classification::Source => selected.push(candidate),
+                Classification::Source => {
+                    if has_generated_banner(&candidate.path).unwrap_or(false) {
+                        *report.skipped.entry(SkipReason::Generated).or_default() += 1;
+                    } else {
+                        selected.push(candidate);
+                    }
+                }
                 Classification::Rejected(reason) => {
                     *report.skipped.entry(reason).or_default() += 1;
                 }
@@ -344,7 +379,7 @@ impl Engine {
         }
 
         report.files_unrecognized = unrecognized;
-        selected
+        Ok(selected)
     }
 
     fn build_filter(&self, options: &AnalysisOptions) -> FileFilter {
@@ -389,40 +424,70 @@ impl Engine {
         root: &Path,
         options: &AnalysisOptions,
     ) -> Result<Vec<Candidate>> {
+        if options.tracked_only {
+            let repository = Repository::discover(root)?.ok_or_else(|| {
+                crate::utils::errors::HowManyError::filter(
+                    "--tracked-only requires Git and a Git working tree",
+                )
+            })?;
+            let overrides = filter.build_overrides(root)?;
+            let mut candidates = Vec::new();
+            for path in repository.tracked_paths(root)? {
+                if options.max_depth.is_some_and(|depth| {
+                    path.strip_prefix(root)
+                        .is_ok_and(|relative| relative.components().count() > depth)
+                }) || overrides
+                    .as_ref()
+                    .is_some_and(|rules| rules.matched(&path, false).is_ignore())
+                {
+                    continue;
+                }
+                match std::fs::symlink_metadata(&path) {
+                    Ok(metadata) if metadata.is_file() => candidates.push(Candidate {
+                        path,
+                        size: metadata.len(),
+                        key: CacheKey::from_metadata(&metadata),
+                    }),
+                    Ok(_) => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error.into()),
+                }
+            }
+            return Ok(candidates);
+        }
         let threads = options.parallelism.threads();
 
         if threads <= 1 {
             let mut candidates = Vec::new();
-            for entry in filter.try_walk_directory(root)? {
-                if let Some(candidate) = candidate_from_entry(&entry) {
+            for entry in filter.walk_entries(root)? {
+                let entry = entry.map_err(|error| {
+                    crate::utils::errors::HowManyError::filter(error.to_string())
+                })?;
+                if let Some(candidate) = candidate_from_entry(&entry)? {
                     candidates.push(candidate);
                 }
             }
             return Ok(candidates);
         }
 
-        let (sender, receiver) = std::sync::mpsc::channel();
+        let (sender, receiver) = std::sync::mpsc::sync_channel(threads.saturating_mul(64));
         let walker = filter.walk_parallel(root, threads)?;
 
         // The collector runs on this thread's behalf while the walkers feed it,
         // so directory reads and channel drains overlap.
-        let collector = std::thread::spawn(move || {
-            let mut candidates: Vec<Candidate> = Vec::new();
-            while let Ok(candidate) = receiver.recv() {
-                candidates.push(candidate);
-            }
-            candidates
-        });
+        let collector = std::thread::Builder::new()
+            .name("howmany-discovery".into())
+            .spawn(move || receiver.into_iter().collect::<Result<Vec<Candidate>>>())?;
 
         walker.run(|| {
             let sender = sender.clone();
             Box::new(move |result| {
-                if let Ok(entry) = result {
-                    if let Some(candidate) = candidate_from_entry(&entry) {
-                        // A closed channel means the collector is gone; stop.
-                        if sender.send(candidate).is_err() {
-                            return ignore::WalkState::Quit;
-                        }
+                let candidate = result
+                    .map_err(|error| crate::utils::errors::HowManyError::filter(error.to_string()))
+                    .and_then(|entry| candidate_from_entry(&entry));
+                if let Some(candidate) = candidate.transpose() {
+                    if sender.send(candidate).is_err() {
+                        return ignore::WalkState::Quit;
                     }
                 }
                 ignore::WalkState::Continue
@@ -430,7 +495,9 @@ impl Engine {
         });
 
         drop(sender);
-        Ok(collector.join().unwrap_or_default())
+        collector.join().map_err(|_| {
+            crate::utils::errors::HowManyError::filter("discovery collector stopped unexpectedly")
+        })?
     }
 
     /// Count every candidate, in parallel unless a single thread was requested.
@@ -506,6 +573,16 @@ impl Engine {
 
         report.files_counted = counted.len();
 
+        if report.files_failed > 0 && (options.source_only || options.tracked_only) {
+            return Err(crate::utils::errors::HowManyError::file_processing(
+                format!(
+                    "incomplete count: {} file(s) could not be read; first failure: {}",
+                    report.files_failed,
+                    report.failures[0].0.display()
+                ),
+            ));
+        }
+
         if let Some(mut cache) = cache {
             cache.extend_from(updates);
             cache.cleanup_missing_files();
@@ -577,17 +654,19 @@ enum CountOutcome {
 /// `file_type()` comes from the directory read and needs no syscall;
 /// `metadata()` is the one `stat` this pipeline performs per file, and its
 /// results are reused by both the cache lookup and the counter.
-fn candidate_from_entry(entry: &ignore::DirEntry) -> Option<Candidate> {
+fn candidate_from_entry(entry: &ignore::DirEntry) -> Result<Option<Candidate>> {
     if !entry.file_type().is_some_and(|ft| ft.is_file()) {
-        return None;
+        return Ok(None);
     }
 
-    let metadata = entry.metadata().ok()?;
-    Some(Candidate {
+    let metadata = entry
+        .metadata()
+        .map_err(|error| crate::utils::errors::HowManyError::filter(error.to_string()))?;
+    Ok(Some(Candidate {
         path: entry.path().to_path_buf(),
         size: metadata.len(),
         key: CacheKey::from_metadata(&metadata),
-    })
+    }))
 }
 
 fn matches_extension_filter(path: &Path, extensions: &[String]) -> bool {
@@ -830,11 +909,12 @@ mod tests {
     }
 
     #[test]
-    fn missing_directory_is_not_a_panic() {
-        let analysis = Engine::new()
+    fn missing_directory_is_an_error_rather_than_an_empty_count() {
+        // A missing input cannot establish that a project contains zero code.
+        let error = Engine::new()
             .analyze(Path::new("/definitely/does/not/exist"), &options())
-            .unwrap();
-        assert_eq!(analysis.report.files_counted, 0);
+            .unwrap_err();
+        assert!(matches!(error, crate::utils::errors::HowManyError::Io(_)));
     }
 
     /// A project rooted in a directory whose name matches a build pattern must

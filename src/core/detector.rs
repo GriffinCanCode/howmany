@@ -133,6 +133,8 @@ impl SherlockIndex {
 /// them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SkipReason {
+    /// Prose, configuration or data excluded by the requested source scope.
+    NonSource,
     /// Inside build output, a dependency cache, or vendored code.
     NotAuthoredHere,
     /// Machine-written: protobuf bindings, minified bundles, codegen output.
@@ -144,7 +146,8 @@ pub enum SkipReason {
 }
 
 impl SkipReason {
-    pub const ALL: [SkipReason; 4] = [
+    pub const ALL: [SkipReason; 5] = [
+        SkipReason::NonSource,
         SkipReason::NotAuthoredHere,
         SkipReason::Generated,
         SkipReason::Binary,
@@ -153,6 +156,7 @@ impl SkipReason {
 
     pub fn label(self) -> &'static str {
         match self {
+            SkipReason::NonSource => "prose, configuration or data",
             SkipReason::NotAuthoredHere => "build output or vendored",
             SkipReason::Generated => "generated",
             SkipReason::Binary => "binary or asset",
@@ -189,7 +193,7 @@ pub enum Classification {
 /// answer cannot change the result, so the process is cancelled instead of
 /// waited on.
 pub struct DetectionJob {
-    child: std::process::Child,
+    child: Option<std::process::Child>,
 }
 
 impl DetectionJob {
@@ -202,12 +206,16 @@ impl DetectionJob {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map(|child| Self { child })
+            .map(|child| Self { child: Some(child) })
     }
 
     /// Wait for the report.
-    pub fn finish(self) -> std::result::Result<SherlockResult, Box<dyn std::error::Error>> {
-        let output = self.child.wait_with_output()?;
+    pub fn finish(mut self) -> std::result::Result<SherlockResult, Box<dyn std::error::Error>> {
+        let child = self
+            .child
+            .take()
+            .ok_or("language detector already completed")?;
+        let output = child.wait_with_output()?;
         if !output.status.success() {
             return Err(format!(
                 "sherlock exited with {}: {}",
@@ -224,8 +232,20 @@ impl DetectionJob {
     /// Killed rather than detached so it stops competing for CPU and file
     /// descriptors with the counting threads that are still running.
     pub fn cancel(mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        self.stop();
+    }
+
+    fn stop(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+impl Drop for DetectionJob {
+    fn drop(&mut self) {
+        self.stop();
     }
 }
 

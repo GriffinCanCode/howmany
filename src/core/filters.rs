@@ -69,7 +69,7 @@ impl FileFilter {
     /// Each pattern is registered both bare and as a directory prefix so that
     /// `--ignore node_modules` excludes the directory *and* everything beneath
     /// it, matching what users expect from `.gitignore`.
-    fn build_overrides(&self, root: &Path) -> Result<Option<Override>> {
+    pub(crate) fn build_overrides(&self, root: &Path) -> Result<Option<Override>> {
         if self.custom_ignores.is_empty() {
             return Ok(None);
         }
@@ -131,6 +131,14 @@ impl FileFilter {
     /// surface here rather than silently producing an empty listing.
     pub fn try_walk_directory(&self, path: &Path) -> Result<impl Iterator<Item = DirEntry>> {
         Ok(self.configure(path)?.build().filter_map(|entry| entry.ok()))
+    }
+
+    /// Preserve traversal failures for callers that must certify a complete count.
+    pub(crate) fn walk_entries(
+        &self,
+        path: &Path,
+    ) -> Result<impl Iterator<Item = std::result::Result<DirEntry, ignore::Error>>> {
+        Ok(self.configure(path)?.build())
     }
 
     /// A work-stealing parallel walker over `path`.

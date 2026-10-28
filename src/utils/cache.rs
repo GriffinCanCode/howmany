@@ -19,11 +19,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Bump when the meaning of a cache entry changes; older files are discarded.
-// Bumped when the meaning of a stored field changes, so that a cache written by
-// an older build is discarded rather than misread. Version 3 records
-// modification times in nanoseconds rather than seconds.
-const CACHE_VERSION: u32 = 3;
+/// Version 4 invalidates counts produced before string-aware classification.
+/// Version 3 introduced nanosecond modification times; file identity alone
+/// cannot validate results produced by an older classification algorithm.
+const CACHE_VERSION: u32 = 4;
 
 /// Upper bound on retained entries *per project*.
 ///

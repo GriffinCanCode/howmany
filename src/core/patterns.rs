@@ -521,8 +521,13 @@ const GENERATED_SUFFIXES: &[&str] = &[
     ".pb.h",
     ".pb.rs",
     ".pb.swift",
+    ".connect.swift",
+    ".connect.go",
+    ".sql.go",
     "_pb2.py",
+    "_pb2.pyi",
     "_pb2_grpc.py",
+    "_pb2_grpc.pyi",
     ".pbobjc.h",
     ".pbobjc.m",
     // protoc-gen-es / protoc-gen-connect-es, the TypeScript equivalents of
@@ -539,6 +544,9 @@ const GENERATED_SUFFIXES: &[&str] = &[
     // need listing here.
     "_generated.go",
     "_generated.rs",
+    "_gen.rs",
+    "_gen.py",
+    "_gen.go",
     ".gen.go",
     ".gen.ts",
     ".gen.rs",
@@ -721,9 +729,9 @@ impl CommonPatterns {
         // matched structurally rather than enumerated once per extension --
         // which is how `api.generated.rs` slipped through and got counted.
         lower
-            .rsplit_once('.')
-            .and_then(|(stem, _)| stem.rsplit_once('.'))
-            .is_some_and(|(_, marker)| marker == "generated")
+            .rsplit('.')
+            .skip(1)
+            .any(|part| part == "generated" || part == "gen")
     }
 
     /// True when the filename is legal or credits boilerplate.

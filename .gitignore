@@ -1,5 +1,6 @@
 # Build output.
 /target
+/.gist/
 
 # Local secrets and machine-specific settings.
 .env

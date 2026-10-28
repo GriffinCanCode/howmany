@@ -6,6 +6,7 @@ pub mod core {
     pub mod filters;
     pub mod languages;
     pub mod patterns;
+    pub(crate) mod repository;
     pub mod stats;
     pub mod types;
 }
