@@ -34,9 +34,9 @@ impl RustAnalyzer {
     }
 
     /// Count cognitive complexity for Rust code
-    fn count_cognitive_complexity(&self, line: &str, nesting_level: i32) -> usize {
+    fn count_cognitive_complexity(&self, line: &str, nesting_level: usize) -> usize {
         let mut complexity = 0;
-        let nesting_multiplier = (nesting_level as usize).max(1);
+        let nesting_multiplier = nesting_level.max(1);
 
         // Basic control structures
         if line.contains("if") {
@@ -157,7 +157,7 @@ impl LanguageAnalyzer for RustAnalyzer {
     fn analyze_functions(&self, lines: &[String]) -> Result<Vec<FunctionInfo>> {
         let mut functions = Vec::new();
         let mut current_function: Option<FunctionInfo> = None;
-        let mut brace_count = 0;
+        let mut brace_count: usize = 0;
         let mut in_function = false;
 
         for (line_num, line) in lines.iter().enumerate() {
@@ -201,8 +201,10 @@ impl LanguageAnalyzer for RustAnalyzer {
                     // Count braces for nesting depth
                     let open_braces = trimmed.matches('{').count();
                     let close_braces = trimmed.matches('}').count();
-                    brace_count += open_braces as i32 - close_braces as i32;
-                    func.nesting_depth = func.nesting_depth.max(brace_count.max(0) as usize);
+                    // A closing line may also close an enclosing scope; candidate
+                    // depth ends at zero rather than becoming a negative weight.
+                    brace_count = (brace_count + open_braces).saturating_sub(close_braces);
+                    func.nesting_depth = func.nesting_depth.max(brace_count);
 
                     // Calculate cyclomatic complexity
                     func.cyclomatic_complexity += self.count_complexity_keywords(trimmed);
@@ -233,7 +235,7 @@ impl LanguageAnalyzer for RustAnalyzer {
                     }
 
                     // Function end detection
-                    if brace_count <= 0 && close_braces > 0 {
+                    if brace_count == 0 && close_braces > 0 {
                         functions.push(func.clone());
                         current_function = None;
                         in_function = false;
@@ -248,7 +250,7 @@ impl LanguageAnalyzer for RustAnalyzer {
     fn analyze_structures(&self, lines: &[String]) -> Result<Vec<StructureInfo>> {
         let mut structures = Vec::new();
         let mut current_structure: Option<StructureInfo> = None;
-        let mut brace_count = 0;
+        let mut brace_count: usize = 0;
         let mut in_structure = false;
 
         for (line_num, line) in lines.iter().enumerate() {
@@ -285,7 +287,9 @@ impl LanguageAnalyzer for RustAnalyzer {
                     // Count braces for structure end detection
                     let open_braces = trimmed.matches('{').count();
                     let close_braces = trimmed.matches('}').count();
-                    brace_count += open_braces as i32 - close_braces as i32;
+                    // A closing line may also close an enclosing scope; candidate
+                    // depth ends at zero rather than becoming a negative weight.
+                    brace_count = (brace_count + open_braces).saturating_sub(close_braces);
 
                     // Count properties (field declarations)
                     if trimmed.contains(':') && !trimmed.contains("fn ") && !trimmed.contains("//")
@@ -294,7 +298,7 @@ impl LanguageAnalyzer for RustAnalyzer {
                     }
 
                     // Structure end detection
-                    if brace_count <= 0 && close_braces > 0 {
+                    if brace_count == 0 && close_braces > 0 {
                         structures.push(structure.clone());
                         current_structure = None;
                         in_structure = false;
@@ -310,5 +314,35 @@ impl LanguageAnalyzer for RustAnalyzer {
 impl Default for RustAnalyzer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn literal_closing_braces_cannot_create_an_unsigned_complexity_weight() {
+        let source = "fn sample() { let text = \"}} if && ||\"; }";
+        let functions = RustAnalyzer::new()
+            .analyze_functions(&[source.to_string()])
+            .unwrap();
+        assert_eq!(functions.len(), 1);
+        assert!(functions[0].cognitive_complexity < source.len());
+        assert_eq!(
+            RustAnalyzer::new().count_cognitive_complexity("if a && b || c", 0),
+            3
+        );
+    }
+
+    #[test]
+    fn deeply_nested_scopes_retain_their_full_depth() {
+        let mut lines = vec!["fn nested() {".to_string()];
+        lines.extend(std::iter::repeat_n("{".to_string(), 512));
+        lines.extend(std::iter::repeat_n("}".to_string(), 513));
+        let functions = RustAnalyzer::new().analyze_functions(&lines).unwrap();
+        assert_eq!(functions.len(), 1);
+        assert_eq!(functions[0].nesting_depth, 513);
+        assert_eq!(functions[0].line_count, 1026);
     }
 }
