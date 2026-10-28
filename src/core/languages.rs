@@ -113,6 +113,7 @@ const fn docs(name: &'static str) -> Language {
 const LANGUAGE_TABLE: &[(&str, Language)] = &[
     // Systems
     ("rs", code("Rust")),
+    ("objc", code("Objective-C")),
     ("go", code("Go")),
     ("zig", code("Zig")),
     ("metal", code("Metal")),
