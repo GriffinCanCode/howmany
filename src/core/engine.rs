@@ -234,8 +234,7 @@ impl Engine {
 
     /// Analyze `root` under `options`.
     pub fn analyze(&self, root: &Path, options: &AnalysisOptions) -> Result<Analysis> {
-        let root = root.canonicalize()?;
-        let root = root.as_path();
+        std::fs::metadata(root)?;
         let started = Instant::now();
         let mut report = AnalysisReport::default();
 
@@ -273,8 +272,7 @@ impl Engine {
     /// `--list` uses this so that what it prints is exactly what gets counted,
     /// rather than a second, separately-maintained traversal that could drift.
     pub fn discover_files(&self, root: &Path, options: &AnalysisOptions) -> Result<Vec<PathBuf>> {
-        let root = root.canonicalize()?;
-        let root = root.as_path();
+        std::fs::metadata(root)?;
         let mut report = AnalysisReport::default();
         let detection = self.spawn_detection(root, options, &mut report);
         let filter = self.build_filter(options);

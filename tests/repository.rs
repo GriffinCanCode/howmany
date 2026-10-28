@@ -81,12 +81,7 @@ fn tracked_source_uses_working_bytes_and_nested_git_provenance() {
     let selected: Vec<_> = analysis
         .individual_files
         .iter()
-        .map(|(path, _)| {
-            Path::new(path)
-                .strip_prefix(root.canonicalize().unwrap())
-                .unwrap()
-                .to_path_buf()
-        })
+        .map(|(path, _)| Path::new(path).strip_prefix(root).unwrap().to_path_buf())
         .collect();
     assert!(selected.contains(&".hooks/hook.py".into()));
     assert!(selected.contains(&"ignored.py".into()));

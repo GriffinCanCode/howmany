@@ -429,12 +429,11 @@ fn discovered_paths_are_sorted() {
 }
 
 #[test]
-fn missing_and_unreadable_roots_do_not_panic() {
+fn missing_roots_are_errors_and_single_file_roots_are_counted() {
     let engine = Engine::new();
     assert!(engine
         .discover_files(Path::new("/definitely/not/here"), &options())
-        .unwrap()
-        .is_empty());
+        .is_err());
 
     // A file, rather than a directory, as the root.
     let project = TestProject::new("filters_file_root").unwrap();

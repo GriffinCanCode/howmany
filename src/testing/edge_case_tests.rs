@@ -433,12 +433,17 @@ fn analysis_of_a_single_file_root_counts_that_file() {
 }
 
 #[test]
-fn nonexistent_and_unreadable_roots_return_empty_reports() {
+fn missing_roots_are_errors_and_unknown_files_are_reported() {
     let engine = Engine::new();
-    for root in ["/definitely/not/here", "/proc/self/mem"] {
-        let analysis = engine
-            .analyze(std::path::Path::new(root), &options())
-            .unwrap();
-        assert!(analysis.basic.is_consistent(), "{root}");
-    }
+    // An absent input cannot establish an empty project. An existing unknown
+    // format has a different outcome: its omission is recorded explicitly.
+    assert!(engine
+        .analyze(std::path::Path::new("/definitely/not/here"), &options())
+        .is_err());
+    let project = TestProject::new("edge_unknown_root").unwrap();
+    let file = project.create_file("opaque", "not source\n").unwrap();
+    let analysis = engine.analyze(&file, &options()).unwrap();
+    assert_eq!(analysis.report.files_unrecognized, 1);
+    assert_eq!(analysis.report.files_counted, 0);
+    assert!(analysis.basic.is_consistent());
 }
