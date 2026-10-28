@@ -793,9 +793,37 @@ pub fn classify_markdown_bytes(bytes: &[u8]) -> LineTally {
 /// The Markdown classifier, as a state machine fed one raw line at a time.
 #[derive(Default)]
 struct MarkdownClassifier {
-    in_code_block: bool,
+    fence: Option<Fence>,
     in_html_comment: bool,
     tally: LineTally,
+}
+
+#[derive(Clone, Copy)]
+struct Fence {
+    marker: u8,
+    length: usize,
+}
+
+impl Fence {
+    fn opening(line: &[u8]) -> Option<Self> {
+        let &marker = line.first()?;
+        if !matches!(marker, b'`' | b'~') {
+            return None;
+        }
+        let length = line.iter().take_while(|byte| **byte == marker).count();
+        (length >= 3 && (marker != b'`' || !line[length..].contains(&b'`')))
+            .then_some(Self { marker, length })
+    }
+
+    fn closes(self, line: &[u8]) -> bool {
+        if line.iter().take_while(|byte| **byte == b' ').count() > 3 || line.first() == Some(&b'\t')
+        {
+            return false;
+        }
+        let line = trim_ascii(line);
+        let length = line.iter().take_while(|byte| **byte == self.marker).count();
+        length >= self.length && line[length..].iter().all(u8::is_ascii_whitespace)
+    }
 }
 
 impl MarkdownClassifier {
@@ -816,6 +844,20 @@ impl MarkdownClassifier {
             return;
         }
 
+        // Examples remain code when their payload spells an HTML comment or
+        // a different fence delimiter.
+        if let Some(fence) = self.fence {
+            self.tally.code_lines += 1;
+            if fence.closes(raw) {
+                self.fence = None;
+            }
+            return;
+        }
+        if !self.in_html_comment && (raw.starts_with(b"    ") || raw.starts_with(b"\t")) {
+            self.tally.code_lines += 1;
+            return;
+        }
+
         if line.starts_with(b"<!--") {
             self.in_html_comment = true;
         }
@@ -828,17 +870,13 @@ impl MarkdownClassifier {
             return;
         }
 
-        if line.starts_with(b"```") || line.starts_with(b"~~~") {
-            self.in_code_block = !self.in_code_block;
+        if let Some(fence) = Fence::opening(line) {
+            self.fence = Some(fence);
             self.tally.code_lines += 1;
             return;
         }
 
-        if self.in_code_block || raw.starts_with(b"    ") || raw.starts_with(b"\t") {
-            self.tally.code_lines += 1;
-        } else {
-            self.tally.doc_lines += 1;
-        }
+        self.tally.doc_lines += 1;
     }
 
     fn finish(self) -> LineTally {
@@ -1277,6 +1315,33 @@ mod tests {
         assert_eq!(tally.doc_lines, 1);
         assert_eq!(tally.code_lines, 1);
         assert_eq!(tally.blank_lines, 1);
+    }
+
+    #[test]
+    fn markdown_fenced_html_examples_are_code_until_the_matching_fence() {
+        for (source, code_lines) in [
+            ("````html\n<!-- literal -->\n```\n~~~\n````\nProse.\n", 5),
+            ("~~~\n~~~ still code\n<!-- literal -->\n~~~~\nProse.\n", 4),
+            ("```\n    ```\n<!-- still literal -->\n```\nProse.\n", 4),
+        ] {
+            let streamed = classify_markdown(&mut source.as_bytes()).unwrap();
+            let in_memory = classify_markdown_bytes(source.as_bytes());
+            assert_eq!(streamed, in_memory);
+            assert_eq!(streamed.code_lines, code_lines, "{source:?}: {streamed:?}");
+            assert_eq!(streamed.doc_lines, 1);
+            assert_eq!(streamed.comment_lines, 0);
+            assert!(streamed.is_partitioned());
+        }
+    }
+
+    #[test]
+    fn markdown_indented_html_examples_are_code() {
+        let source = "Prose.\n\n    <!-- literal -->\n";
+        let tally = classify_markdown_bytes(source.as_bytes());
+        assert_eq!(tally.code_lines, 1);
+        assert_eq!(tally.doc_lines, 1);
+        assert_eq!(tally.blank_lines, 1);
+        assert_eq!(tally.comment_lines, 0);
     }
 
     /// Whatever the input, the four categories must partition the total. This is
