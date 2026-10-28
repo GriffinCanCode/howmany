@@ -16,7 +16,7 @@ HowMany is a command-line tool that analyzes codebases to provide comprehensive 
 ## Features
 
 - **Line Counting**: Accurate counting of code lines, comments, documentation, and blank lines
-- **Enhanced Language Detection**: Powered by [Sherlock](https://github.com/GriffinCanCode/SherlockIO) with 98%+ accuracy across 100+ programming languages and file types
+- **Language Detection**: Built-in syntax tables, with optional [Sherlock](https://github.com/GriffinCanCode/SherlockIO) detection for unfamiliar formats
 - **Complexity Analysis**: Calculates cyclomatic complexity, cognitive complexity, and maintainability metrics
 - **Quality Metrics**: Evaluates code health, documentation coverage, and maintainability scores
 - **Time Estimates**: Provides development time estimates based on code volume and complexity
@@ -212,6 +212,37 @@ howmany --files
 howmany --verbose
 ```
 
+### Source totals
+
+Source code, configuration, data and documentation have separate totals. The
+headline counts source code; JSON exposes it as `source.code_lines` and puts the
+language/category breakdown in `breakdown.rows`. The legacy `basic` fields still
+describe all analyzed content, including data and fenced examples in prose.
+
+```bash
+# Source files tracked by Git, read from the working tree.
+howmany /path/to/project --source-only --tracked-only --reproducible
+
+# The same scope as machine-readable output.
+howmany /path/to/project --source-only --tracked-only --reproducible -o json
+
+# Narrow the scope further using repository-relative ignore patterns.
+howmany /path/to/project --source-only --tracked-only --ignore research,vendor
+```
+
+`--tracked-only` includes tracked hidden and ignored files, excludes untracked
+scratch output, and requires a Git working tree. These explicit counting scopes
+fail if an input cannot be read rather than publishing a partial total.
+
+Generated filename conventions, explicit generator banners and Git's
+`linguist-generated`/`linguist-vendored` attributes exclude machine output and
+vendored files. Attributes follow Git's nested-file precedence.
+
+Counts are physical lines. Each line belongs to one bucket: code, documentation,
+comments or blanks. Executable code wins on a mixed code/comment line; shebangs
+count as code. Classification follows lexical syntax rather than proving whether
+a program executes a particular line.
+
 ### Output Formats
 
 ```bash
@@ -401,6 +432,9 @@ Documentation time: 6 hours
 | `--desc` | | Sort in descending order |
 | `--ignore` | | Additional ignore patterns (comma-separated) |
 | `--list` | `-l` | List files that would be counted (dry run) |
+| `--source-only` | | Exclude data, configuration and prose files |
+| `--tracked-only` | | Select Git-tracked working-tree files, including hidden files |
+| `--reproducible` | | Disable external detection and caching; use one worker |
 
 ## Smart File Detection
 
@@ -419,13 +453,14 @@ HowMany automatically excludes:
 - `.vscode/`, `.idea/`, `.vs/`, `.DS_Store`
 
 ### Generated & Temporary Files
-- `*.generated.*`, `*.min.js`, `*.bundle.*`
+- `*.generated.*`, `*.gen.*`, `*.min.js`, `*.bundle.*`
+- Files declared generated or vendored in `.gitattributes`, and explicit generator banners
 - `*.log`, `*.tmp`, `coverage/`, `reports/`
 
 ## Performance
 
 - **Parallel Processing**: Utilizes all available CPU cores
-- **Smart Caching**: Caches results for faster subsequent runs with 85%+ hit rates
+- **Smart Caching**: Reuses counts for unchanged files, with a cache scoped to each project
 - **Memory Efficient**: Processes files in chunks, handles large codebases
 - **Fast Analysis**: Typically processes 10,000+ files in under 5 seconds
 
