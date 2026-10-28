@@ -214,3 +214,88 @@ fn the_contract_holds_for_a_project_with_nothing_in_it() {
         }
     }
 }
+
+#[test]
+fn source_totals_exclude_payloads_config_and_markdown_code_blocks() {
+    let project = tempfile::tempdir().unwrap();
+    let write = |name: &str, text: &str| {
+        std::fs::write(project.path().join(name), text).unwrap();
+    };
+    write("lib.rs", "// an ordinary comment\npub fn run() {}\n");
+    write("payload.json", "{\n  \"value\": 42\n}\n");
+    write("settings.toml", "enabled = true\n");
+    write("README.md", "# Usage\n\n```rust\nrun();\n```\n");
+
+    let json = analyze_to_json(project.path());
+    assert_eq!(json["basic"]["total_files"], 4);
+    assert_eq!(json["source"]["file_count"], 1);
+    assert_eq!(json["source"]["code_lines"], 1);
+    assert_eq!(json["source"]["comment_lines"], 1);
+    assert_eq!(json["source"]["total_lines"], 2);
+    // The old fields retain their all-content meaning for existing consumers.
+    assert!(json["basic"]["code_lines"].as_u64().unwrap() > 1);
+
+    let rows = json["breakdown"]["rows"].as_array().unwrap();
+    let total_lines: u64 = rows
+        .iter()
+        .map(|row| row["total_lines"].as_u64().unwrap())
+        .sum();
+    assert_eq!(total_lines, json["basic"]["total_lines"]);
+    for category in ["code", "config", "data", "docs"] {
+        assert!(rows.iter().any(|row| row["category"] == category));
+    }
+}
+
+#[test]
+fn single_file_statistics_retain_the_known_content_category() {
+    let counter = howmany::CodeCounter::new();
+    let calculator = howmany::StatsCalculator::new();
+    for (path, key, contents, source_lines) in [
+        ("lib.rs", "rs", "pub fn run() {}\n", 1),
+        ("payload.json", "json", "{\"value\": 42}\n", 0),
+    ] {
+        let tally = counter.count_bytes(contents.as_bytes(), key).unwrap();
+        let stats = calculator.calculate_file_stats(&tally, path).unwrap();
+        assert_eq!(stats.source().code_lines, source_lines, "{path}");
+        assert_eq!(stats.breakdown().total_lines(), stats.basic.total_lines);
+        assert_eq!(stats.metadata.languages_detected, [key]);
+    }
+}
+
+#[test]
+fn language_chart_excludes_payloads_and_preserves_small_source_slices() {
+    let tally = |lines| howmany::FileStats {
+        total_lines: lines,
+        code_lines: lines,
+        ..Default::default()
+    };
+    let code = howmany::core::counter::aggregate([
+        ("rs".to_string(), tally(99)),
+        ("py".to_string(), tally(1)),
+        ("json".to_string(), tally(1_000)),
+    ]);
+    let calculator = howmany::StatsCalculator::new();
+    let stats = calculator.calculate_project_stats(&code, &[]).unwrap();
+    let chart = calculator.generate_language_distribution(
+        &stats,
+        &howmany::core::stats::visualization::ChartConfig {
+            min_slice_percentage: 5.0,
+            ..Default::default()
+        },
+    );
+    assert_eq!(chart.total, 100.0);
+    assert_eq!(chart.labels, ["Rust", "Others"]);
+    assert_eq!(chart.values, [99.0, 1.0]);
+    assert_eq!(chart.values.iter().sum::<f64>(), chart.total);
+
+    let files = calculator.generate_file_count_distribution(
+        &stats,
+        &howmany::core::stats::visualization::ChartConfig {
+            min_slice_percentage: 50.0,
+            ..Default::default()
+        },
+    );
+    assert_eq!(files.total, 3.0);
+    assert_eq!(files.labels, ["Others"]);
+    assert_eq!(files.values, [3.0]);
+}

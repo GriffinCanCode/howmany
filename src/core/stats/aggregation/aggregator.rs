@@ -33,7 +33,7 @@ impl StatsAggregator {
             timestamp: chrono::Utc::now().to_rfc3339(),
             file_count_analyzed: 1,
             total_bytes_analyzed: basic.total_size,
-            languages_detected: vec!["unknown".to_string()], // Will be updated by caller
+            languages_detected: basic.stats_by_extension.keys().cloned().collect(),
             analysis_depth: AnalysisDepth::Complete,
         };
 

@@ -28,6 +28,14 @@ pub struct Config {
     #[arg(short = 'f', long = "files")]
     pub show_files: bool,
 
+    /// Count source files only, excluding configuration, data and prose files
+    #[arg(long = "source-only")]
+    pub source_only: bool,
+
+    /// Count Git-tracked working-tree files, including tracked hidden files
+    #[arg(long = "tracked-only")]
+    pub tracked_only: bool,
+
     /// Simple CLI mode - show only basic file and line counts
     #[arg(long = "cli")]
     pub cli_mode: bool,
@@ -389,6 +397,8 @@ impl Config {
         use crate::core::engine::{AnalysisOptions, DetectionMode, Parallelism};
 
         AnalysisOptions {
+            source_only: self.source_only,
+            tracked_only: self.tracked_only,
             max_depth: self.max_depth,
             include_hidden: self.include_hidden,
             ignore_patterns: self.get_ignore_patterns(),

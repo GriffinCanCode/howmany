@@ -105,6 +105,10 @@ impl StatFormatter {
 
         // Basic stats
         output.push_str(&format!(
+            "Source Code Lines: {}\n",
+            self.format_number(stats.source().code_lines)
+        ));
+        output.push_str(&format!(
             "Total Files: {}\n",
             self.format_number(stats.basic.total_files)
         ));
@@ -113,7 +117,7 @@ impl StatFormatter {
             self.format_number(stats.basic.total_lines)
         ));
         output.push_str(&format!(
-            "Code Lines: {}",
+            "Code/Data Lines: {}",
             self.format_number(stats.basic.code_lines)
         ));
 
@@ -277,6 +281,10 @@ impl StatFormatter {
         html.push_str("<table class='summary-table'>\n");
         html.push_str("<tr><th>Metric</th><th>Value</th></tr>\n");
         html.push_str(&format!(
+            "<tr><td>Source Code Lines</td><td>{}</td></tr>\n",
+            self.format_number(stats.source().code_lines)
+        ));
+        html.push_str(&format!(
             "<tr><td>Total Files</td><td>{}</td></tr>\n",
             self.format_number(stats.basic.total_files)
         ));
@@ -285,7 +293,7 @@ impl StatFormatter {
             self.format_number(stats.basic.total_lines)
         ));
         html.push_str(&format!(
-            "<tr><td>Code Lines</td><td>{}</td></tr>\n",
+            "<tr><td>Code/Data Lines</td><td>{}</td></tr>\n",
             self.format_number(stats.basic.code_lines)
         ));
         html.push_str(&format!(
@@ -344,6 +352,10 @@ impl StatFormatter {
         md.push_str("| Metric | Value |\n");
         md.push_str("|--------|-------|\n");
         md.push_str(&format!(
+            "| Source Code Lines | {} |\n",
+            self.format_number(stats.source().code_lines)
+        ));
+        md.push_str(&format!(
             "| Total Files | {} |\n",
             self.format_number(stats.basic.total_files)
         ));
@@ -352,7 +364,7 @@ impl StatFormatter {
             self.format_number(stats.basic.total_lines)
         ));
         md.push_str(&format!(
-            "| Code Lines | {} |\n",
+            "| Code/Data Lines | {} |\n",
             self.format_number(stats.basic.code_lines)
         ));
         md.push_str(&format!(
@@ -446,7 +458,8 @@ impl StatFormatter {
         }
 
         output.push_str(&format!(
-            "{} files, {} lines ({} code), {} functions, {:.1} avg complexity, {}",
+            "{} source code lines; {} files, {} physical lines ({} code/data), {} functions, {:.1} avg complexity, {}",
+            self.format_number(stats.source().code_lines),
             self.format_number(stats.basic.total_files),
             self.format_number(stats.basic.total_lines),
             self.format_number(stats.basic.code_lines),

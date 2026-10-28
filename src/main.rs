@@ -222,16 +222,25 @@ fn output_text(analysis: &Analysis, config: &Config) -> Result<()> {
     println!();
     println!("=== Code Statistics ===");
 
+    let source = aggregated_stats.source();
     println!(
-        "Total files: {}",
+        "Source code lines: {}",
+        format_number(source.code_lines, use_color)
+    );
+    println!(
+        "Source files: {}",
+        format_number(source.file_count, use_color)
+    );
+    println!(
+        "All counted files: {}",
         format_number(aggregated_stats.basic.total_files, use_color)
     );
     println!(
-        "Total lines: {}",
+        "All physical lines: {}",
         format_number(aggregated_stats.basic.total_lines, use_color)
     );
     println!(
-        "Code lines: {}",
+        "Code/data lines: {}",
         format_number(aggregated_stats.basic.code_lines, use_color)
     );
     println!(
@@ -534,8 +543,11 @@ fn print_skipped(report: &AnalysisReport, use_color: bool) {
 }
 
 fn print_summary_only(aggregated_stats: &AggregatedStats, config: &Config) {
+    let source = aggregated_stats.source();
     println!(
-        "Summary: {} files, {} lines ({} code, {} comments)",
+        "Source: {} code lines in {} files; all content: {} files, {} physical lines ({} code/data, {} comments)",
+        source.code_lines,
+        source.file_count,
         aggregated_stats.basic.total_files,
         aggregated_stats.basic.total_lines,
         aggregated_stats.basic.code_lines,
@@ -554,8 +566,11 @@ fn print_summary_only(aggregated_stats: &AggregatedStats, config: &Config) {
 }
 
 fn print_compact_output(aggregated_stats: &AggregatedStats, config: &Config) {
+    let source = aggregated_stats.source();
     println!(
-        "{} files | {} lines | {} code | {} comments",
+        "{} source code | {} source files | {} files | {} physical lines | {} code/data | {} comments",
+        source.code_lines,
+        source.file_count,
         aggregated_stats.basic.total_files,
         aggregated_stats.basic.total_lines,
         aggregated_stats.basic.code_lines,

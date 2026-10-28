@@ -139,6 +139,78 @@ fn json_output_is_parseable_and_carries_the_totals() {
     assert!(json["metadata"]["version"].as_str().is_some());
 }
 
+#[test]
+fn source_only_filters_before_listing_and_counting() {
+    let project = Project::new();
+    project.write("payload.json", "{\n  \"value\": 42\n}\n");
+    project.write("settings.toml", "enabled = true\n");
+
+    let output = project.run(&["-o", "json", "--reproducible", "--source-only"]);
+    assert_success(&output, "--source-only");
+    let json: serde_json::Value = serde_json::from_str(&stdout_of(&output)).unwrap();
+    assert_eq!(json["basic"]["total_files"], 4);
+    assert_eq!(json["source"]["file_count"], 4);
+    assert_eq!(json["source"]["code_lines"], 9);
+    assert_eq!(json["basic"]["code_lines"], json["source"]["code_lines"]);
+
+    let output = project.run(&["--list", "--source-only", "--reproducible"]);
+    assert_success(&output, "--source-only --list");
+    let text = stdout_of(&output);
+    assert!(text.contains("main.rs") && text.contains("main.py"));
+    assert!(!text.contains("payload.json"));
+    assert!(!text.contains("settings.toml"));
+    assert!(!text.contains("README.md"));
+}
+
+#[test]
+fn text_headline_separates_source_from_all_content() {
+    let project = Project::new();
+    project.write("payload.json", "{\n  \"value\": 42\n}\n");
+    let output = project.run(&["--no-interactive", "--reproducible"]);
+    assert_success(&output, "text source headline");
+    let text = stdout_of(&output);
+    assert!(text.contains("Source code lines: 9"), "{text}");
+    assert!(text.contains("Source files: 4"), "{text}");
+    assert!(text.contains("All counted files: 6"), "{text}");
+    assert!(text.contains("All physical lines:"), "{text}");
+}
+
+#[test]
+fn tracked_only_includes_tracked_hidden_files_and_omits_untracked_files() {
+    let project = Project::new();
+    project.write(".hidden.rs", "pub fn hidden() {}\n");
+    project.write("untracked.rs", "pub fn untracked() {}\n");
+    for args in [
+        vec!["init", "--quiet"],
+        vec!["add", "src/main.rs", ".hidden.rs"],
+    ] {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(project.path())
+            .output()
+            .unwrap();
+        assert_success(&output, "Git fixture setup");
+    }
+    let output = project.run(&["-o", "json", "--reproducible", "--tracked-only"]);
+    assert_success(&output, "--tracked-only");
+    let json: serde_json::Value = serde_json::from_str(&stdout_of(&output)).unwrap();
+    assert_eq!(json["basic"]["total_files"], 2);
+    assert_eq!(json["source"]["code_lines"], 4);
+}
+
+#[test]
+fn source_only_keeps_extensionless_scripts_with_a_known_interpreter() {
+    let project = Project::new();
+    project.write("bootstrap", "#!/usr/bin/env python3\nprint(1)\n");
+    let output = project.run(&["-o", "json", "--reproducible", "--source-only"]);
+    assert_success(&output, "extensionless source script");
+    let json: serde_json::Value = serde_json::from_str(&stdout_of(&output)).unwrap();
+    assert_eq!(json["basic"]["total_files"], 5);
+    assert_eq!(json["source"]["file_count"], 5);
+    // The kernel executes the shebang, so the counter includes it as code.
+    assert_eq!(json["source"]["code_lines"], 11);
+}
+
 /// Nothing may contaminate stdout when a machine-readable format is requested:
 /// progress, warnings and diagnostics belong on stderr.
 #[test]
@@ -691,7 +763,7 @@ fn the_language_server_completes_a_handshake() {
     );
 }
 
-/// Unreadable files must be reported without aborting the run.
+/// Unreadable files must be reported without aborting the default run.
 #[cfg(unix)]
 #[test]
 fn an_unreadable_file_does_not_abort_the_run() {
@@ -706,4 +778,39 @@ fn an_unreadable_file_does_not_abort_the_run() {
 
     assert_success(&output, "a tree containing an unreadable file");
     assert!(stdout_of(&output).contains("files"));
+}
+
+/// Explicit source and tracked scopes must not report incomplete totals.
+#[cfg(unix)]
+#[test]
+fn an_unreadable_file_fails_explicit_source_and_tracked_scopes() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let project = Project::new();
+    let locked = project.write("src/locked.rs", "fn locked() {}\n");
+    for args in [vec!["init", "--quiet"], vec!["add", "src/locked.rs"]] {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(project.path())
+            .output()
+            .unwrap();
+        assert_success(&output, "Git fixture setup");
+    }
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+    // Superusers can read mode 000; that environment cannot exercise this seam.
+    if std::fs::File::open(&locked).is_ok() {
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
+        return;
+    }
+
+    for scope in ["--source-only", "--tracked-only"] {
+        let output = project.run(&["--cli", "--reproducible", scope]);
+        assert!(!output.status.success(), "{scope}");
+        assert!(stdout_of(&output).trim().is_empty(), "{scope}");
+        assert!(
+            !String::from_utf8_lossy(&output.stderr).trim().is_empty(),
+            "{scope}"
+        );
+    }
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
 }

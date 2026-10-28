@@ -187,7 +187,7 @@ impl StandardReportGenerator {
             </div>
             <div class="metric-card">
                 <div class="metric-value">{}</div>
-                <div class="metric-label">Code Lines</div>
+                <div class="metric-label">Source Code Lines</div>
             </div>
             <div class="metric-card">
                 <div class="metric-value">{}</div>
@@ -301,7 +301,7 @@ impl StandardReportGenerator {
             // Chart data
             const chartData = {{
                 distribution: {{
-                    labels: ['Code Lines', 'Comment Lines', 'Doc Lines', 'Blank Lines'],
+                    labels: ['Code/Data Lines', 'Comment Lines', 'Doc Lines', 'Blank Lines'],
                     data: [{}, {}, {}, {}]
                 }},
                 complexity: {{
@@ -494,7 +494,7 @@ impl StandardReportGenerator {
             // Metrics
             aggregated_stats.basic.total_files,
             aggregated_stats.basic.total_lines,
-            aggregated_stats.basic.code_lines,
+            aggregated_stats.source().code_lines,
             aggregated_stats.complexity.function_count,
             aggregated_stats.complexity.cyclomatic_complexity,
             aggregated_stats.complexity.cognitive_complexity,
@@ -1234,7 +1234,7 @@ impl StandardReportGenerator {
                     </div>
                     <div class="hero-stat fade-in">
                         <div class="hero-stat-value">{}</div>
-                        <div class="hero-stat-label">Lines of Code</div>
+                        <div class="hero-stat-label">Source Code Lines</div>
                     </div>
                     <div class="hero-stat fade-in">
                         <div class="hero-stat-value">{}</div>
@@ -1437,7 +1437,7 @@ impl StandardReportGenerator {
         // Chart data and configuration
         const chartData = {{
             distribution: {{
-                labels: ['Code Lines', 'Comments', 'Documentation', 'Blank Lines'],
+                labels: ['Code/Data Lines', 'Comments', 'Documentation', 'Blank Lines'],
                 data: [{}, {}, {}, {}],
                 colors: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b']
             }},
@@ -1673,7 +1673,7 @@ impl StandardReportGenerator {
 </html>"#,
             // Summary data
             aggregated_stats.basic.total_files,
-            aggregated_stats.basic.code_lines,
+            aggregated_stats.source().code_lines,
             aggregated_stats.complexity.function_count,
             aggregated_stats.complexity.cyclomatic_complexity,
             aggregated_stats

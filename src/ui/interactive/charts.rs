@@ -148,7 +148,7 @@ impl AsciiPieChart {
 /// Render language distribution as horizontal bars
 pub fn render_language_bars(f: &mut ratatui::Frame, area: Rect, stats: &AggregatedStats) {
     let mut bars = Vec::new();
-    let total_lines = stats.basic.total_lines as f64;
+    let total_lines = stats.source().code_lines as f64;
 
     if total_lines == 0.0 {
         let no_data = Paragraph::new("No code found")
@@ -166,11 +166,16 @@ pub fn render_language_bars(f: &mut ratatui::Frame, area: Rect, stats: &Aggregat
     }
 
     // Sort extensions by line count
-    let mut extensions: Vec<_> = stats.basic.stats_by_extension.iter().collect();
-    extensions.sort_by_key(|(_, ext_stats)| Reverse(ext_stats.total_lines));
+    let mut extensions: Vec<_> = stats
+        .basic
+        .stats_by_extension
+        .iter()
+        .filter(|(key, _)| languages::describe(key).1 == languages::Category::Code)
+        .collect();
+    extensions.sort_by_key(|(_, ext_stats)| Reverse(ext_stats.code_lines));
 
     for (ext, ext_stats) in extensions.iter().take(8) {
-        let percentage = (ext_stats.total_lines as f64 / total_lines) * 100.0;
+        let percentage = (ext_stats.code_lines as f64 / total_lines) * 100.0;
         let (emoji, name) = get_language_info(ext);
         let color = get_language_color(ext);
 
@@ -183,7 +188,7 @@ pub fn render_language_bars(f: &mut ratatui::Frame, area: Rect, stats: &Aggregat
             )
             .gauge_style(Style::default().fg(color).bg(Color::Black))
             .ratio(percentage / 100.0)
-            .label(format!("{} lines", ext_stats.total_lines));
+            .label(format!("{} source code lines", ext_stats.code_lines));
 
         bars.push(bar);
     }
@@ -815,8 +820,8 @@ fn render_second_metrics_row(f: &mut ratatui::Frame, area: Rect, stats: &Aggrega
         ])
         .split(area);
 
-    // Total Lines
-    let total_lines = stats.basic.total_lines;
+    let source = stats.source();
+    let total_lines = source.code_lines;
     let lines_color = Color::Blue;
 
     let lines_text = vec![
@@ -828,7 +833,7 @@ fn render_second_metrics_row(f: &mut ratatui::Frame, area: Rect, stats: &Aggrega
                 .add_modifier(Modifier::BOLD),
         )]),
         Line::from(vec![Span::styled(
-            "Lines",
+            "Source code lines",
             Style::default().fg(Color::White),
         )]),
     ];
@@ -840,7 +845,7 @@ fn render_second_metrics_row(f: &mut ratatui::Frame, area: Rect, stats: &Aggrega
     f.render_widget(lines_block, chunks[0]);
 
     // File Count
-    let file_count = stats.basic.total_files;
+    let file_count = source.file_count;
     let file_color = Color::Yellow;
 
     let file_text = vec![
@@ -850,7 +855,7 @@ fn render_second_metrics_row(f: &mut ratatui::Frame, area: Rect, stats: &Aggrega
             Style::default().fg(file_color).add_modifier(Modifier::BOLD),
         )]),
         Line::from(vec![Span::styled(
-            "Files",
+            "Source files",
             Style::default().fg(Color::White),
         )]),
     ];
@@ -960,7 +965,7 @@ fn render_code_breakdown_bars(f: &mut ratatui::Frame, area: Rect, stats: &Aggreg
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(format!(" 💻 Code - {}% ", code_pct))
+                .title(format!(" 💻 Code/data - {}% ", code_pct))
                 .title_alignment(Alignment::Center)
                 .border_style(Style::default().fg(Color::Green)),
         )

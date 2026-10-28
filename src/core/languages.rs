@@ -115,6 +115,7 @@ const LANGUAGE_TABLE: &[(&str, Language)] = &[
     ("rs", code("Rust")),
     ("go", code("Go")),
     ("zig", code("Zig")),
+    ("metal", code("Metal")),
     ("c", code("C")),
     ("h", code("C/C++ Header")),
     ("cpp", code("C++")),
@@ -151,6 +152,7 @@ const LANGUAGE_TABLE: &[(&str, Language)] = &[
     ("tsx", code("TypeScript (React)")),
     ("vue", code("Vue")),
     ("svelte", code("Svelte")),
+    ("astro", code("Astro")),
     ("html", code("HTML")),
     ("htm", code("HTML")),
     ("css", code("CSS")),
@@ -383,6 +385,21 @@ pub struct Breakdown {
     pub rows: Vec<LanguageRow>,
 }
 
+/// Line and file totals for one content category.
+///
+/// `total_lines` includes comments, documentation and blank space in those
+/// files; `code_lines` contains only their non-comment, non-blank content.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CategoryTotals {
+    pub file_count: usize,
+    pub total_lines: usize,
+    pub code_lines: usize,
+    pub comment_lines: usize,
+    pub doc_lines: usize,
+    pub blank_lines: usize,
+    pub total_size: u64,
+}
+
 impl Breakdown {
     /// Roll per-extension statistics up into languages.
     ///
@@ -431,6 +448,21 @@ impl Breakdown {
     /// Total files in `category`.
     pub fn files_in(&self, category: Category) -> usize {
         self.in_category(category).map(|row| row.file_count).sum()
+    }
+
+    /// Sum one category without mixing source with configuration or payloads.
+    pub fn totals_in(&self, category: Category) -> CategoryTotals {
+        self.in_category(category)
+            .fold(CategoryTotals::default(), |mut total, row| {
+                total.file_count += row.file_count;
+                total.total_lines += row.total_lines;
+                total.code_lines += row.code_lines;
+                total.comment_lines += row.comment_lines;
+                total.doc_lines += row.doc_lines;
+                total.blank_lines += row.blank_lines;
+                total.total_size += row.total_size;
+                total
+            })
     }
 
     pub fn total_lines(&self) -> usize {

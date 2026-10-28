@@ -44,7 +44,15 @@ impl StatsCalculator {
         file_stats: &FileStats,
         file_path: &str,
     ) -> Result<AggregatedStats> {
-        let basic_stats = self.basic_calculator.calculate_basic_stats(file_stats)?;
+        // Keep the known language even for a single-file report. Category
+        // summaries otherwise cannot distinguish source from data or prose.
+        let code_stats = crate::core::counter::aggregate([(
+            crate::core::counter::extension_key(std::path::Path::new(file_path)),
+            file_stats.clone(),
+        )]);
+        let basic_stats = self
+            .basic_calculator
+            .calculate_project_basic_stats(&code_stats)?;
         let complexity_stats = self
             .complexity_calculator
             .calculate_complexity_stats(file_stats, file_path)?;

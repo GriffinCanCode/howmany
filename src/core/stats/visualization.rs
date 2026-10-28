@@ -58,12 +58,13 @@ impl VisualizationGenerator {
         config: &ChartConfig,
     ) -> PieChartData {
         let mut data = Vec::new();
-        let total_lines = stats.basic.total_lines as f64;
+        let breakdown = stats.breakdown();
+        let total_lines = breakdown.totals_in(languages::Category::Code).code_lines as f64;
 
-        for (ext, ext_stats) in &stats.basic.stats_by_extension {
-            let percentage = (ext_stats.total_lines as f64 / total_lines) * 100.0;
-            if percentage >= config.min_slice_percentage {
-                data.push((ext.clone(), ext_stats.total_lines as f64, percentage));
+        for row in breakdown.in_category(languages::Category::Code) {
+            if row.code_lines > 0 {
+                let percentage = (row.code_lines as f64 / total_lines) * 100.0;
+                data.push((row.language.clone(), row.code_lines as f64, percentage));
             }
         }
 
@@ -75,9 +76,9 @@ impl VisualizationGenerator {
         let mut values = Vec::new();
         let mut others_value = 0.0;
 
-        for (ext, value, percentage) in data {
+        for (language, value, percentage) in data {
             if percentage >= config.min_slice_percentage && labels.len() < 10 {
-                labels.push(self.format_language_label(&ext));
+                labels.push(language);
                 values.push(value);
             } else {
                 others_value += value;
@@ -110,7 +111,7 @@ impl VisualizationGenerator {
 
         for (ext, ext_stats) in &stats.basic.stats_by_extension {
             let percentage = (ext_stats.file_count as f64 / total_files) * 100.0;
-            if percentage >= config.min_slice_percentage {
+            if ext_stats.file_count > 0 {
                 data.push((ext.clone(), ext_stats.file_count as f64, percentage));
             }
         }

@@ -673,9 +673,15 @@ impl InteractiveApp {
         let mut content = String::new();
 
         content.push_str("=== HowMany Code Analysis Report ===\n\n");
+        let basic = crate::core::stats::basic::BasicStatsCalculator::new()
+            .calculate_project_basic_stats(stats)?;
+        let source = crate::core::languages::Breakdown::from_extensions(&basic.stats_by_extension)
+            .totals_in(crate::core::languages::Category::Code);
+        content.push_str(&format!("Source code lines: {}\n", source.code_lines));
+        content.push_str(&format!("Source files: {}\n", source.file_count));
         content.push_str(&format!("Total files: {}\n", stats.total_files));
         content.push_str(&format!("Total lines: {}\n", stats.total_lines));
-        content.push_str(&format!("Code lines: {}\n", stats.total_code_lines));
+        content.push_str(&format!("Code/data lines: {}\n", stats.total_code_lines));
         content.push_str(&format!("Comment lines: {}\n", stats.total_comment_lines));
         content.push_str(&format!("Documentation lines: {}\n", stats.total_doc_lines));
         content.push_str(&format!("Blank lines: {}\n", stats.total_blank_lines));
@@ -715,114 +721,64 @@ impl InteractiveApp {
     ) -> Result<String> {
         let filename = "howmany-report.json";
 
-        let mut json_stats = serde_json::Map::new();
-        json_stats.insert(
-            "total_files".to_string(),
-            serde_json::Value::Number(stats.total_files.into()),
-        );
-        json_stats.insert(
-            "total_lines".to_string(),
-            serde_json::Value::Number(stats.total_lines.into()),
-        );
-        json_stats.insert(
-            "total_code_lines".to_string(),
-            serde_json::Value::Number(stats.total_code_lines.into()),
-        );
-        json_stats.insert(
-            "total_comment_lines".to_string(),
-            serde_json::Value::Number(stats.total_comment_lines.into()),
-        );
-        json_stats.insert(
-            "total_doc_lines".to_string(),
-            serde_json::Value::Number(stats.total_doc_lines.into()),
-        );
-        json_stats.insert(
-            "total_blank_lines".to_string(),
-            serde_json::Value::Number(stats.total_blank_lines.into()),
-        );
-        json_stats.insert(
-            "total_size".to_string(),
-            serde_json::Value::Number(stats.total_size.into()),
-        );
+        use crate::core::languages::{Breakdown, Category, CategoryTotals};
+        use std::collections::BTreeMap;
 
-        let mut by_extension = serde_json::Map::new();
-        for (ext, (file_count, file_stats)) in &stats.stats_by_extension {
-            let mut ext_data = serde_json::Map::new();
-            ext_data.insert(
-                "files".to_string(),
-                serde_json::Value::Number((*file_count).into()),
-            );
-            ext_data.insert(
-                "total_lines".to_string(),
-                serde_json::Value::Number(file_stats.total_lines.into()),
-            );
-            ext_data.insert(
-                "code_lines".to_string(),
-                serde_json::Value::Number(file_stats.code_lines.into()),
-            );
-            ext_data.insert(
-                "comment_lines".to_string(),
-                serde_json::Value::Number(file_stats.comment_lines.into()),
-            );
-            ext_data.insert(
-                "doc_lines".to_string(),
-                serde_json::Value::Number(file_stats.doc_lines.into()),
-            );
-            ext_data.insert(
-                "blank_lines".to_string(),
-                serde_json::Value::Number(file_stats.blank_lines.into()),
-            );
-            ext_data.insert(
-                "file_size".to_string(),
-                serde_json::Value::Number(file_stats.file_size.into()),
-            );
-
-            by_extension.insert(ext.clone(), serde_json::Value::Object(ext_data));
-        }
-        json_stats.insert(
-            "by_extension".to_string(),
-            serde_json::Value::Object(by_extension),
-        );
-
-        if !individual_files.is_empty() {
-            let mut files_data = serde_json::Map::new();
-            for (file_path, file_stats) in individual_files {
-                let mut file_data = serde_json::Map::new();
-                file_data.insert(
-                    "total_lines".to_string(),
-                    serde_json::Value::Number(file_stats.total_lines.into()),
-                );
-                file_data.insert(
-                    "code_lines".to_string(),
-                    serde_json::Value::Number(file_stats.code_lines.into()),
-                );
-                file_data.insert(
-                    "comment_lines".to_string(),
-                    serde_json::Value::Number(file_stats.comment_lines.into()),
-                );
-                file_data.insert(
-                    "doc_lines".to_string(),
-                    serde_json::Value::Number(file_stats.doc_lines.into()),
-                );
-                file_data.insert(
-                    "blank_lines".to_string(),
-                    serde_json::Value::Number(file_stats.blank_lines.into()),
-                );
-                file_data.insert(
-                    "file_size".to_string(),
-                    serde_json::Value::Number(file_stats.file_size.into()),
-                );
-
-                files_data.insert(file_path.clone(), serde_json::Value::Object(file_data));
-            }
-            json_stats.insert(
-                "individual_files".to_string(),
-                serde_json::Value::Object(files_data),
-            );
+        #[derive(serde::Serialize)]
+        struct Extension<'a> {
+            files: usize,
+            #[serde(flatten)]
+            stats: &'a FileStats,
         }
 
-        let json_output = serde_json::Value::Object(json_stats);
-        let content = serde_json::to_string_pretty(&json_output)?;
+        #[derive(serde::Serialize)]
+        struct Report<'a> {
+            total_files: usize,
+            total_lines: usize,
+            total_code_lines: usize,
+            total_comment_lines: usize,
+            total_doc_lines: usize,
+            total_blank_lines: usize,
+            total_size: u64,
+            by_extension: BTreeMap<&'a str, Extension<'a>>,
+            #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+            individual_files: BTreeMap<&'a str, &'a FileStats>,
+            source: CategoryTotals,
+            breakdown: Breakdown,
+        }
+
+        let basic = crate::core::stats::basic::BasicStatsCalculator::new()
+            .calculate_project_basic_stats(stats)?;
+        let breakdown = Breakdown::from_extensions(&basic.stats_by_extension);
+        let report = Report {
+            total_files: stats.total_files,
+            total_lines: stats.total_lines,
+            total_code_lines: stats.total_code_lines,
+            total_comment_lines: stats.total_comment_lines,
+            total_doc_lines: stats.total_doc_lines,
+            total_blank_lines: stats.total_blank_lines,
+            total_size: stats.total_size,
+            by_extension: stats
+                .stats_by_extension
+                .iter()
+                .map(|(name, (files, stats))| {
+                    (
+                        name.as_str(),
+                        Extension {
+                            files: *files,
+                            stats,
+                        },
+                    )
+                })
+                .collect(),
+            individual_files: individual_files
+                .iter()
+                .map(|(name, stats)| (name.as_str(), stats))
+                .collect(),
+            source: breakdown.totals_in(Category::Code),
+            breakdown,
+        };
+        let content = serde_json::to_string_pretty(&report)?;
         fs::write(filename, content)?;
         Ok(filename.to_string())
     }
