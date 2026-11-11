@@ -1,0 +1,30 @@
+format = 2
+kind = "package"
+id = "howmany"
+version = "3.1.0"
+description = "Count code, comments, documentation, and blank lines and analyze codebase metrics."
+platforms = ["macos-aarch64", "linux-x86_64"]
+
+[executables]
+howmany = "bin/macos-aarch64/howmany"
+
+[target_overrides.linux-x86_64.executables]
+howmany = "bin/linux-x86_64/howmany"
+
+[check]
+command = "howmany"
+args = ["--version"]
+
+[pack]
+source = "target/box/payload"
+out = "target/box/howmany-3.1.0.box"
+include = [
+    "LICENSE",
+    "bin/macos-aarch64/howmany",
+    "bin/linux-x86_64/howmany",
+    "share/box/editors.toml",
+    "share/box/editors/GriffinCanCode.howmany-2.0.1.vsix",
+]
+
+[publish]
+registry = "https://box.billylives.com"

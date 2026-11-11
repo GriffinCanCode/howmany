@@ -1,0 +1,5 @@
+id = "GriffinCanCode.howmany"
+version = "2.0.1"
+file = "GriffinCanCode.howmany-2.0.1.vsix"
+sha256 = "87594c9bcf2c7cf4e3a020d0680cf41bf8a4d0f3d17460559cd11b5fd3051f36"
+editors = ["vscode", "cursor"]

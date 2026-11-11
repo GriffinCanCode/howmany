@@ -1,3 +1,10 @@
+---
+doc_radar:
+  sentinels:
+    - file: Boxfile
+      contains: ['id = "howmany"', 'platforms = ["macos-aarch64", "linux-x86_64"]']
+---
+
 # HowMany
 
 A fast, intelligent code analysis tool for counting lines of code and analyzing project statistics.
@@ -26,6 +33,16 @@ HowMany is a command-line tool that analyzes codebases to provide comprehensive 
 - **Smart Filtering**: Automatically excludes dependencies, build artifacts, and generated files
 
 ## Installation
+
+### The Box
+
+If you have access to The Billy Company's registry, install the CLI on Apple Silicon or Linux x86-64.
+
+```sh
+box unpack howmany
+export PATH="$(box env):$PATH"
+howmany --version
+```
 
 ### Homebrew (macOS/Linux)
 
