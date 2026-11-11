@@ -77,6 +77,14 @@ This will build the project and create a symlink in `/usr/local/bin/howmany` for
 
 ## Editor Setup
 
+Box 0.1.4 and later offers an install command for VS Code or Cursor when it
+finds either editor. Run `box unpack howmany --editor vscode` or choose
+`--editor cursor` for Cursor. Keep the directory printed by `box env` on your
+shell's PATH so the extension can run HowMany.
+
+If your editor starts without that PATH, set `howmany.binaryPath` to the full
+path to `howmany` in the directory printed by `box env`.
+
 ```bash
 howmany init
 ```
