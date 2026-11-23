@@ -22,7 +22,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Version 4 invalidates counts produced before string-aware classification.
 /// Version 3 introduced nanosecond modification times; file identity alone
 /// cannot validate results produced by an older classification algorithm.
-const CACHE_VERSION: u32 = 4;
+const CACHE_VERSION: u32 = 5;
 
 /// Upper bound on retained entries *per project*.
 ///

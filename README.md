@@ -263,6 +263,24 @@ Generated filename conventions, explicit generator banners and Git's
 `linguist-generated`/`linguist-vendored` attributes exclude machine output and
 vendored files. Attributes follow Git's nested-file precedence.
 
+Copied source and test corpora remain included unless repository metadata or
+an explicit ignore rule excludes them. A directory named `third_party`,
+`vendor`, `gen` or `out` alone is not proof that its contents should be left
+out. CMake and GN output names require build metadata; Lake's `.lake` and
+legacy `lake-packages` directories are dependency/build stores.
+
+Repository-specific counting choices can use `--ignore` or Git attributes:
+
+```gitattributes
+/external/library/** linguist-vendored
+/src/schema_bindings.rs linguist-generated
+```
+
+Generator banners support Rust documentation comments, multiline notices,
+`@generated`, Aeneas output and Lean compiler output. Unmarked files cannot
+reliably be inferred to be generated from their contents; generators should
+emit a clear banner or the repository should declare the Git attribute.
+
 Counts are physical lines. Each line belongs to one bucket: code, documentation,
 comments or blanks. Executable code wins on a mixed code/comment line; shebangs
 count as code. Classification follows lexical syntax rather than proving whether
@@ -320,7 +338,7 @@ HowMany automatically detects and analyzes these languages using [Sherlock](http
 
 ### Programming Languages
 **Systems & Performance:**
-- Rust, C/C++, Zig, Go
+- Rust, C/C++ (including `.cppm`, `.ixx`, `.ccm` and `.cxxm` modules), Zig, Go
 
 **Object-Oriented:**
 - Java, Kotlin, C#, Swift, Scala
@@ -329,7 +347,11 @@ HowMany automatically detects and analyzes these languages using [Sherlock](http
 - Python, JavaScript, TypeScript, Ruby, PHP, Perl, Lua
 
 **Functional & Academic:**
-- Haskell, Clojure, Elixir, Erlang, Julia, R, MATLAB
+- Lean, Haskell, Clojure, Elixir, Erlang, Julia, R, MATLAB
+
+Lean counting handles nested block comments, declaration and module
+documentation, strings, character literals and primed identifiers without an
+external language detector. Compiled Lean artifacts are excluded.
 
 **Mobile & Cross-Platform:**
 - Dart (Flutter), Swift (iOS), Kotlin (Android)

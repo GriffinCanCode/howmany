@@ -155,13 +155,16 @@ enum Dialect {
     Matlab,
     Python,
     Rust,
+    Lean,
     Go,
     Sql,
 }
 
 impl Dialect {
     fn for_pattern(pattern: CommentPattern) -> Self {
-        if pattern.multi_line_start.contains(&"\"\"\"") {
+        if pattern.multi_line_start == ["/-"] {
+            Self::Lean
+        } else if pattern.multi_line_start.contains(&"\"\"\"") {
             Self::Python
         } else if pattern.doc_patterns == ["/**", "//!"] {
             Self::JavaScript
@@ -207,6 +210,7 @@ enum Literal {
         documentation: bool,
     },
     Raw(Vec<u8>),
+    LeanInterpolated,
 }
 
 impl Literal {
@@ -328,14 +332,15 @@ fn python_quote(line: &[u8], at: usize) -> Option<(usize, bool, bool)> {
     ))
 }
 
-/// Rust's raw string terminator contains exactly as many hashes as its opener.
-fn rust_raw_quote(line: &[u8], at: usize) -> Option<Vec<u8>> {
+/// Rust and Lean raw strings close with the same hash count as their opener.
+/// Rust limits that count to 255; Lean does not impose that lexical limit.
+fn hash_raw_quote(line: &[u8], at: usize, max_hashes: Option<usize>) -> Option<Vec<u8>> {
     let hashes = line[..at]
         .iter()
         .rev()
         .take_while(|byte| **byte == b'#')
         .count();
-    if hashes > 255 || at <= hashes || line[at - hashes - 1] != b'r' {
+    if max_hashes.is_some_and(|max| hashes > max) || at <= hashes || line[at - hashes - 1] != b'r' {
         return None;
     }
     let mut end = Vec::with_capacity(hashes + 1);
@@ -389,6 +394,17 @@ fn rust_character(line: &[u8]) -> bool {
         return false;
     };
     line.get(width + 1) == Some(&b'\'')
+}
+
+/// Lean uses fixed-width `\uNNNN` escapes, and permits apostrophes in names.
+/// Only a complete character literal may open a quoted state.
+fn lean_character(line: &[u8]) -> bool {
+    if line.starts_with(b"'\\u") {
+        return line.get(3..7).is_some_and(|digits| {
+            digits.iter().all(u8::is_ascii_hexdigit) && line.get(7) == Some(&b'\'')
+        });
+    }
+    rust_character(line)
 }
 
 fn cpp_raw(line: &[u8], at: usize) -> Option<(usize, Vec<u8>)> {
@@ -462,6 +478,8 @@ struct Classifier {
     javascript: Option<JavaScript>,
     markup_tag: bool,
     literal: Option<Literal>,
+    /// Brace depths of Lean expressions embedded in interpolated strings.
+    lean_interpolations: Vec<usize>,
     block_depth: usize,
     block_start: &'static str,
     comment_initials: Vec<u8>,
@@ -489,6 +507,10 @@ impl Classifier {
         if matches!(dialect, Dialect::Jsx | Dialect::Tsx) {
             comment_initials.push(b'<');
         }
+        if dialect == Dialect::Lean {
+            // Braces delimit interpolations; C2 starts the UTF-8 `«` token.
+            comment_initials.extend_from_slice(b"{}\xc2");
+        }
         Self {
             pattern,
             openers: BlockOpener::prepare(pattern),
@@ -506,6 +528,7 @@ impl Classifier {
             },
             markup_tag: false,
             literal: None,
+            lean_interpolations: Vec::new(),
             block_depth: 0,
             block_start: "",
             comment_initials,
@@ -599,7 +622,7 @@ impl Classifier {
                 comment |= !self.in_doc_block;
                 let rest = &line[at..];
                 let close = find_sub(rest, self.block_end.as_bytes());
-                let nested = (matches!(self.dialect, Dialect::Rust | Dialect::Sql)
+                let nested = (matches!(self.dialect, Dialect::Rust | Dialect::Lean | Dialect::Sql)
                     || matches!(self.block_start, "#|" | "{-" | "(*"))
                 .then(|| find_sub(rest, self.block_start.as_bytes()))
                 .flatten();
@@ -619,6 +642,19 @@ impl Classifier {
                 documentation |= literal.documentation();
                 code |= !literal.documentation();
                 match literal {
+                    Literal::LeanInterpolated => match line[at] {
+                        b'\\' => at = (at + 2).min(line.len()),
+                        b'"' => {
+                            at += 1;
+                            self.literal = None;
+                        }
+                        b'{' => {
+                            at += 1;
+                            self.literal = None;
+                            self.lean_interpolations.push(0);
+                        }
+                        _ => at += 1,
+                    },
                     Literal::Raw(end) => {
                         if let Some(close) = find_sub(&line[at..], end) {
                             at += close + end.len();
@@ -747,6 +783,29 @@ impl Classifier {
                 }
             }
 
+            if self.dialect == Dialect::Lean {
+                if line[at..].starts_with("«".as_bytes()) {
+                    code = true;
+                    at += "«".len();
+                    self.literal = Some(Literal::Raw("»".as_bytes().to_vec()));
+                    continue;
+                }
+                if let Some(depth) = self.lean_interpolations.last_mut() {
+                    if line[at] == b'{' {
+                        *depth += 1;
+                    } else if line[at] == b'}' {
+                        if *depth == 0 {
+                            code = true;
+                            at += 1;
+                            self.lean_interpolations.pop();
+                            self.literal = Some(Literal::LeanInterpolated);
+                            continue;
+                        }
+                        *depth -= 1;
+                    }
+                }
+            }
+
             let quote_at = at;
             let quote = line[at];
             let quote_allowed = match quote {
@@ -767,13 +826,21 @@ impl Classifier {
                 _ => false,
             };
             if quote_allowed {
-                if quote == b'"' && self.dialect == Dialect::Rust {
-                    if let Some(end) = rust_raw_quote(line, at) {
+                if quote == b'"' && matches!(self.dialect, Dialect::Rust | Dialect::Lean) {
+                    let max_hashes = (self.dialect == Dialect::Rust).then_some(255);
+                    if let Some(end) = hash_raw_quote(line, at, max_hashes) {
                         code = true;
                         at += 1;
                         self.literal = Some(Literal::Raw(end));
                         continue;
                     }
+                }
+                if quote == b'"' && self.dialect == Dialect::Lean && at > 0 && line[at - 1] == b'!'
+                {
+                    code = true;
+                    at += 1;
+                    self.literal = Some(Literal::LeanInterpolated);
+                    continue;
                 }
                 if quote == b'"' && self.dialect == Dialect::Ordinary && at > 0 {
                     if let Some((width, end)) = cpp_raw(line, at - 1) {
@@ -785,9 +852,15 @@ impl Classifier {
                 }
                 // A Rust lifetime has no closing quote; consuming it as a
                 // character literal would hide the rest of the declaration.
-                if matches!(self.dialect, Dialect::Rust | Dialect::Characters)
-                    && quote == b'\''
-                    && !rust_character(&line[quote_at..])
+                if matches!(
+                    self.dialect,
+                    Dialect::Rust | Dialect::Lean | Dialect::Characters
+                ) && quote == b'\''
+                    && !(if self.dialect == Dialect::Lean {
+                        lean_character(&line[quote_at..])
+                    } else {
+                        rust_character(&line[quote_at..])
+                    })
                 {
                     code = true;
                     at += 1;
@@ -1377,6 +1450,117 @@ mod tests {
         );
         assert_eq!(tally.comment_lines, 4);
         assert_eq!(tally.code_lines, 1);
+    }
+
+    #[test]
+    fn lean_nested_comments_documentation_and_primed_names_are_distinct() {
+        let tally = scan(
+            concat!(
+                "-- ordinary comment\n",
+                "/- outer\n",
+                "/- nested -/\n",
+                "still outer\n",
+                "-/\n",
+                "/-- Declaration documentation\n",
+                "/- nested example -/\n",
+                "-/\n",
+                "def value' : Nat := 1\n",
+                "/-! Module documentation\n",
+                "more documentation -/\n",
+                "def next := value' /- trailing comment -/\n",
+                "-- after a primed identifier\n",
+                "\n",
+            ),
+            "lean",
+        );
+        assert_eq!(
+            tally,
+            LineTally {
+                total_lines: 14,
+                code_lines: 2,
+                comment_lines: 6,
+                doc_lines: 5,
+                blank_lines: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn lean_strings_raw_delimiters_and_characters_protect_comment_markers() {
+        let tally = scan(
+            concat!(
+                "def check' := \"-- not a comment /-\"\n",
+                "-- outside\n",
+                "def quote : Char := '\\''\n",
+                "def heart : Char := '\\u2665'\n",
+                "def unicode : Char := '∈'\n",
+                "def raw := r##\"raw\n",
+                "\"# /- payload -- payload\n",
+                "\"##\n",
+                "-- outside\n",
+                "def escaped := \"line\\\" /- payload\n",
+                "-- still payload\n",
+                "end\"\n",
+                "/- final comment -/\n",
+            ),
+            "lean",
+        );
+        assert_eq!(tally.total_lines, 13);
+        assert_eq!(tally.code_lines, 10);
+        assert_eq!(tally.comment_lines, 3);
+        assert_eq!(tally.doc_lines, 0);
+    }
+
+    #[test]
+    fn lean_interpolations_resume_their_string_after_nested_expressions() {
+        let tally = scan(
+            concat!(
+                "def message := s!\"before {\n",
+                "  -- expression comment\n",
+                "  s!\"nested {\"/- protected -/\"}\"\n",
+                "} /- literal\n",
+                "tail\"\n",
+                "-- actual comment\n",
+            ),
+            "lean",
+        );
+        assert_eq!(tally.total_lines, 6);
+        assert_eq!(tally.code_lines, 4);
+        assert_eq!(tally.comment_lines, 2);
+        assert_eq!(tally.doc_lines, 0);
+    }
+
+    #[test]
+    fn lean_escaped_identifiers_do_not_open_comments_or_character_literals() {
+        let tally = scan(
+            "def «/- quoted\n-- name» := 1\n-- actual comment\ndef next' := '\\x2d'\n/- actual comment -/\n",
+            "lean",
+        );
+        assert_eq!(tally.code_lines, 3);
+        assert_eq!(tally.comment_lines, 2);
+        assert_eq!(tally.doc_lines, 0);
+    }
+
+    #[test]
+    fn cpp_module_extensions_share_comment_and_raw_string_syntax() {
+        let source = concat!(
+            "export module sample;\n",
+            "/** Module documentation. */\n",
+            "export const char *text = R\"tag(start\n",
+            "/* literal \" quote\n",
+            ")tag\";\n",
+            "// actual comment\n",
+            "export int choose(int x) {\n",
+            "  return x ? 1 : 0;\n",
+            "}\n",
+        );
+        for extension in ["cppm", "ixx", "ccm", "cxxm"] {
+            let tally = scan(source, extension);
+            assert_eq!(tally.total_lines, 9, "{extension}: {tally:?}");
+            assert_eq!(tally.code_lines, 7, "{extension}: {tally:?}");
+            assert_eq!(tally.comment_lines, 1, "{extension}: {tally:?}");
+            assert_eq!(tally.doc_lines, 1, "{extension}: {tally:?}");
+        }
     }
 
     #[test]

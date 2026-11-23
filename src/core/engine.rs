@@ -349,13 +349,17 @@ impl Engine {
                 *report.skipped.entry(SkipReason::NonSource).or_default() += 1;
                 continue;
             }
+            // Apply provenance before the external-detection fallback too:
+            // an unfamiliar generated format is still generated.
+            if !matches!(class, Classification::Rejected(_))
+                && has_generated_banner(&candidate.path).unwrap_or(false)
+            {
+                *report.skipped.entry(SkipReason::Generated).or_default() += 1;
+                continue;
+            }
             match class {
                 Classification::Source => {
-                    if has_generated_banner(&candidate.path).unwrap_or(false) {
-                        *report.skipped.entry(SkipReason::Generated).or_default() += 1;
-                    } else {
-                        selected.push(candidate);
-                    }
+                    selected.push(candidate);
                 }
                 Classification::Rejected(reason) => {
                     *report.skipped.entry(reason).or_default() += 1;

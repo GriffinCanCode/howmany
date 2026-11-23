@@ -123,6 +123,10 @@ const PATTERN_TABLE: &[(&str, CommentPattern)] = &[
     // C family
     ("c", C_STYLE),
     ("cpp", C_STYLE),
+    ("cppm", C_STYLE),
+    ("ixx", C_STYLE),
+    ("ccm", C_STYLE),
+    ("cxxm", C_STYLE),
     ("cc", C_STYLE),
     ("cxx", C_STYLE),
     ("h", C_STYLE),
@@ -204,6 +208,10 @@ const PATTERN_TABLE: &[(&str, CommentPattern)] = &[
     ("adoc", ASCIIDOC_STYLE),
     ("asciidoc", ASCIIDOC_STYLE),
     // Functional
+    (
+        "lean",
+        CommentPattern::new(&["--"], &["/-"], &["-/"], &["/--", "/-!"]),
+    ),
     ("hs", HASKELL_STYLE),
     ("lhs", HASKELL_STYLE),
     (

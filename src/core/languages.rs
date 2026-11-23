@@ -120,6 +120,10 @@ const LANGUAGE_TABLE: &[(&str, Language)] = &[
     ("c", code("C")),
     ("h", code("C/C++ Header")),
     ("cpp", code("C++")),
+    ("cppm", code("C++")),
+    ("ixx", code("C++")),
+    ("ccm", code("C++")),
+    ("cxxm", code("C++")),
     ("cc", code("C++")),
     ("cxx", code("C++")),
     ("hpp", code("C++ Header")),
@@ -173,6 +177,7 @@ const LANGUAGE_TABLE: &[(&str, Language)] = &[
     ("fsx", code("F#")),
     ("fsi", code("F#")),
     // Functional
+    ("lean", code("Lean")),
     ("hs", code("Haskell")),
     ("lhs", code("Haskell")),
     ("elm", code("Elm")),

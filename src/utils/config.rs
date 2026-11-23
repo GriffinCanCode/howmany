@@ -176,6 +176,10 @@ impl HowManyConfig {
                 "cc".to_string(),
                 "cxx".to_string(),
                 "hpp".to_string(),
+                "cppm".to_string(),
+                "ixx".to_string(),
+                "ccm".to_string(),
+                "cxxm".to_string(),
             ],
         );
         map.insert("csharp".to_string(), vec!["cs".to_string()]);
@@ -221,6 +225,7 @@ impl HowManyConfig {
         );
         map.insert("julia".to_string(), vec!["jl".to_string()]);
         map.insert("lua".to_string(), vec!["lua".to_string()]);
+        map.insert("lean".to_string(), vec!["lean".to_string()]);
         map.insert(
             "perl".to_string(),
             vec!["pl".to_string(), "pm".to_string(), "pod".to_string()],

@@ -41,7 +41,9 @@ pub fn get_language_analyzer(extension: &str) -> Option<Box<dyn LanguageAnalyzer
         "py" => Some(Box::new(python::PythonAnalyzer::new())),
         "js" | "jsx" | "ts" | "tsx" => Some(Box::new(javascript::JavaScriptAnalyzer::new())),
         "java" => Some(Box::new(java::JavaAnalyzer::new())),
-        "cpp" | "cc" | "cxx" | "c" | "h" | "hpp" => Some(Box::new(cpp::CppAnalyzer::new())),
+        "cpp" | "cc" | "cxx" | "cppm" | "ixx" | "ccm" | "cxxm" | "c" | "h" | "hpp" => {
+            Some(Box::new(cpp::CppAnalyzer::new()))
+        }
         "go" => Some(Box::new(go::GoAnalyzer::new())),
         "cs" => Some(Box::new(csharp::CSharpAnalyzer::new())),
         "php" => Some(Box::new(php::PhpAnalyzer::new())),
@@ -60,5 +62,32 @@ pub fn get_language_analyzer(extension: &str) -> Option<Box<dyn LanguageAnalyzer
         "clj" | "cljs" | "cljc" | "edn" => Some(Box::new(clojure::ClojureAnalyzer::new())),
         "hs" | "lhs" => Some(Box::new(haskell::HaskellAnalyzer::new())),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cpp_modules_use_the_cpp_complexity_analyzer() {
+        let lines: Vec<String> = [
+            "export module sample;",
+            "export int choose(int value) {",
+            "    return value ? 1 : 0;",
+            "}",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+        for extension in ["cppm", "ixx", "ccm", "cxxm"] {
+            let functions = get_language_analyzer(extension)
+                .expect("C++ module should have an analyzer")
+                .analyze_functions(&lines)
+                .unwrap();
+            assert_eq!(functions.len(), 1, "{extension}");
+            assert_eq!(functions[0].name, "choose", "{extension}");
+            assert_eq!(functions[0].cyclomatic_complexity, 2, "{extension}");
+        }
     }
 }

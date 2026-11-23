@@ -164,6 +164,14 @@ const LANGUAGE_BUILD_SPECS: &[(&str, &[&str])] = &[
     ),
     ("rust", &[r"\.cargo/", r"\.rustup/"]),
     (
+        "lean",
+        &[
+            r"\.lake/",
+            r"lake-packages/",
+            r"[^/]*\.(?:olean(?:\.(?:server|private))?|ilean)$",
+        ],
+    ),
+    (
         "java",
         &[r"\.gradle/", r"\.m2/", r"\.mvn/", r"\.sbt/", r"\.ivy2/"],
     ),
@@ -409,6 +417,9 @@ const CACHE_TAG: &str = "CACHEDIR.TAG";
 /// True when `path` -- a directory whose name is in [`AMBIGUOUS_BUILD_DIRS`] --
 /// is really build output.
 fn is_corroborated_build_dir(path: &Path, name: &str) -> bool {
+    if native_build_directory(path, name) {
+        return true;
+    }
     let Some(evidence) = AMBIGUOUS_DIR_MAP.get(name) else {
         return false;
     };
@@ -425,6 +436,42 @@ fn is_corroborated_build_dir(path: &Path, name: &str) -> bool {
                 .iter()
                 .any(|marker| marker_present(parent, marker))
         })
+}
+
+/// Native output names need evidence of an actual configured build, rather
+/// than just a source-side CMakeLists.txt or BUILD.gn nearby. In particular,
+/// `gen/` and `_deps/` also occur in hand-written tools and test fixtures.
+fn native_build_directory(path: &Path, name: &str) -> bool {
+    match name {
+        "_deps" => {
+            path.parent().is_some_and(cmake_build_tree)
+                || std::fs::read_dir(path).is_ok_and(|entries| {
+                    entries.flatten().any(|entry| {
+                        entry.file_type().is_ok_and(|kind| kind.is_dir())
+                            && entry.file_name().to_string_lossy().ends_with("-subbuild")
+                            && entry.path().join("CMakeCache.txt").is_file()
+                    })
+                })
+        }
+        "gen" => path.parent().is_some_and(native_build_tree),
+        "out" => native_build_tree(path),
+        _ => {
+            path.parent()
+                .and_then(Path::file_name)
+                .is_some_and(|parent| parent == "out")
+                && native_build_tree(path)
+        }
+    }
+}
+
+fn cmake_build_tree(path: &Path) -> bool {
+    path.join("CMakeCache.txt").is_file() || path.join("CMakeFiles").is_dir()
+}
+
+fn native_build_tree(path: &Path) -> bool {
+    cmake_build_tree(path)
+        || (path.join("build.ninja").is_file()
+            && (path.join("args.gn").is_file() || path.join("toolchain.ninja").is_file()))
 }
 
 /// Bind `pattern` to the start of a path segment.
@@ -570,6 +617,7 @@ const GENERATED_SUFFIXES: &[&str] = &[
 const GENERATED_NAMES: &[&str] = &[
     "package-lock.json",
     "npm-shrinkwrap.json",
+    "lake-manifest.json",
     "pnpm-lock.yaml",
     "bun.lockb",
     "go.sum",
@@ -864,9 +912,7 @@ impl PatternMatcher {
                 break; // The file itself, not a directory containing it.
             }
             let name = component.as_os_str().to_string_lossy();
-            if AMBIGUOUS_DIR_MAP.contains_key(name.as_ref())
-                && is_corroborated_build_dir(&prefix, &name)
-            {
+            if is_corroborated_build_dir(&prefix, &name) {
                 return true;
             }
         }
