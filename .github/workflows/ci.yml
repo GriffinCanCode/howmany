@@ -109,6 +109,9 @@ jobs:
     name: Code Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -132,7 +135,6 @@ jobs:
           # this a stray report anywhere in the tree would be uploaded too.
           files: lcov.info
           disable_search: true
-          # Uploads are rate-limited without a token, and the step is set to
-          # fail the build, so an anonymous upload is a flake waiting to happen.
-          token: ${{ secrets.CODECOV_TOKEN }}
+          # Authenticate each upload without a long-lived Codecov token.
+          use_oidc: true
           fail_ci_if_error: true
