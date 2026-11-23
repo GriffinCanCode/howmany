@@ -50,7 +50,7 @@ brew audit --strict --formula GriffinCanCode/howmany/howmany
 If CI cannot publish and the formula has to go out by hand:
 
 ```bash
-VERSION=v3.1.0
+VERSION=v3.2.0
 URL="https://github.com/GriffinCanCode/howmany/archive/refs/tags/$VERSION.tar.gz"
 SHA=$(curl -fsSL "$URL" | shasum -a 256 | cut -d' ' -f1)
 
@@ -66,7 +66,7 @@ formula, resume the release with the workflow on `main`; its builds remain pinne
 to the requested tag:
 
 ```bash
-gh workflow run release.yml --ref main -f version=v3.1.0
+gh workflow run release.yml --ref main -f version=v3.2.0
 ```
 
 Rotate the CI token before the next automatic tap update.

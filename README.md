@@ -95,7 +95,7 @@ binary you just installed. The first time you run `howmany` by hand it offers to
 do this for you, so there is nothing to remember.
 
 ```
-howmany 3.1.0
+howmany 3.2.0
 using /opt/homebrew/bin/howmany
 
 VS Code

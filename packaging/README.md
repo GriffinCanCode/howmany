@@ -2,7 +2,7 @@
 doc_radar:
   sentinels:
     - file: Boxfile
-      contains: ['version = "3.1.0"', 'source = "target/box/payload"', 'out = "target/box/howmany-3.1.0.box"']
+      contains: ['version = "3.2.0"', 'source = "target/box/payload"', 'out = "target/box/howmany-3.2.0.box"']
     - file: packaging/box-editors.toml
       contains: ['id = "GriffinCanCode.howmany"', 'version = "2.0.1"', 'editors = ["vscode", "cursor"]']
 ---
@@ -66,7 +66,7 @@ Run this from the checkout root with Box, the GitHub CLI, and Python 3.11 or lat
 
 ```bash
 set -euo pipefail
-tag=v3.1.0
+tag=v3.2.0
 stage=target/box
 assets="$stage/assets"
 payload="$stage/payload"
@@ -109,6 +109,6 @@ box pack
 ```
 
 Test the archive on both declared targets before uploading it with
-`box store target/box/howmany-3.1.0.box`. For a new CLI version, update the
+`box store target/box/howmany-3.2.0.box`. For a new CLI version, update the
 Boxfile and release tag in the recipe. Update the VSIX pin when the editor
 extension changes.
