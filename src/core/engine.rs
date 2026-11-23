@@ -190,7 +190,7 @@ impl AnalysisReport {
     /// Lines counted per second, or `None` when the run was too short to time.
     pub fn throughput_files_per_second(&self) -> Option<f64> {
         let secs = self.total_time.as_secs_f64();
-        (secs > 0.0).then(|| self.files_counted as f64 / secs)
+        (secs > 0.0).then_some(self.files_counted as f64 / secs)
     }
 }
 
